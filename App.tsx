@@ -3,16 +3,15 @@ import { Pressable, StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
-import SearchScreen from "./app/screens/SearchScreen/SearchScreen";
+import { SearchStack } from "./app/navigation/StackNavigator";
 import TunerScreen from "./app/screens/TunerScreen/TunerScreen";
 import { Ionicons } from "@expo/vector-icons";
 
 const Tab = createBottomTabNavigator();
 
-// Sizes for icon and text adjustments
-const iconOffset = 14; // Lower the icon
-const textOffset = 20; // Lower the text
-const iconSize = 30; // Icon size
+const iconOffset = 14;
+const textOffset = 20;
+const iconSize = 30;
 
 export default function App() {
   return (
@@ -20,7 +19,7 @@ export default function App() {
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
-          tabBarIcon: ({ focused, color, size }) => {
+          tabBarIcon: ({ focused, color }) => {
             let iconName: keyof typeof Ionicons.glyphMap | undefined;
 
             if (route.name === "Home") {
@@ -30,7 +29,7 @@ export default function App() {
                   name={iconName}
                   size={iconSize}
                   color={color}
-                  style={{ position: "relative", top: iconOffset }} // Lower Home icon
+                  style={{ position: "relative", top: iconOffset }}
                 />
               );
             } else if (route.name === "Tuner") {
@@ -40,21 +39,21 @@ export default function App() {
                   name={iconName}
                   size={iconSize}
                   color={color}
-                  style={{ position: "relative", top: iconOffset }} // Lower Tuner icon
+                  style={{ position: "relative", top: iconOffset }}
                 />
               );
             }
 
-            return <Ionicons name={iconName} size={size} color={color} />;
+            return <Ionicons name={iconName} size={iconSize} color={color} />;
           },
           tabBarLabelStyle: {
             position: "relative",
-            top: textOffset, // Lower the text label
+            top: textOffset,
           },
           tabBarActiveTintColor: "tomato",
           tabBarInactiveTintColor: "gray",
           tabBarStyle: {
-            height: 90, // Keep tab bar height unchanged
+            height: 90,
             paddingBottom: 10,
             paddingHorizontal: 8,
           },
@@ -63,9 +62,9 @@ export default function App() {
         <Tab.Screen name="Home" component={HomeScreen} />
         <Tab.Screen
           name="Search"
-          component={SearchScreen}
+          component={SearchStack} // Use SearchStack instead of SearchScreen
           options={{
-            tabBarButton: (props) => <CustomSearchButton {...props} />, // Custom button
+            tabBarButton: (props) => <CustomSearchButton {...props} />,
           }}
         />
         <Tab.Screen name="Tuner" component={TunerScreen} />
@@ -74,30 +73,29 @@ export default function App() {
   );
 }
 
-// Custom Search Button
 const CustomSearchButton = ({ onPress, accessibilityState }: any) => {
-  const [isPressed, setIsPressed] = useState(false); // State for press feedback
+  const [isPressed, setIsPressed] = useState(false);
   const isSelected = accessibilityState.selected;
 
   const backgroundColor = isPressed
-    ? "gray" // Grey when pressed
+    ? "gray"
     : isSelected
-    ? "#ff6600" // Orange when active
-    : "#ff9933"; // Lighter orange when inactive
+    ? "#ff6600"
+    : "#ff9933";
 
   return (
     <Pressable
-      onPressIn={() => setIsPressed(true)} // Change state when pressed
-      onPressOut={() => setIsPressed(false)} // Reset state when released
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
       onPress={onPress}
       style={[
         styles.searchButton,
         {
-          backgroundColor, // Use dynamic backgroundColor
+          backgroundColor,
         },
       ]}
     >
-      <Ionicons name="search" size={60} color="#fff" height={82} width={58} />
+      <Ionicons name="search" size={60} color="#fff" />
     </Pressable>
   );
 };
@@ -106,19 +104,19 @@ const styles = StyleSheet.create({
   searchButton: {
     width: 110,
     height: 115,
-    borderTopLeftRadius: 45, // Circle on the top-left
-    borderTopRightRadius: 45, // Circle on the top-right
-    borderBottomLeftRadius: 10, // Square bottom corners
+    borderTopLeftRadius: 45,
+    borderTopRightRadius: 45,
+    borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
     justifyContent: "center",
     alignItems: "center",
     position: "absolute",
-    bottom: -18, // Keep the bubble higher up
+    bottom: -18,
     alignSelf: "center",
     shadowColor: "#000",
     shadowOpacity: 0.2,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 4,
-    elevation: 5, // Shadow for Android
+    elevation: 5,
   },
 });

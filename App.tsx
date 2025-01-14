@@ -1,17 +1,15 @@
+// File location: App.tsx
+
 import React, { useState } from "react";
 import { Pressable, StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
-import { SearchStack } from "./app/navigation/StackNavigator";
+import { AppStack } from "./app/navigation/StackNavigator";
 import TunerScreen from "./app/screens/TunerScreen/TunerScreen";
 import { Ionicons } from "@expo/vector-icons";
 
 const Tab = createBottomTabNavigator();
-
-const iconOffset = 14;
-const textOffset = 20;
-const iconSize = 30;
 
 export default function App() {
   return (
@@ -24,45 +22,32 @@ export default function App() {
 
             if (route.name === "Home") {
               iconName = focused ? "home" : "home-outline";
-              return (
-                <Ionicons
-                  name={iconName}
-                  size={iconSize}
-                  color={color}
-                  style={{ position: "relative", top: iconOffset }}
-                />
-              );
             } else if (route.name === "Tuner") {
               iconName = focused ? "musical-notes" : "musical-notes-outline";
-              return (
-                <Ionicons
-                  name={iconName}
-                  size={iconSize}
-                  color={color}
-                  style={{ position: "relative", top: iconOffset }}
-                />
-              );
             }
 
-            return <Ionicons name={iconName} size={iconSize} color={color} />;
+            return (
+              <Ionicons
+                name={iconName}
+                size={30}
+                color={color}
+                style={{ position: "relative", top: 5 }} // Moves icons slightly up
+              />
+            );
           },
           tabBarLabelStyle: {
             position: "relative",
-            top: textOffset,
+            top: 10, // Moves text up slightly more than the icons
           },
           tabBarActiveTintColor: "tomato",
           tabBarInactiveTintColor: "gray",
-          tabBarStyle: {
-            height: 90,
-            paddingBottom: 10,
-            paddingHorizontal: 8,
-          },
+          tabBarStyle: { height: 70 },
         })}
       >
         <Tab.Screen name="Home" component={HomeScreen} />
         <Tab.Screen
           name="Search"
-          component={SearchStack} // Use SearchStack instead of SearchScreen
+          component={AppStack} // Routes to the AppStack for Search
           options={{
             tabBarButton: (props) => <CustomSearchButton {...props} />,
           }}
@@ -73,6 +58,7 @@ export default function App() {
   );
 }
 
+// Custom Search Button
 const CustomSearchButton = ({ onPress, accessibilityState }: any) => {
   const [isPressed, setIsPressed] = useState(false);
   const isSelected = accessibilityState.selected;
@@ -87,23 +73,24 @@ const CustomSearchButton = ({ onPress, accessibilityState }: any) => {
     <Pressable
       onPressIn={() => setIsPressed(true)}
       onPressOut={() => setIsPressed(false)}
-      onPress={onPress}
-      style={[
-        styles.searchButton,
-        {
-          backgroundColor,
-        },
-      ]}
+      onPress={onPress} // Use the default navigation passed through props
+      style={[styles.searchButton, { backgroundColor }]}
     >
-      <Ionicons name="search" size={60} color="#fff" />
+      <Ionicons
+        name="search"
+        size={55}
+        color="#fff"
+        style={{ position: "relative", top: -5 }} // Moves search icon up slightly more
+      />
     </Pressable>
   );
 };
 
+// Styles
 const styles = StyleSheet.create({
   searchButton: {
-    width: 110,
-    height: 115,
+    width: 100, // Shortened the width of the oval
+    height: 95, // Made the oval shorter
     borderTopLeftRadius: 45,
     borderTopRightRadius: 45,
     borderBottomLeftRadius: 10,
@@ -111,7 +98,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     position: "absolute",
-    bottom: -18,
+    bottom: -5, // Adjusted position to keep the search button centered
     alignSelf: "center",
     shadowColor: "#000",
     shadowOpacity: 0.2,

@@ -26,7 +26,18 @@ export default function App() {
               iconName = focused ? "musical-notes" : "musical-notes-outline";
             }
 
-            return <Ionicons name={iconName} size={30} color={color} />;
+            return (
+              <Ionicons
+                name={iconName}
+                size={30}
+                color={color}
+                style={{ position: "relative", top: 5 }} // Moves icons slightly up
+              />
+            );
+          },
+          tabBarLabelStyle: {
+            position: "relative",
+            top: 10, // Moves text up slightly more than the icons
           },
           tabBarActiveTintColor: "tomato",
           tabBarInactiveTintColor: "gray",
@@ -36,7 +47,7 @@ export default function App() {
         <Tab.Screen name="Home" component={HomeScreen} />
         <Tab.Screen
           name="Search"
-          component={AppStack}
+          component={AppStack} // Routes to the AppStack for Search
           options={{
             tabBarButton: (props) => <CustomSearchButton {...props} />,
           }}
@@ -47,6 +58,7 @@ export default function App() {
   );
 }
 
+// Custom Search Button
 const CustomSearchButton = ({ onPress, accessibilityState }: any) => {
   const [isPressed, setIsPressed] = useState(false);
   const isSelected = accessibilityState.selected;
@@ -61,18 +73,24 @@ const CustomSearchButton = ({ onPress, accessibilityState }: any) => {
     <Pressable
       onPressIn={() => setIsPressed(true)}
       onPressOut={() => setIsPressed(false)}
-      onPress={onPress} // Navigates to SearchStack
+      onPress={onPress} // Use the default navigation passed through props
       style={[styles.searchButton, { backgroundColor }]}
     >
-      <Ionicons name="search" size={60} color="#fff" />
+      <Ionicons
+        name="search"
+        size={55}
+        color="#fff"
+        style={{ position: "relative", top: -5 }} // Moves search icon up slightly more
+      />
     </Pressable>
   );
 };
 
+// Styles
 const styles = StyleSheet.create({
   searchButton: {
-    width: 110,
-    height: 115,
+    width: 100, // Shortened the width of the oval
+    height: 95, // Made the oval shorter
     borderTopLeftRadius: 45,
     borderTopRightRadius: 45,
     borderBottomLeftRadius: 10,
@@ -80,7 +98,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     position: "absolute",
-    bottom: -18,
+    bottom: -5, // Adjusted position to keep the search button centered
     alignSelf: "center",
     shadowColor: "#000",
     shadowOpacity: 0.2,

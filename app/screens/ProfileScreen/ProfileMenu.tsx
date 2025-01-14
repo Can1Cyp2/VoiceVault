@@ -1,3 +1,5 @@
+// app\screens\ProfileScreen\ProfileMenu.tsx
+
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from "react-native";
 

@@ -1,4 +1,4 @@
-// app/screens/SearchScreen/SearchScreen.tsx
+// File location: app/screens/SearchScreen/SearchScreen.tsx
 
 import React, { useState, useEffect } from "react";
 import {
@@ -13,6 +13,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SearchBar } from "../../components/SearchBar/SearchBar";
 import { RootStackParamList } from "../../navigation/types";
 import { searchSongsByQuery, getArtists } from "../../util/api";
+import { Ionicons } from "@expo/vector-icons";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Search">;
 
@@ -63,30 +64,41 @@ export default function SearchScreen() {
     }
   };
 
+  const handleAddPress = () => {
+    alert(`Add functionality for ${filter}`); // Placeholder for add functionality
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.searchBarContainer}>
         <SearchBar onSearch={setQuery} />
       </View>
       <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            filter === "songs" && styles.activeFilter,
-          ]}
-          onPress={() => setFilter("songs")}
-        >
-          <Text style={styles.filterText}>Songs</Text>
+        {/* Add Button */}
+        <TouchableOpacity style={styles.addButton} onPress={handleAddPress}>
+          <Ionicons name="add-circle" size={36} color="tomato" />
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            filter === "artists" && styles.activeFilter,
-          ]}
-          onPress={() => setFilter("artists")}
-        >
-          <Text style={styles.filterText}>Artists</Text>
-        </TouchableOpacity>
+        {/* Filter Buttons Container */}
+        <View style={styles.filterButtonsWrapper}>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              filter === "songs" && styles.activeFilter,
+            ]}
+            onPress={() => setFilter("songs")}
+          >
+            <Text style={styles.filterText}>Songs</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              filter === "artists" && styles.activeFilter,
+            ]}
+            onPress={() => setFilter("artists")}
+          >
+            <Text style={styles.filterText}>Artists</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       {loading && <Text style={styles.loadingText}>Loading...</Text>}
       {error && <Text style={styles.errorText}>{error}</Text>}
@@ -110,17 +122,27 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1, backgroundColor: "#fff", paddingTop: 30 },
   searchBarContainer: {
-    marginTop: 50,
+    marginTop: 20,
     paddingHorizontal: 10,
   },
   loadingText: { textAlign: "center", marginVertical: 10, color: "gray" },
   errorText: { textAlign: "center", marginVertical: 10, color: "red" },
   filterContainer: {
     flexDirection: "row",
-    justifyContent: "center",
+    alignItems: "center",
     marginVertical: 10,
+    paddingHorizontal: 10,
+  },
+  addButton: {
+    position: "absolute",
+    left: 17,
+  },
+  filterButtonsWrapper: {
+    flexDirection: "row",
+    justifyContent: "center",
+    flex: 1,
   },
   filterButton: {
     paddingVertical: 8,

@@ -1,3 +1,5 @@
+// app\navigation\StackNavigator.tsx
+
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import SearchScreen from "../screens/SearchScreen/SearchScreen";
 import { SongDetailsScreen } from "../screens/SongDetailsScreen/SongDetailsScreen";

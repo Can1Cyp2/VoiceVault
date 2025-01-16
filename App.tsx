@@ -80,7 +80,7 @@ const CustomSearchButton = ({ onPress, accessibilityState }: any) => {
         name="search"
         size={55}
         color="#fff"
-        style={{ position: "relative", top: -5 }} // Moves search icon up slightly more
+        style={{ alignSelf: "center", position: "relative", top: -4 }}
       />
     </Pressable>
   );
@@ -89,8 +89,8 @@ const CustomSearchButton = ({ onPress, accessibilityState }: any) => {
 // Styles
 const styles = StyleSheet.create({
   searchButton: {
-    width: 100, // Shortened the width of the oval
-    height: 95, // Made the oval shorter
+    width: 100,
+    height: 95,
     borderTopLeftRadius: 45,
     borderTopRightRadius: 45,
     borderBottomLeftRadius: 10,

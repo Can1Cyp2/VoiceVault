@@ -1,3 +1,5 @@
+// app\screens\HomeScreen\HomeScreen.tsx
+
 import React from "react";
 import {
   View,

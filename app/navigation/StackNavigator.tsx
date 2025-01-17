@@ -4,11 +4,13 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import SearchScreen from "../screens/SearchScreen/SearchScreen";
 import { SongDetailsScreen } from "../screens/SongDetailsScreen/SongDetailsScreen";
 import { ArtistDetailsScreen } from "../screens/ArtistDetailsScreen/ArtistDetailsScreen";
+import AddSongScreen from "../screens/AddSongScreen/AddSongScreen";
 
 export type RootStackParamList = {
   Search: undefined;
   Details: { name: string; vocalRange: string; artist: string };
   ArtistDetails: { name: string };
+  AddSong: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -30,6 +32,11 @@ export function AppStack() {
         name="ArtistDetails"
         component={ArtistDetailsScreen}
         options={{ title: "Artist Details" }}
+      />
+      <Stack.Screen
+        name="AddSong"
+        component={AddSongScreen}
+        options={{ title: "Add Song" }}
       />
     </Stack.Navigator>
   );

@@ -7,11 +7,13 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { RootStackParamList } from "../../navigation/StackNavigator";
+
 import { SearchBar } from "../../components/SearchBar/SearchBar";
-import { RootStackParamList } from "../../navigation/types";
 import { searchSongsByQuery, getArtists } from "../../util/api";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -19,6 +21,9 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Search">;
 
 export default function SearchScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const handleAddPress = () => {
+    navigation.navigate("AddSong"); // This should now resolve correctly
+  };
 
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -36,7 +41,7 @@ export default function SearchScreen() {
           const songs = await searchSongsByQuery(query);
           setResults(songs);
         } else if (filter === "artists") {
-          const artists = await getArtists(query); // Pass query as argument
+          const artists = await getArtists(query);
           setResults(artists);
         }
       } catch (err) {
@@ -55,17 +60,12 @@ export default function SearchScreen() {
         name: item.name,
         artist: item.artist,
         vocalRange: item.vocalRange,
-        type: "song",
       });
     } else if (filter === "artists") {
       navigation.navigate("ArtistDetails", {
         name: item.name,
       });
     }
-  };
-
-  const handleAddPress = () => {
-    alert(`Add functionality for ${filter}`); // Placeholder for add functionality
   };
 
   return (
@@ -78,6 +78,7 @@ export default function SearchScreen() {
         <TouchableOpacity style={styles.addButton} onPress={handleAddPress}>
           <Ionicons name="add-circle" size={36} color="tomato" />
         </TouchableOpacity>
+
         {/* Filter Buttons Container */}
         <View style={styles.filterButtonsWrapper}>
           <TouchableOpacity
@@ -100,8 +101,11 @@ export default function SearchScreen() {
           </TouchableOpacity>
         </View>
       </View>
-      {loading && <Text style={styles.loadingText}>Loading...</Text>}
+      {loading && <ActivityIndicator size="large" color="tomato" />}
       {error && <Text style={styles.errorText}>{error}</Text>}
+      {!loading && results.length === 0 && (
+        <Text style={styles.noResultsText}>No results found.</Text>
+      )}
       <FlatList
         data={results}
         keyExtractor={(item) => item.id.toString()}
@@ -129,6 +133,7 @@ const styles = StyleSheet.create({
   },
   loadingText: { textAlign: "center", marginVertical: 10, color: "gray" },
   errorText: { textAlign: "center", marginVertical: 10, color: "red" },
+  noResultsText: { textAlign: "center", color: "#555", marginVertical: 20 },
   filterContainer: {
     flexDirection: "row",
     alignItems: "center",

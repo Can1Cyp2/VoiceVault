@@ -1,6 +1,6 @@
-// app\screens\HomeScreen\HomeScreen.tsx
+// File location: app/screens/HomeScreen/HomeScreen.tsx
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,14 +8,49 @@ import {
   Image,
   TouchableOpacity,
   Modal,
+  Alert,
 } from "react-native";
-import { useState } from "react";
+import { supabase } from "../../util/supabase";
 import LoginModal from "../LoginScreen/LoginModal";
 import SignupModal from "../SignupScreen/SignupModal";
 
 export default function HomeScreen() {
   const [isLoginVisible, setLoginVisible] = useState(false);
   const [isSignupVisible, setSignupVisible] = useState(false);
+  const [isLoggedIn, setLoggedIn] = useState(false);
+
+  useEffect(() => {
+    // Check for an active session
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setLoggedIn(!!session);
+    };
+
+    checkSession();
+
+    // Listen for changes in auth state
+    const { data } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        setLoggedIn(!!session);
+      }
+    );
+
+    // Cleanup subscription on unmount
+    return () => {
+      data.subscription.unsubscribe(); // Correctly reference the subscription
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      Alert.alert("Logout Failed", error.message);
+    } else {
+      Alert.alert("Logged Out", "You have successfully logged out.");
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -30,20 +65,29 @@ export default function HomeScreen() {
       <Text style={styles.subtitle}>
         Explore the world of vocal ranges and discover music like never before.
       </Text>
-      {/* Login Button */}
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => setLoginVisible(true)}
-      >
-        <Text style={styles.buttonText}>Login</Text>
-      </TouchableOpacity>
-      {/* Signup Button */}
-      <TouchableOpacity
-        style={[styles.button, styles.signupButton]}
-        onPress={() => setSignupVisible(true)}
-      >
-        <Text style={styles.buttonText}>Sign Up</Text>
-      </TouchableOpacity>
+      {/* Conditional Buttons */}
+      {isLoggedIn ? (
+        // Logout Button
+        <TouchableOpacity style={styles.button} onPress={handleLogout}>
+          <Text style={styles.buttonText}>Logout</Text>
+        </TouchableOpacity>
+      ) : (
+        // Login and Signup Buttons
+        <>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => setLoginVisible(true)}
+          >
+            <Text style={styles.buttonText}>Login</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, styles.signupButton]}
+            onPress={() => setSignupVisible(true)}
+          >
+            <Text style={styles.buttonText}>Sign Up</Text>
+          </TouchableOpacity>
+        </>
+      )}
       {/* Modals */}
       <Modal visible={isLoginVisible} transparent animationType="slide">
         <LoginModal onClose={() => setLoginVisible(false)} />

@@ -70,16 +70,21 @@ export const addSong = async (song: {
 export const getArtists = async (query: string): Promise<any[]> => {
   try {
     const { data, error } = await supabase
-      .from("artists") // Replace with your table name
-      .select("*")
-      .ilike("name", `%${query}%`); // Filter artists by name (case-insensitive)
+      .from("songs") // Fetch from the "songs" table
+      .select("artist") // Only fetch the "artist" field
+      .ilike("artist", `%${query}%`); // Filter artists by query (case-insensitive)
 
     if (error) {
       console.error("Error fetching artists:", error.message);
       throw error;
     }
 
-    return data || [];
+    // Filter out invalid entries and deduplicate artist names
+    const uniqueArtists = Array.from(
+      new Set(data?.filter((song) => song.artist).map((song) => song.artist))
+    ).map((artist) => ({ name: artist }));
+
+    return uniqueArtists;
   } catch (error) {
     console.error("Error in getArtists:", error);
     return [];

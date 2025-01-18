@@ -32,6 +32,7 @@ export default function SearchScreen() {
   const [filter, setFilter] = useState<"songs" | "artists">("songs");
 
   useEffect(() => {
+    setResults([]); // Clear results when the filter changes
     const fetchResults = async () => {
       setLoading(true);
       setError(null);
@@ -108,18 +109,33 @@ export default function SearchScreen() {
       )}
       <FlatList
         data={results}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => handlePress(item)}>
-            <View style={styles.resultItem}>
-              <Text style={styles.resultText}>
-                {filter === "songs"
-                  ? `${item.name} by ${item.artist} - ${item.vocalRange}`
-                  : `${item.name}`}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        )}
+        keyExtractor={(item, index) =>
+          filter === "songs"
+            ? item?.id?.toString() ?? index.toString()
+            : item?.name ?? index.toString()
+        }
+        renderItem={({ item }) => {
+          if (
+            filter === "songs" &&
+            (!item.name || !item.artist || !item.vocalRange)
+          ) {
+            return null; // Skip rendering invalid song data
+          }
+          if (filter === "artists" && !item.name) {
+            return null; // Skip rendering invalid artist data
+          }
+          return (
+            <TouchableOpacity onPress={() => handlePress(item)}>
+              <View style={styles.resultItem}>
+                <Text style={styles.resultText}>
+                  {filter === "songs"
+                    ? `${item.name} by ${item.artist} - ${item.vocalRange}`
+                    : `${item.name}`}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        }}
       />
     </View>
   );

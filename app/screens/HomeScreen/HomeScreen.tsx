@@ -1,5 +1,3 @@
-// File location: app/screens/HomeScreen/HomeScreen.tsx
-
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -11,37 +9,57 @@ import {
   Alert,
 } from "react-native";
 import { supabase } from "../../util/supabase";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { RootStackParamList } from "../../navigation/StackNavigator";
+import { Ionicons } from "@expo/vector-icons";
 import LoginModal from "../LoginScreen/LoginModal";
 import SignupModal from "../SignupScreen/SignupModal";
 
-export default function HomeScreen() {
+type HomeScreenProps = NativeStackScreenProps<RootStackParamList, "Search">;
+
+export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [isLoginVisible, setLoginVisible] = useState(false);
   const [isSignupVisible, setSignupVisible] = useState(false);
   const [isLoggedIn, setLoggedIn] = useState(false);
 
   useEffect(() => {
-    // Check for an active session
     const checkSession = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       setLoggedIn(!!session);
     };
-
     checkSession();
 
-    // Listen for changes in auth state
     const { data } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         setLoggedIn(!!session);
       }
     );
-
-    // Cleanup subscription on unmount
     return () => {
-      data.subscription.unsubscribe(); // Correctly reference the subscription
+      data.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      navigation.setOptions({
+        headerRight: () => (
+          <TouchableOpacity onPress={() => navigation.navigate("SavedLists")}>
+            <Ionicons
+              name="list-circle-outline"
+              size={30}
+              thickness={2}
+              color="#32CD32" // Green color
+              style={{ marginRight: 15 }}
+            />
+          </TouchableOpacity>
+        ),
+      });
+    } else {
+      navigation.setOptions({ headerRight: undefined });
+    }
+  }, [isLoggedIn, navigation]);
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -60,19 +78,15 @@ export default function HomeScreen() {
         style={styles.logo}
         resizeMode="contain"
       />
-      {/* Welcome Text */}
       <Text style={styles.title}>Welcome to VoiceVault!</Text>
       <Text style={styles.subtitle}>
         Explore the world of vocal ranges and discover music like never before.
       </Text>
-      {/* Conditional Buttons */}
       {isLoggedIn ? (
-        // Logout Button
         <TouchableOpacity style={styles.button} onPress={handleLogout}>
           <Text style={styles.buttonText}>Logout</Text>
         </TouchableOpacity>
       ) : (
-        // Login and Signup Buttons
         <>
           <TouchableOpacity
             style={styles.button}
@@ -88,7 +102,6 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </>
       )}
-      {/* Modals */}
       <Modal visible={isLoginVisible} transparent animationType="slide">
         <LoginModal onClose={() => setLoginVisible(false)} />
       </Modal>

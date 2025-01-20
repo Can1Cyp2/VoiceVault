@@ -1,26 +1,59 @@
-// app/screens/LoginScreen/LoginModal.tsx
+// File location: app/screens/LoginScreen/LoginModal.tsx
 
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   TextInput,
   StyleSheet,
   TouchableOpacity,
+  Alert,
 } from "react-native";
+import { supabase } from "../../util/supabase";
 
 export default function LoginModal({ onClose }: { onClose: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleLogin = async () => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        Alert.alert("Login Failed", error.message);
+        return;
+      }
+
+      Alert.alert("Success", "Logged in successfully!");
+      onClose(); // Close the modal after successful login
+    } catch (err) {
+      console.error("Login Error:", err);
+      Alert.alert("An error occurred. Please try again.");
+    }
+  };
+
   return (
     <View style={styles.overlay}>
       <View style={styles.modal}>
         <Text style={styles.title}>Login</Text>
-        <TextInput style={styles.input} placeholder="Email" />
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+        />
         <TextInput
           style={styles.input}
           placeholder="Password"
+          value={password}
+          onChangeText={setPassword}
           secureTextEntry
         />
-        <TouchableOpacity style={styles.button} onPress={onClose}>
+        <TouchableOpacity style={styles.button} onPress={handleLogin}>
           <Text style={styles.buttonText}>Login</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onClose}>

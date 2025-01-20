@@ -32,7 +32,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     checkSession();
 
     const { data } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event: string, session: { access_token: string } | null) => {
         setLoggedIn(!!session);
       }
     );

@@ -39,9 +39,11 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       } = await supabase.auth.getSession();
       setIsLoggedIn(!!session);
 
-      supabase.auth.onAuthStateChange((_event, session) => {
-        setIsLoggedIn(!!session);
-      });
+      supabase.auth.onAuthStateChange(
+        (_event: string, session: { user: any } | null) => {
+          setIsLoggedIn(!!session);
+        }
+      );
     };
 
     checkLoginStatus();

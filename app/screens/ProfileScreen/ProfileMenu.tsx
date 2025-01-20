@@ -1,7 +1,41 @@
-// app\screens\ProfileScreen\ProfileMenu.tsx
+// File: app\screens\ProfileScreen\ProfileMenu.tsx
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Modal,
+  Alert,
+} from "react-native";
+import { supabase } from "../../util/supabase";
+import EditProfileModal from "./EditProfileModal"; // Import the modal component
 
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Modal } from "react-native";
+const handleResetPassword = async () => {
+  try {
+    const user = await supabase.auth.getUser();
+
+    if (!user.data.user?.email) {
+      Alert.alert("Error", "No email found for the user.");
+      return;
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      user.data.user.email
+    );
+
+    if (error) {
+      Alert.alert("Error", error.message);
+    } else {
+      Alert.alert(
+        "Success",
+        "Password reset email sent. Please check your inbox."
+      );
+    }
+  } catch (err) {
+    Alert.alert("Error", "An unexpected error occurred.");
+  }
+};
 
 export default function ProfileMenu({
   onClose,
@@ -10,28 +44,43 @@ export default function ProfileMenu({
   onClose: () => void;
   onLogout: () => void;
 }) {
+  const [isEditProfileVisible, setEditProfileVisible] = useState(false); // State for showing the Edit Profile modal
+
   return (
     <View style={styles.overlay}>
       <View style={styles.modal}>
+        {/* Edit Profile Button */}
         <TouchableOpacity
           style={styles.option}
-          onPress={() => alert("Edit Profile")}
+          onPress={() => setEditProfileVisible(true)} // Open Edit Profile modal
         >
           <Text style={styles.optionText}>Edit Profile</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.option}
-          onPress={() => alert("Reset Password")}
-        >
+
+        {/* Reset Password Button */}
+        <TouchableOpacity style={styles.option} onPress={handleResetPassword}>
           <Text style={styles.optionText}>Reset Password</Text>
         </TouchableOpacity>
+
+        {/* Logout Button */}
         <TouchableOpacity style={styles.option} onPress={onLogout}>
           <Text style={[styles.optionText, { color: "red" }]}>Logout</Text>
         </TouchableOpacity>
+
+        {/* Close Menu */}
         <TouchableOpacity onPress={onClose}>
           <Text style={styles.closeText}>Close</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Edit Profile Modal */}
+      {isEditProfileVisible && (
+        <Modal visible={isEditProfileVisible} transparent animationType="slide">
+          <EditProfileModal
+            onClose={() => setEditProfileVisible(false)} // Close the modal
+          />
+        </Modal>
+      )}
     </View>
   );
 }

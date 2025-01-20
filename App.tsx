@@ -1,62 +1,145 @@
-// File location: App.tsx
-
-import React, { useState } from "react";
-import { Pressable, StyleSheet } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Pressable, StyleSheet, Alert, Text, View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
+import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
 import { AppStack } from "./app/navigation/StackNavigator";
-import TunerScreen from "./app/screens/TunerScreen/TunerScreen";
 import { Ionicons } from "@expo/vector-icons";
+import { supabase } from "./app/util/supabase";
 
 const Tab = createBottomTabNavigator();
 
 export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setIsLoggedIn(!!session);
+
+      supabase.auth.onAuthStateChange((_event, session) => {
+        setIsLoggedIn(!!session);
+      });
+    };
+
+    checkSession();
+  }, []);
+
   return (
     <NavigationContainer>
       <Tab.Navigator
-        screenOptions={({ route }) => ({
+        screenOptions={{
           headerShown: false,
-          tabBarIcon: ({ focused, color }) => {
-            let iconName: keyof typeof Ionicons.glyphMap | undefined;
-
-            if (route.name === "Home") {
-              iconName = focused ? "home" : "home-outline";
-            } else if (route.name === "Tuner") {
-              iconName = focused ? "musical-notes" : "musical-notes-outline";
-            }
-
-            return (
-              <Ionicons
-                name={iconName}
-                size={30}
-                color={color}
-                style={{ position: "relative", top: 5 }} // Moves icons slightly up
-              />
-            );
-          },
-          tabBarLabelStyle: {
-            position: "relative",
-            top: 10, // Moves text up slightly more than the icons
-          },
-          tabBarActiveTintColor: "tomato",
-          tabBarInactiveTintColor: "gray",
           tabBarStyle: { height: 70 },
-        })}
+        }}
       >
-        <Tab.Screen name="Home" component={HomeScreen} />
+        <Tab.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{
+            tabBarButton: (props) => (
+              <CustomTabButton {...props} label="Home" icon="home" />
+            ),
+          }}
+        />
         <Tab.Screen
           name="Search"
-          component={AppStack} // Routes to the AppStack for Search
+          component={AppStack}
           options={{
             tabBarButton: (props) => <CustomSearchButton {...props} />,
           }}
         />
-        <Tab.Screen name="Tuner" component={TunerScreen} />
+        <Tab.Screen
+          name="Profile"
+          component={ProfileScreen}
+          options={{
+            tabBarButton: (props) => (
+              <CustomProfileButton {...props} isLoggedIn={isLoggedIn} />
+            ),
+          }}
+        />
       </Tab.Navigator>
     </NavigationContainer>
   );
 }
+
+// Custom Tab Button for Home and other tabs
+const CustomTabButton = ({ onPress, accessibilityState, label, icon }: any) => {
+  const isSelected = accessibilityState.selected;
+
+  return (
+    <Pressable onPress={onPress} style={styles.tabButtonContainer}>
+      <Ionicons
+        name={
+          isSelected
+            ? (icon as keyof typeof Ionicons.glyphMap)
+            : (`${icon}-outline` as keyof typeof Ionicons.glyphMap)
+        }
+        size={28}
+        color={isSelected ? "tomato" : "darkgray"}
+      />
+      <Text
+        style={[
+          styles.tabButtonText,
+          { color: isSelected ? "tomato" : "darkgray" },
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+};
+
+// Custom Profile Button
+const CustomProfileButton = ({
+  onPress,
+  accessibilityState,
+  isLoggedIn,
+}: any) => {
+  const isSelected = accessibilityState.selected;
+
+  return (
+    <Pressable
+      onPress={() => {
+        if (isLoggedIn) {
+          onPress();
+        } else {
+          Alert.alert(
+            "Access Denied",
+            "You must be logged in to access the Profile screen."
+          );
+        }
+      }}
+      style={[
+        styles.tabButtonContainer,
+        { backgroundColor: !isLoggedIn ? "gray" : "white" },
+      ]}
+    >
+      <Ionicons
+        name={
+          isSelected
+            ? ("person" as keyof typeof Ionicons.glyphMap)
+            : ("person-outline" as keyof typeof Ionicons.glyphMap)
+        }
+        size={28}
+        color={!isLoggedIn ? "white" : isSelected ? "tomato" : "darkgray"}
+      />
+      <Text
+        style={[
+          styles.tabButtonText,
+          {
+            color: !isLoggedIn ? "white" : isSelected ? "tomato" : "darkgray",
+          },
+        ]}
+      >
+        {isLoggedIn ? "Profile" : "Log In"}
+      </Text>
+    </Pressable>
+  );
+};
 
 // Custom Search Button
 const CustomSearchButton = ({ onPress, accessibilityState }: any) => {
@@ -64,7 +147,7 @@ const CustomSearchButton = ({ onPress, accessibilityState }: any) => {
   const isSelected = accessibilityState.selected;
 
   const backgroundColor = isPressed
-    ? "gray"
+    ? "#cc6600" // Darker orange when pressed
     : isSelected
     ? "#ff6600"
     : "#ff9933";
@@ -73,7 +156,7 @@ const CustomSearchButton = ({ onPress, accessibilityState }: any) => {
     <Pressable
       onPressIn={() => setIsPressed(true)}
       onPressOut={() => setIsPressed(false)}
-      onPress={onPress} // Use the default navigation passed through props
+      onPress={onPress}
       style={[styles.searchButton, { backgroundColor }]}
     >
       <Ionicons
@@ -88,6 +171,18 @@ const CustomSearchButton = ({ onPress, accessibilityState }: any) => {
 
 // Styles
 const styles = StyleSheet.create({
+  tabButtonContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingTop: 5,
+    backgroundColor: "white", // Default background for all tabs
+  },
+  tabButtonText: {
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: "bold",
+  },
   searchButton: {
     width: 100,
     height: 95,
@@ -98,7 +193,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     position: "absolute",
-    bottom: -5, // Adjusted position to keep the search button centered
+    bottom: -5,
     alignSelf: "center",
     shadowColor: "#000",
     shadowOpacity: 0.2,

@@ -1,53 +1,92 @@
 // app/util/api.ts
 
-import { searchSongs } from "../../mockBackend";
+import { supabase } from "./supabase"; // Import your Supabase client
 
-export interface Song {
-  id: number;
+// Fetch songs based on a query
+export const searchSongsByQuery = async (query: string): Promise<any[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("songs") // Replace with your table name
+      .select("*")
+      .ilike("name", `%${query}%`); // Filter songs by name (case-insensitive)
+
+    if (error) {
+      console.error("Error fetching songs:", error.message);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("Error in searchSongsByQuery:", error);
+    return [];
+  }
+};
+
+// Add a new song to the database
+export const addSong = async (song: {
   name: string;
   vocalRange: string;
   artist: string;
-}
-
-// Search for songs based on a query
-export const searchSongsByQuery = async (query: string): Promise<Song[]> => {
+}): Promise<void> => {
   try {
-    const results = await searchSongs(query); // Query the mock backend
-    return results;
+    // Get the currently logged-in user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError) {
+      console.error("Error fetching user:", authError.message);
+      throw new Error("Failed to fetch user. Please log in.");
+    }
+
+    if (!user) {
+      throw new Error("You must be logged in to add a song.");
+    }
+
+    // Insert the song into the database
+    const { data, error } = await supabase.from("songs").insert([
+      {
+        name: song.name,
+        vocalRange: song.vocalRange,
+        artist: song.artist,
+        user_id: user.id, // Include the user ID from Supabase auth
+      },
+    ]);
+
+    if (error) {
+      console.error("Error adding song:", error.message);
+      throw error;
+    }
+
+    console.log("Song added successfully:", data);
   } catch (error) {
-    console.error("Error fetching songs:", error);
+    console.error("Error in addSong:", (error as any).message);
     throw error;
   }
 };
 
-// Get a list of artists (filtered dynamically from songs)
-export const getArtists = async (
-  query: string
-): Promise<{ id: number; name: string }[]> => {
+// Fetch artists based on a query
+export const getArtists = async (query: string): Promise<any[]> => {
   try {
-    // Get all songs
-    const allSongs = await searchSongs(query);
+    const { data, error } = await supabase
+      .from("songs") // Fetch from the "songs" table
+      .select("artist") // Only fetch the "artist" field
+      .ilike("artist", `%${query}%`); // Filter artists by query (case-insensitive)
 
-    // Extract unique artists
-    const artists: string[] = allSongs
-      .map((song: Song) => song.artist)
-      .filter(
-        (artist: string, index: number, self: string[]) =>
-          self.indexOf(artist) === index
-      ); // Remove duplicates
+    if (error) {
+      console.error("Error fetching artists:", error.message);
+      throw error;
+    }
 
-    // Filter artists based on the query
-    const filteredArtists = artists.filter((artist) =>
-      artist.toLowerCase().includes(query.toLowerCase())
-    );
+    // Filter out invalid entries and deduplicate artist names
+    const uniqueArtists = Array.from(
+      new Set(data?.filter((song) => song.artist).map((song) => song.artist))
+    ).map((artist) => ({ name: artist }));
 
-    // Map artists to a format suitable for display
-    return filteredArtists.map((artist, index) => ({
-      id: index + 1,
-      name: artist,
-    }));
+    return uniqueArtists;
   } catch (error) {
-    console.error("Error fetching artists:", error);
-    throw error;
+    console.error("Error in getArtists:", error);
+    return [];
   }
 };

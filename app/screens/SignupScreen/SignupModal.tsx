@@ -1,29 +1,75 @@
-import React from "react";
+// File location: app/screens/SignupScreen/SignupModal.tsx
+
+import React, { useState } from "react";
 import {
   View,
   Text,
   TextInput,
   StyleSheet,
   TouchableOpacity,
+  Alert,
 } from "react-native";
+import { supabase } from "../../util/supabase";
 
 export default function SignupModal({ onClose }: { onClose: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const handleSignup = async () => {
+    if (password !== confirmPassword) {
+      Alert.alert("Error", "Passwords do not match.");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) {
+        Alert.alert("Signup Failed", error.message);
+        return;
+      }
+
+      Alert.alert(
+        "Success",
+        "Signup successful! Please check your email to confirm your account. You will get an email from "
+      );
+      onClose(); // Close the modal after successful signup
+    } catch (err) {
+      console.error("Signup Error:", err);
+      Alert.alert("An error occurred. Please try again.");
+    }
+  };
+
   return (
     <View style={styles.overlay}>
       <View style={styles.modal}>
         <Text style={styles.title}>Sign Up</Text>
-        <TextInput style={styles.input} placeholder="Email" />
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+        />
         <TextInput
           style={styles.input}
           placeholder="Password"
+          value={password}
+          onChangeText={setPassword}
           secureTextEntry
         />
         <TextInput
           style={styles.input}
           placeholder="Confirm Password"
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
           secureTextEntry
         />
-        <TouchableOpacity style={styles.button} onPress={onClose}>
+        <TouchableOpacity style={styles.button} onPress={handleSignup}>
           <Text style={styles.buttonText}>Sign Up</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onClose}>

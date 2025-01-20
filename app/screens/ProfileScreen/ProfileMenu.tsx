@@ -13,7 +13,6 @@ export default function ProfileMenu({
   return (
     <View style={styles.overlay}>
       <View style={styles.modal}>
-        <Text style={styles.title}>Profile</Text>
         <TouchableOpacity
           style={styles.option}
           onPress={() => alert("Edit Profile")}
@@ -38,23 +37,13 @@ export default function ProfileMenu({
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
+  overlay: {},
   modal: {
     width: "80%",
     padding: 20,
     backgroundColor: "#fff",
     borderRadius: 10,
     alignItems: "center",
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
   },
   option: {
     paddingVertical: 10,
@@ -71,5 +60,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#007bff",
     marginTop: 20,
+    backgroundColor: "#d9d9d9",
+    padding: 5,
+    borderRadius: 5,
   },
 });

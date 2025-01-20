@@ -1,6 +1,4 @@
-// app\screens\HomeScreen\HomeScreen.tsx
-
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,14 +6,69 @@ import {
   Image,
   TouchableOpacity,
   Modal,
+  Alert,
 } from "react-native";
-import { useState } from "react";
+import { supabase } from "../../util/supabase";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { RootStackParamList } from "../../navigation/StackNavigator";
+import { Ionicons } from "@expo/vector-icons";
 import LoginModal from "../LoginScreen/LoginModal";
 import SignupModal from "../SignupScreen/SignupModal";
 
-export default function HomeScreen() {
+type HomeScreenProps = NativeStackScreenProps<RootStackParamList, "Search">;
+
+export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [isLoginVisible, setLoginVisible] = useState(false);
   const [isSignupVisible, setSignupVisible] = useState(false);
+  const [isLoggedIn, setLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setLoggedIn(!!session);
+    };
+    checkSession();
+
+    const { data } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        setLoggedIn(!!session);
+      }
+    );
+    return () => {
+      data.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      navigation.setOptions({
+        headerRight: () => (
+          <TouchableOpacity onPress={() => navigation.navigate("SavedLists")}>
+            <Ionicons
+              name="list-circle-outline"
+              size={30}
+              thickness={2}
+              color="#32CD32" // Green color
+              style={{ marginRight: 15 }}
+            />
+          </TouchableOpacity>
+        ),
+      });
+    } else {
+      navigation.setOptions({ headerRight: undefined });
+    }
+  }, [isLoggedIn, navigation]);
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      Alert.alert("Logout Failed", error.message);
+    } else {
+      Alert.alert("Logged Out", "You have successfully logged out.");
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -25,26 +78,30 @@ export default function HomeScreen() {
         style={styles.logo}
         resizeMode="contain"
       />
-      {/* Welcome Text */}
       <Text style={styles.title}>Welcome to VoiceVault!</Text>
       <Text style={styles.subtitle}>
         Explore the world of vocal ranges and discover music like never before.
       </Text>
-      {/* Login Button */}
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => setLoginVisible(true)}
-      >
-        <Text style={styles.buttonText}>Login</Text>
-      </TouchableOpacity>
-      {/* Signup Button */}
-      <TouchableOpacity
-        style={[styles.button, styles.signupButton]}
-        onPress={() => setSignupVisible(true)}
-      >
-        <Text style={styles.buttonText}>Sign Up</Text>
-      </TouchableOpacity>
-      {/* Modals */}
+      {isLoggedIn ? (
+        <TouchableOpacity style={styles.button} onPress={handleLogout}>
+          <Text style={styles.buttonText}>Logout</Text>
+        </TouchableOpacity>
+      ) : (
+        <>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => setLoginVisible(true)}
+          >
+            <Text style={styles.buttonText}>Login</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, styles.signupButton]}
+            onPress={() => setSignupVisible(true)}
+          >
+            <Text style={styles.buttonText}>Sign Up</Text>
+          </TouchableOpacity>
+        </>
+      )}
       <Modal visible={isLoginVisible} transparent animationType="slide">
         <LoginModal onClose={() => setLoginVisible(false)} />
       </Modal>

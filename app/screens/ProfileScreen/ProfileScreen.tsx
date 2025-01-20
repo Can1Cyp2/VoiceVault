@@ -1,13 +1,36 @@
 // File location: app/screens/ProfileScreen/ProfileScreen.tsx
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Alert, StyleSheet } from "react-native";
 import ProfileMenu from "./ProfileMenu";
 import { supabase } from "../../util/supabase";
 
 export default function ProfileScreen({ navigation }: any) {
   const [isMenuVisible, setMenuVisible] = useState(false); // State for showing the ProfileMenu
-  const userEmail = "user@example.com"; // Replace with Supabase logic to fetch user email
+  const [username, setUsername] = useState<string | null>(null); // State for the user's username
+  const [isLoading, setIsLoading] = useState(true); // State for loading
+
+  useEffect(() => {
+    const fetchDisplayName = async () => {
+      try {
+        const { data: user, error } = await supabase.auth.getUser();
+
+        if (error || !user) {
+          setUsername("Edit profile to create a display name.");
+        } else {
+          const displayName = user.user.user_metadata?.display_name;
+          setUsername(displayName || "Edit profile to create a display name.");
+        }
+      } catch (err) {
+        console.error("Error fetching display name:", err);
+        setUsername("Edit profile to create a display name.");
+      } finally {
+        setIsLoading(false); // Ensure loading state is turned off
+      }
+    };
+
+    fetchDisplayName();
+  }, []);
 
   const handleNeedHelp = () => {
     Alert.alert(
@@ -26,10 +49,20 @@ export default function ProfileScreen({ navigation }: any) {
     setMenuVisible(false); // Close the menu after logging out
   };
 
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Profile</Text>
-      <Text style={styles.email}>Email: {userEmail}</Text>
+
+      {/* Username Display */}
+      <Text style={styles.username}>{username}</Text>
 
       <TouchableOpacity
         style={styles.button}
@@ -74,10 +107,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     color: "#333",
   },
-  email: {
+  username: {
     fontSize: 18,
     color: "#555",
     marginBottom: 30,
+    textAlign: "center",
   },
   button: {
     backgroundColor: "#007bff",
@@ -113,5 +147,9 @@ const styles = StyleSheet.create({
   helpButtonText: {
     color: "#fff",
     fontSize: 16,
+  },
+  loadingText: {
+    fontSize: 18,
+    color: "#555",
   },
 });

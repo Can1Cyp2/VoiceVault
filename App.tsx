@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Alert, Text, View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
-import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
 import { AppStack } from "./app/navigation/StackNavigator";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "./app/util/supabase";
+
+import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
+import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
+import SavedListsScreen from "./app/screens/SavedListsScreen/SavedListsScreen";
+import { useEffect, useState } from "react";
 
 const Tab = createBottomTabNavigator();
 
@@ -34,8 +36,8 @@ export default function App() {
         screenOptions={{
           headerShown: false,
           tabBarStyle: {
-            height: 90, // Increase the height of the tab bar
-            paddingBottom: 10, // Add padding for safety
+            height: 90,
+            paddingBottom: 10,
           },
         }}
       >
@@ -112,7 +114,7 @@ const CustomProfileButton = ({
         } else {
           Alert.alert(
             "Access Denied",
-            "You must be logged in to access the Profile screen."
+            "You must be logged in to access the Profile screen. If you need help please contact voicevaultcontant@gmail.com"
           );
         }
       }}

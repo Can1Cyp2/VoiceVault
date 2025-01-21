@@ -49,6 +49,7 @@ export default function EditProfileModal({ onClose }: { onClose: () => void }) {
         <TextInput
           style={styles.input}
           placeholder="Enter new display name"
+          placeholderTextColor="#777"
           value={displayName}
           onChangeText={setDisplayName}
         />

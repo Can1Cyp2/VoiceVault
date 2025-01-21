@@ -33,7 +33,10 @@ export default function App() {
       <Tab.Navigator
         screenOptions={{
           headerShown: false,
-          tabBarStyle: { height: 70 },
+          tabBarStyle: {
+            height: 90, // Increase the height of the tab bar
+            paddingBottom: 10, // Add padding for safety
+          },
         }}
       >
         <Tab.Screen
@@ -78,7 +81,7 @@ const CustomTabButton = ({ onPress, accessibilityState, label, icon }: any) => {
             ? (icon as keyof typeof Ionicons.glyphMap)
             : (`${icon}-outline` as keyof typeof Ionicons.glyphMap)
         }
-        size={28}
+        size={30}
         color={isSelected ? "tomato" : "darkgray"}
       />
       <Text
@@ -175,7 +178,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingTop: 5,
+    paddingTop: -5,
     backgroundColor: "white", // Default background for all tabs
   },
   tabButtonText: {
@@ -186,10 +189,10 @@ const styles = StyleSheet.create({
   searchButton: {
     width: 100,
     height: 95,
-    borderTopLeftRadius: 45,
-    borderTopRightRadius: 45,
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
     justifyContent: "center",
     alignItems: "center",
     position: "absolute",

@@ -1,26 +1,30 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  FlatList,
   Text,
   TouchableOpacity,
-  TextInput,
-  StyleSheet,
   Alert,
+  FlatList,
+  StyleSheet,
+  Modal,
+  TextInput,
 } from "react-native";
 import { supabase } from "../../util/supabase";
+import { Ionicons } from "@expo/vector-icons";
+import { deleteList, fetchUserLists, saveNewList } from "./SavedListsLogic";
 
 export default function SavedListsScreen({ navigation }: any) {
-  const [lists, setLists] = useState<string[]>(["All Saved Songs"]);
+  const [lists, setLists] = useState<string[]>(["All Saved Songs"]); // Default list
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedList, setSelectedList] = useState<string | null>(null);
   const [newListName, setNewListName] = useState("");
 
-  // Fetch user's saved lists on load
   useEffect(() => {
-    const fetchLists = async () => {
+    const fetchSavedLists = async () => {
       try {
         const user = await supabase.auth.getUser();
         if (!user.data.user) {
-          Alert.alert("Error", "Please log in to view your lists.");
+          Alert.alert("Error", "Please log in to view your saved lists.");
           return;
         }
 
@@ -32,132 +36,303 @@ export default function SavedListsScreen({ navigation }: any) {
         if (error) {
           Alert.alert("Error", error.message);
         } else {
-          setLists(["All Saved Songs", ...data.map((list: any) => list.name)]);
+          const fetchedLists = data.map((list: any) => list.name) || [];
+          setLists(["All Saved Songs", ...fetchedLists]);
         }
-      } catch (error: any) {
-        Alert.alert("Error", error.message);
+      } catch (error) {
+        console.error("Error fetching saved lists:", error);
       }
     };
 
-    fetchLists();
+    fetchSavedLists();
   }, []);
 
-  const addList = async () => {
+  // Handle adding a new list
+  const handleAddNewList = async () => {
     if (!newListName.trim()) {
-      Alert.alert("Error", "List name cannot be empty");
+      Alert.alert("Error", "List name cannot be empty.");
       return;
     }
 
     try {
-      const user = await supabase.auth.getUser();
-      if (!user.data.user) {
-        Alert.alert("Error", "Please log in to create a new list.");
-        return;
-      }
+      await saveNewList(newListName.trim());
+      Alert.alert("Success", `List "${newListName}" created.`);
+      setNewListName("");
+      setEditModalVisible(false);
 
-      const { error } = await supabase
-        .from("saved_lists")
-        .insert([{ name: newListName.trim(), user_id: user.data.user.id }]);
-
-      if (error) {
-        Alert.alert("Error", error.message);
-      } else {
-        setLists((prev) => [...prev, newListName.trim()]);
-        setNewListName("");
-      }
-    } catch (error: any) {
-      Alert.alert("Error", error.message);
+      // Refresh the lists
+      const updatedLists = await fetchUserLists();
+      setLists(updatedLists || []);
+    } catch (error) {
+      console.error("Error creating new list:", error);
+      Alert.alert("Error", "Could not create the new list.");
     }
   };
 
-  const deleteList = async (listName: string) => {
-    if (listName === "All Saved Songs") {
-      Alert.alert("Error", "Cannot delete the default list.");
+  const handleEditList = async () => {
+    if (!newListName.trim()) {
+      Alert.alert("Error", "List name cannot be empty.");
       return;
     }
 
     try {
       const user = await supabase.auth.getUser();
       if (!user.data.user) {
-        Alert.alert("Error", "Please log in to delete lists.");
+        Alert.alert("Error", "Please log in to edit a list.");
         return;
       }
 
       const { error } = await supabase
         .from("saved_lists")
-        .delete()
-        .eq("name", listName)
+        .update({ name: newListName.trim() })
+        .eq("name", selectedList)
         .eq("user_id", user.data.user.id);
 
       if (error) {
         Alert.alert("Error", error.message);
       } else {
-        setLists((prev) => prev.filter((name) => name !== listName));
+        setLists((prevLists) =>
+          prevLists.map((list) =>
+            list === selectedList ? newListName.trim() : list
+          )
+        );
+        setEditModalVisible(false);
+        setSelectedList(null);
+        setNewListName("");
       }
-    } catch (error: any) {
-      Alert.alert("Error", error.message);
+    } catch (error) {
+      console.error("Error editing list:", error);
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>My Saved Lists</Text>
+      {/* Header with back button and list icon */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={30} color="#007bff" />
+        </TouchableOpacity>
+        <Text style={styles.separator}>|</Text>
+        <Ionicons
+          name="list"
+          size={28}
+          color="#007bff"
+          style={styles.headerIcon}
+        />
+        <Text style={styles.headerText}>My Saved Lists</Text>
+        <TouchableOpacity onPress={() => setEditModalVisible(true)}>
+          <Ionicons
+            name="add-circle-outline"
+            size={30}
+            color="green"
+            style={{ marginLeft: 50 }}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* Saved Lists */}
       <FlatList
         data={lists}
         keyExtractor={(item) => item}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <View style={styles.listItem}>
             <TouchableOpacity
               onPress={() =>
                 navigation.navigate("ListDetails", { listName: item })
               }
             >
-              <Text style={styles.listText}>{item}</Text>
+              <Text style={styles.listItemText}>
+                {index + 1}. {item}
+              </Text>
             </TouchableOpacity>
             {item !== "All Saved Songs" && (
-              <TouchableOpacity onPress={() => deleteList(item)}>
-                <Text style={styles.deleteText}>Delete</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedList(item);
+                  setEditModalVisible(true);
+                }}
+              >
+                <Ionicons
+                  name="ellipsis-horizontal"
+                  size={24}
+                  color="#007bff"
+                />
               </TouchableOpacity>
             )}
           </View>
         )}
+        ListEmptyComponent={() => (
+          <Text style={styles.emptyText}>You have no saved lists.</Text>
+        )}
       />
-      <TextInput
-        style={styles.input}
-        placeholder="New List Name"
-        value={newListName}
-        onChangeText={setNewListName}
-      />
-      <TouchableOpacity style={styles.addButton} onPress={addList}>
-        <Text style={styles.addButtonText}>Add List</Text>
-      </TouchableOpacity>
+
+      {/* Edit/Delete Modal */}
+      <Modal
+        visible={editModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit or Delete List</Text>
+
+            <Text style={styles.modalSubtitle}>
+              Selected List: {selectedList}
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Enter new list name"
+              value={newListName}
+              onChangeText={setNewListName}
+            />
+
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={handleEditList}
+            >
+              <Text style={styles.editButtonText}>Edit</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={async () => {
+                await deleteList(selectedList!); // Call the deleteList function
+                setLists((prevLists) =>
+                  prevLists.filter((list) => list !== selectedList)
+                );
+                setEditModalVisible(false);
+                setSelectedList(null);
+              }}
+            >
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setEditModalVisible(false)}
+            >
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#fff" },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20 },
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+    paddingHorizontal: 20,
+    paddingTop: 70,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  backButton: {
+    marginRight: 5,
+  },
+  separator: {
+    marginHorizontal: 8,
+    fontSize: 18,
+    marginRight: 15,
+    color: "#ccc",
+  },
+  headerIcon: {
+    marginRight: 5,
+  },
+  headerText: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#007bff",
+    paddingBottom: 2,
+  },
   listItem: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     padding: 15,
     borderBottomWidth: 1,
     borderColor: "#ccc",
   },
-  listText: { fontSize: 18 },
-  deleteText: { color: "red", fontSize: 16 },
+  listItemText: {
+    fontSize: 18,
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: "center",
+    color: "#999",
+    marginTop: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    width: "80%",
+    padding: 20,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: "#555",
+    marginBottom: 20,
+    textAlign: "center",
+  },
   input: {
     borderWidth: 1,
     borderColor: "#ccc",
     borderRadius: 5,
     padding: 10,
-    marginVertical: 10,
+    marginBottom: 15,
+    width: "100%",
   },
-  addButton: {
+  editButton: {
     backgroundColor: "#007bff",
     padding: 10,
     borderRadius: 5,
+    marginBottom: 10,
+    width: "100%",
+    alignItems: "center",
   },
-  addButtonText: { color: "#fff", textAlign: "center" },
+  editButtonText: {
+    color: "#fff",
+    fontSize: 16,
+  },
+  deleteButton: {
+    backgroundColor: "#f44336",
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 10,
+    width: "100%",
+    alignItems: "center",
+  },
+  deleteButtonText: {
+    color: "#fff",
+    fontSize: 16,
+  },
+  modalCloseButton: {
+    marginTop: 10,
+  },
+  modalCloseText: {
+    color: "#007bff",
+    fontSize: 16,
+  },
 });

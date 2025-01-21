@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Alert, Text, View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
-import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
 import { AppStack } from "./app/navigation/StackNavigator";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "./app/util/supabase";
+
+import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
+import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
+import SavedListsScreen from "./app/screens/SavedListsScreen/SavedListsScreen";
+import { useEffect, useState } from "react";
 
 const Tab = createBottomTabNavigator();
 
@@ -33,7 +35,10 @@ export default function App() {
       <Tab.Navigator
         screenOptions={{
           headerShown: false,
-          tabBarStyle: { height: 70 },
+          tabBarStyle: {
+            height: 90,
+            paddingBottom: 10,
+          },
         }}
       >
         <Tab.Screen
@@ -78,7 +83,7 @@ const CustomTabButton = ({ onPress, accessibilityState, label, icon }: any) => {
             ? (icon as keyof typeof Ionicons.glyphMap)
             : (`${icon}-outline` as keyof typeof Ionicons.glyphMap)
         }
-        size={28}
+        size={30}
         color={isSelected ? "tomato" : "darkgray"}
       />
       <Text
@@ -109,7 +114,7 @@ const CustomProfileButton = ({
         } else {
           Alert.alert(
             "Access Denied",
-            "You must be logged in to access the Profile screen."
+            "You must be logged in to access the Profile screen. If you need help please contact voicevaultcontant@gmail.com"
           );
         }
       }}
@@ -175,7 +180,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingTop: 5,
+    paddingTop: -5,
     backgroundColor: "white", // Default background for all tabs
   },
   tabButtonText: {
@@ -186,10 +191,10 @@ const styles = StyleSheet.create({
   searchButton: {
     width: 100,
     height: 95,
-    borderTopLeftRadius: 45,
-    borderTopRightRadius: 45,
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
     justifyContent: "center",
     alignItems: "center",
     position: "absolute",

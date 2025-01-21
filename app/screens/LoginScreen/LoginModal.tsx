@@ -42,6 +42,7 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
         <TextInput
           style={styles.input}
           placeholder="Email"
+          placeholderTextColor="#777"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -49,6 +50,7 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
         <TextInput
           style={styles.input}
           placeholder="Password"
+          placeholderTextColor="#777"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -90,6 +92,7 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     borderRadius: 5,
     marginBottom: 15,
+    color: "#000",
   },
   button: {
     backgroundColor: "#ff6600",

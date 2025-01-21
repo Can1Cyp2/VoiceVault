@@ -57,7 +57,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
           <TouchableOpacity onPress={() => setModalVisible(true)}>
             <Ionicons
               name="add-circle-outline"
-              size={24}
+              size={30}
               color="#32CD32" // Green color for the button
               style={{ marginRight: 15 }}
             />
@@ -88,18 +88,33 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
     return null;
   };
 
+  // Function to handle saving to a custom list
   const handleSaveToCustomList = async () => {
     if (customListName.trim() === "") {
       Alert.alert("Error", "Please enter a list name.");
       return;
     }
-    await saveNewList(customListName); // Use saveNewList here
-    setCustomListName(""); // Clear the input field
-    setModalVisible(false);
 
-    // Refresh the list after adding
-    const updatedLists = await fetchUserLists();
-    setExistingLists(updatedLists || []);
+    try {
+      // Create the new list
+      await saveNewList(customListName);
+
+      // Save the song to the newly created list
+      await saveToList(name, artist, vocalRange, customListName);
+
+      // Clear the input field and close the modal
+      setCustomListName("");
+      setModalVisible(false);
+
+      // Refresh the list after adding
+      const updatedLists = await fetchUserLists();
+      setExistingLists(updatedLists || []);
+
+      Alert.alert("Success", `Added "${name}" to "${customListName}"`);
+    } catch (error) {
+      console.error("Error saving to custom list:", error);
+      Alert.alert("Error", "Could not save the song to the new list.");
+    }
   };
 
   const handleSaveToExistingList = async (listName: string) => {

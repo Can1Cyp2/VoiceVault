@@ -3,7 +3,7 @@
 import { supabase } from "../../util/supabase";
 import { Alert } from "react-native";
 
-// Function to save a song to a list
+/// Function to save a song to a list
 export const saveToList = async (
   name: string,
   artist: string,
@@ -18,8 +18,47 @@ export const saveToList = async (
       return;
     }
 
+    // Check if the list exists
+    let { data: listData, error: listError } = await supabase
+      .from("saved_lists")
+      .select("id")
+      .eq("name", listName)
+      .eq("user_id", user.data.user.id)
+      .single();
+
+    if (listError) {
+      // If the list doesn't exist, create it
+      const { data: newList, error: createListError } = await supabase
+        .from("saved_lists")
+        .insert([{ name: listName, user_id: user.data.user.id }])
+        .select()
+        .single();
+
+      if (createListError) throw createListError;
+
+      listData = newList;
+    }
+
+    // Check if the song already exists in the list
+    const { data: existingSong } = await supabase
+      .from("saved_songs")
+      .select("id")
+      .eq("name", name)
+      .eq("artist", artist)
+      .eq("list_name", listName)
+      .eq("user_id", user.data.user.id)
+      .single();
+
+    if (existingSong) {
+      Alert.alert(
+        "Duplicate",
+        `The song "${name}" is already in the list "${listName}".`
+      );
+      return;
+    }
+
     // Insert the song into the saved_songs table
-    const { error } = await supabase.from("saved_songs").insert([
+    const { error: saveError } = await supabase.from("saved_songs").insert([
       {
         name,
         artist,
@@ -29,9 +68,9 @@ export const saveToList = async (
       },
     ]);
 
-    if (error) throw error;
+    if (saveError) throw saveError;
 
-    Alert.alert("Success", `Song "${name}" saved to list: "${listName}"`);
+    Alert.alert("Success", `Song "${name}" saved to list: "${listName}".`);
   } catch (error: any) {
     Alert.alert("Error", error.message);
   }

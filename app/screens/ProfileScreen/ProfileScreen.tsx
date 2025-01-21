@@ -1,7 +1,12 @@
-// File location: app/screens/ProfileScreen/ProfileScreen.tsx
-
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, Alert, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+  Modal,
+} from "react-native";
 import ProfileMenu from "./ProfileMenu";
 import { supabase } from "../../util/supabase";
 
@@ -9,6 +14,7 @@ export default function ProfileScreen({ navigation }: any) {
   const [isMenuVisible, setMenuVisible] = useState(false); // State for showing the ProfileMenu
   const [username, setUsername] = useState<string | null>(null); // State for the user's username
   const [isLoading, setIsLoading] = useState(true); // State for loading
+  const [isHelpVisible, setHelpVisible] = useState(false); // State for the Need Help modal
 
   useEffect(() => {
     const fetchDisplayName = async () => {
@@ -31,13 +37,6 @@ export default function ProfileScreen({ navigation }: any) {
 
     fetchDisplayName();
   }, []);
-
-  const handleNeedHelp = () => {
-    Alert.alert(
-      "Need Help?",
-      "Please contact voicevaultcontact@gmail.com for any issues or inquiries"
-    );
-  };
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -62,11 +61,16 @@ export default function ProfileScreen({ navigation }: any) {
       <Text style={styles.title}>Profile</Text>
 
       {/* Username Display */}
-      <Text style={styles.username}>{username}</Text>
+      <Text style={styles.username}>
+        {(username ?? "").startsWith("Edit profile")
+          ? username
+          : `Username: ${username}`}
+      </Text>
 
+      {/* View Saved Lists Button */}
       <TouchableOpacity
         style={styles.button}
-        onPress={() => navigation.navigate("SavedListsScreen")}
+        onPress={() => navigation.navigate("Search", { screen: "SavedLists" })}
       >
         <Text style={styles.buttonText}>View Saved Lists</Text>
       </TouchableOpacity>
@@ -86,9 +90,37 @@ export default function ProfileScreen({ navigation }: any) {
         />
       )}
 
-      <TouchableOpacity style={styles.helpButton} onPress={handleNeedHelp}>
-        <Text style={styles.helpButtonText}>Need Help?</Text>
+      {/* Need Help Button */}
+      <TouchableOpacity
+        style={styles.helpButton}
+        onPress={() => setHelpVisible(true)}
+      >
+        <Text style={styles.helpButtonText}>!</Text>
       </TouchableOpacity>
+
+      {/* Need Help Modal */}
+      <Modal
+        visible={isHelpVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setHelpVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Need Help?</Text>
+            <Text style={styles.modalText}>
+              Please contact voicevaultcontact@gmail.com for any issues or
+              inquiries.
+            </Text>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setHelpVisible(false)}
+            >
+              <Text style={styles.modalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -138,18 +170,63 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   helpButton: {
-    padding: 10,
+    position: "absolute",
+    bottom: 20,
+    right: 20,
     backgroundColor: "#f44336",
-    borderRadius: 5,
-    width: "80%",
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 3,
+    elevation: 5,
   },
   helpButtonText: {
+    color: "#fff",
+    fontSize: 35,
+    fontWeight: "bold",
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    width: "80%",
+    padding: 20,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 15,
+  },
+  modalText: {
+    fontSize: 16,
+    color: "#555",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  modalCloseButton: {
+    backgroundColor: "#007bff",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+  },
+  modalCloseText: {
     color: "#fff",
     fontSize: 16,
   },
   loadingText: {
     fontSize: 18,
     color: "#555",
+    textAlign: "center",
   },
 });

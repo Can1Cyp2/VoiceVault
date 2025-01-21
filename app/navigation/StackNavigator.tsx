@@ -1,5 +1,3 @@
-// app\navigation\StackNavigator.tsx
-
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import SearchScreen from "../screens/SearchScreen/SearchScreen";
 import SavedListsScreen from "../screens/SavedListsScreen/SavedListsScreen";
@@ -11,13 +9,14 @@ import { SongDetailsScreen } from "../screens/SongDetailsScreen/SongDetailsScree
 import { ArtistDetailsScreen } from "../screens/ArtistDetailsScreen/ArtistDetailsScreen";
 import AddSongScreen from "../screens/AddSongScreen/AddSongScreen";
 
+// Define the types for navigation parameters
 export type RootStackParamList = {
   Search: undefined;
   Details: { name: string; vocalRange: string; artist: string };
   ArtistDetails: { name: string };
   AddSong: undefined;
-  SavedLists: undefined; // New screen
-  ListDetails: { listId: number }; // New screen for a specific list
+  SavedLists: undefined; // Route for displaying all saved lists
+  ListDetails: { listName: string }; // Route for showing a specific list's details
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -25,6 +24,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export function AppStack() {
   return (
     <Stack.Navigator initialRouteName="Search">
+      {/* Search Screen */}
       <Stack.Screen
         name="Search"
         component={SearchScreen}
@@ -33,7 +33,7 @@ export function AppStack() {
           headerShown: false,
           headerRight: () => (
             <TouchableOpacity
-              onPress={() => navigation.navigate("SavedLists")}
+              onPress={() => navigation.navigate("SavedLists")} // Navigate to Saved Lists
               style={{ marginRight: 10 }}
             >
               <Ionicons name="list" size={24} color="#007bff" />
@@ -41,6 +41,8 @@ export function AppStack() {
           ),
         })}
       />
+
+      {/* Song Details Screen */}
       <Stack.Screen
         name="Details"
         component={SongDetailsScreen}
@@ -56,6 +58,8 @@ export function AppStack() {
           ),
         })}
       />
+
+      {/* Artist Details Screen */}
       <Stack.Screen
         name="ArtistDetails"
         component={ArtistDetailsScreen}
@@ -71,6 +75,8 @@ export function AppStack() {
           ),
         })}
       />
+
+      {/* Add Song Screen */}
       <Stack.Screen
         name="AddSong"
         component={AddSongScreen}
@@ -86,18 +92,20 @@ export function AppStack() {
           ),
         })}
       />
+
       <Stack.Screen
         name="SavedLists"
         component={SavedListsScreen}
-        options={{
-          title: "My Saved Lists",
-        }}
+        // remove header:
+        options={() => ({ headerShown: false })}
       />
+
+      {/* List Details Screen */}
       <Stack.Screen
         name="ListDetails"
         component={ListDetailsScreen}
         options={({ navigation }) => ({
-          title: "List Details",
+          title: "List Details", // Title for the list details screen
           headerRight: () => (
             <TouchableOpacity
               onPress={() => navigation.navigate("SavedLists")}

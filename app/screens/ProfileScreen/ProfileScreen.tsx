@@ -11,41 +11,62 @@ import ProfileMenu from "./ProfileMenu";
 import { supabase } from "../../util/supabase";
 
 export default function ProfileScreen({ navigation }: any) {
-  const [isMenuVisible, setMenuVisible] = useState(false); // State for showing the ProfileMenu
-  const [username, setUsername] = useState<string | null>(null); // State for the user's username
-  const [isLoading, setIsLoading] = useState(true); // State for loading
-  const [isHelpVisible, setHelpVisible] = useState(false); // State for the Need Help modal
+  const [isMenuVisible, setMenuVisible] = useState(false);
+  const [username, setUsername] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isHelpVisible, setHelpVisible] = useState(false);
 
-  useEffect(() => {
-    const fetchDisplayName = async () => {
-      try {
-        const { data: user, error } = await supabase.auth.getUser();
+  // Fetch the user's display name
+  const fetchDisplayName = async () => {
+    try {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
 
-        if (error || !user) {
-          setUsername("Edit profile to create a display name.");
-        } else {
-          const displayName = user.user.user_metadata?.display_name;
-          setUsername(displayName || "Edit profile to create a display name.");
-        }
-      } catch (err) {
-        console.error("Error fetching display name:", err);
-        setUsername("Edit profile to create a display name.");
-      } finally {
-        setIsLoading(false); // Ensure loading state is turned off
+      if (error || !user) {
+        setUsername("Edit your profile to add a username.");
+      } else {
+        const displayName = (user as any).user_metadata?.display_name;
+        setUsername(displayName || "Edit your profile to add a username.");
       }
-    };
+    } catch (err) {
+      console.error("Error fetching display name:", err);
+      setUsername("Edit your profile to add a username.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  // Run on component mount and listen for auth state changes
+  useEffect(() => {
     fetchDisplayName();
+
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session) {
+          fetchDisplayName(); // Re-fetch username on login/logout
+        } else {
+          setUsername("Edit your profile to add a username.");
+        }
+      }
+    );
+
+    return () => {
+      subscription?.subscription?.unsubscribe(); // Properly clean up the listener
+    };
   }, []);
 
+  // Handle logout and clear the username
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
       Alert.alert("Logout Failed", error.message);
     } else {
+      setUsername("Edit your profile to add a username.");
       Alert.alert("Logged Out", "You have successfully logged out.");
     }
-    setMenuVisible(false); // Close the menu after logging out
+    setMenuVisible(false);
   };
 
   if (isLoading) {
@@ -59,46 +80,38 @@ export default function ProfileScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Profile</Text>
-
-      {/* Username Display */}
       <Text style={styles.username}>
         {(username ?? "").startsWith("Edit profile")
           ? username
           : `Username: ${username}`}
       </Text>
-
-      {/* View Saved Lists Button */}
       <TouchableOpacity
         style={styles.button}
         onPress={() => navigation.navigate("Search", { screen: "SavedLists" })}
       >
         <Text style={styles.buttonText}>View Saved Lists</Text>
       </TouchableOpacity>
-
       <TouchableOpacity
         style={styles.menuButton}
         onPress={() => setMenuVisible(true)}
       >
         <Text style={styles.menuButtonText}>Open Profile Menu</Text>
       </TouchableOpacity>
-
-      {/* ProfileMenu Modal */}
       {isMenuVisible && (
         <ProfileMenu
-          onClose={() => setMenuVisible(false)}
+          onClose={() => {
+            fetchDisplayName(); // Refresh profile after closing
+            setMenuVisible(false);
+          }}
           onLogout={handleLogout}
         />
       )}
-
-      {/* Need Help Button */}
       <TouchableOpacity
         style={styles.helpButton}
         onPress={() => setHelpVisible(true)}
       >
         <Text style={styles.helpButtonText}>!</Text>
       </TouchableOpacity>
-
-      {/* Need Help Modal */}
       <Modal
         visible={isHelpVisible}
         transparent
@@ -125,6 +138,35 @@ export default function ProfileScreen({ navigation }: any) {
   );
 }
 
+/*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*/
 const styles = StyleSheet.create({
   container: {
     flex: 1,

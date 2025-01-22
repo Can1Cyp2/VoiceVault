@@ -19,6 +19,7 @@ import {
 } from "../SavedListsScreen/SavedListsLogic";
 import { saveToList } from "../SavedListsScreen/SavedSongLogic";
 import { supabase } from "../../util/supabase";
+import { findClosestVocalRangeFit } from "./RangeBestFit";
 
 export const SongDetailsScreen = ({ route, navigation }: any) => {
   const { name, artist, vocalRange } = route.params;
@@ -78,6 +79,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
     }
   }, [isModalVisible]);
 
+  // Helper function to get out-of-range message
   const getOutOfRangeMessage = (outOfRange: string | null) => {
     if (outOfRange === "lower") {
       return "(This song is lower than the typical range for this category, it may be very difficult to sing. Consider transposing.)";
@@ -160,7 +162,6 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
           </TouchableOpacity>
         </View>
       </Modal>
-
       {/* Song details */}
       <Text style={styles.title}>{name}</Text>
       <Text style={styles.artist}>By {artist}</Text>
@@ -198,76 +199,6 @@ const noteToValue = (note: string): number => {
   const key = note.slice(0, -1);
 
   return scale[key] + (octave + 1) * 12;
-};
-
-// Helper function: Finds the best fit and checks out-of-range scenarios
-const findClosestVocalRangeFit = (
-  range: string
-): {
-  male: string;
-  female: string;
-  maleOutOfRange: string | null;
-  femaleOutOfRange: string | null;
-} => {
-  const [minRange, maxRange] = range.split(" - ").map(noteToValue);
-
-  const vocalRanges = {
-    male: [
-      { category: "Tenor", min: noteToValue("C3"), max: noteToValue("A4") },
-      { category: "Baritone", min: noteToValue("A2"), max: noteToValue("F4") },
-      { category: "Bass", min: noteToValue("E2"), max: noteToValue("E4") },
-    ],
-    female: [
-      { category: "Soprano", min: noteToValue("C4"), max: noteToValue("A5") },
-      {
-        category: "Mezzo-Soprano",
-        min: noteToValue("A3"),
-        max: noteToValue("F5"),
-      },
-      { category: "Alto", min: noteToValue("F3"), max: noteToValue("D5") },
-    ],
-  };
-
-  const findBestFit = (
-    ranges: { category: string; min: number; max: number }[]
-  ): { category: string; outOfRange: string | null } => {
-    let bestFit = null;
-    let smallestDifference = Infinity;
-    let outOfRange: string | null = null;
-
-    for (const range of ranges) {
-      const { category, min, max } = range;
-
-      // Check if completely within range
-      if (minRange >= min && maxRange <= max) {
-        return { category, outOfRange: null };
-      }
-
-      // Calculate overlaps and determine closeness
-      const difference = Math.abs(minRange - min) + Math.abs(maxRange - max);
-
-      if (difference < smallestDifference) {
-        smallestDifference = difference;
-        bestFit = category;
-
-        // Determine out-of-range direction
-        if (minRange < min) outOfRange = "lower";
-        if (maxRange > max) outOfRange = "higher";
-      }
-    }
-
-    return { category: bestFit || "Unknown", outOfRange };
-  };
-
-  const male = findBestFit(vocalRanges.male);
-  const female = findBestFit(vocalRanges.female);
-
-  return {
-    male: male.category,
-    female: female.category,
-    maleOutOfRange: male.outOfRange,
-    femaleOutOfRange: female.outOfRange,
-  };
 };
 
 // Styles

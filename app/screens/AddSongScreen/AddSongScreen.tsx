@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { View, TextInput, Button, Text, StyleSheet } from "react-native";
 import { Picker } from "@react-native-picker/picker"; // Correct import
 import { addSong } from "../../util/api";
+import { supabase } from "../../util/supabase"; // Add this line to import supabase
 
 // Define all notes on a piano
 const NOTES = [
@@ -123,21 +124,24 @@ export default function AddSongScreen({ navigation }: any) {
         return;
       }
 
-      await addSong({ name, vocalRange, artist });
-      navigation.goBack(); // Navigate back to the previous screen
-    } catch (error) {
-      if (error instanceof Error) {
-        console.error(error.message);
-      } else {
-        console.error("An unknown error occurred");
+      // Fetch the current user and username
+      const user = await supabase.auth.getUser();
+      const username = user.data.user?.user_metadata?.display_name;
+
+      // If username is missing, prompt the user to update their profile
+      if (!username) {
+        setError(
+          "Please update your profile to add a username before adding a song."
+        );
+        return;
       }
 
-      // Check if the error message contains "log in" error, tell the user to log in.
-      if (error instanceof Error && error.message.includes("log in")) {
-        setError("You must be logged in to add a song.");
-      } else {
-        setError("Failed to add song. Please try again later.");
-      }
+      // Add the song with username
+      await addSong({ name, vocalRange, artist, username }); // Pass the username
+      navigation.goBack(); // Navigate back to the previous screen
+    } catch (error) {
+      console.error(error);
+      setError("Failed to add song. Please try again later.");
     }
   };
 

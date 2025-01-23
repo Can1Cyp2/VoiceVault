@@ -166,6 +166,15 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       <Text style={styles.title}>{name}</Text>
       <Text style={styles.artist}>By {artist}</Text>
       <Text style={styles.vocalRange}>Vocal Range: {vocalRange}</Text>
+      <View style={styles.details}>
+        {route.params.username ? (
+          <Text style={styles.uploadedBy}>
+            Uploaded by: {route.params.username}
+          </Text>
+        ) : (
+          <Text style={styles.verifiedCheck}>✅ Verified Vocal Range</Text>
+        )}
+      </View>
       <View style={styles.rangeContainer}>
         <Text style={styles.rangeText}>Best fit for male: {male}</Text>
         {maleOutOfRange && (
@@ -309,5 +318,30 @@ const styles = StyleSheet.create({
     color: "#999", // Subtle gray color for "no lists found"
     textAlign: "center",
     marginVertical: 20, // Space around the message
+  },
+  // uploaded by user styles:
+  details: {
+    marginTop: 3,
+    padding: 1,
+    paddingRight: 5,
+    paddingLeft: 5,
+    borderWidth: 1,
+    borderRadius: 50,
+    borderColor: "gray",
+    opacity: 0.8, // opacity of the content in border
+  },
+  uploadedBy: {
+    fontSize: 10,
+    color: "gray",
+    marginTop: 5,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  verifiedCheck: {
+    fontSize: 10,
+    color: "tomato",
+    marginTop: 5,
+    fontWeight: "bold",
+    marginBottom: 4,
   },
 });

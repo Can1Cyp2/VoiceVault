@@ -27,6 +27,7 @@ export const addSong = async (song: {
   name: string;
   vocalRange: string;
   artist: string;
+  username?: string; // Add username as an optional property
 }): Promise<void> => {
   try {
     // Get the currently logged-in user
@@ -51,6 +52,7 @@ export const addSong = async (song: {
         vocalRange: song.vocalRange,
         artist: song.artist,
         user_id: user.id, // Include the user ID from Supabase auth
+        username: song.username || null, // Include the username or null for admin-added songs
       },
     ]);
 

@@ -1,7 +1,17 @@
 // File location: app/screens/AddSongScreen/AddSongScreen.tsx
 
 import React, { useState } from "react";
-import { View, TextInput, Button, Text, StyleSheet } from "react-native";
+import {
+  View,
+  TextInput,
+  Button,
+  Text,
+  StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableOpacity,
+} from "react-native";
 import { Picker } from "@react-native-picker/picker"; // Correct import
 import { addSong } from "../../util/api";
 import { supabase } from "../../util/supabase"; // Add this line to import supabase
@@ -146,51 +156,77 @@ export default function AddSongScreen({ navigation }: any) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Add New Song</Text>
-      {error && <Text style={styles.errorText}>{error}</Text>}
-      <TextInput
-        style={styles.input}
-        placeholder="Song Name"
-        value={name}
-        onChangeText={setName}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Artist Name"
-        value={artist}
-        onChangeText={setArtist}
-      />
-      <View style={styles.rangeContainer}>
-        <Text style={styles.rangeLabel}>Start Note:</Text>
-        <Picker
-          selectedValue={startNote}
-          style={styles.picker}
-          onValueChange={(value) => setStartNote(value)}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.title}>Add New Song</Text>
+        {error && <Text style={styles.errorText}>{error}</Text>}
+        <TextInput
+          style={styles.input}
+          placeholder="Song Name"
+          value={name}
+          onChangeText={setName}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Artist Name"
+          value={artist}
+          onChangeText={setArtist}
+        />
+        <View style={styles.rangeContainer}>
+          <Text style={styles.rangeLabel}>Start Note:</Text>
+          <Picker
+            selectedValue={startNote}
+            style={styles.picker}
+            onValueChange={(value) => setStartNote(value)}
+          >
+            {NOTES.map((note) => (
+              <Picker.Item key={note} label={note} value={note} />
+            ))}
+          </Picker>
+        </View>
+        <View style={styles.rangeContainer}>
+          <Text style={styles.rangeLabel}>End Note:</Text>
+          <Picker
+            selectedValue={endNote}
+            style={styles.picker}
+            onValueChange={(value) => setEndNote(value)}
+          >
+            {NOTES.map((note) => (
+              <Picker.Item key={note} label={note} value={note} />
+            ))}
+          </Picker>
+        </View>
+        <TouchableOpacity
+          style={{
+            backgroundColor: "tomato",
+            padding: 15,
+            borderRadius: 10,
+            alignItems: "center",
+            marginVertical: 20,
+          }}
+          onPress={handleAddSong}
         >
-          {NOTES.map((note) => (
-            <Picker.Item key={note} label={note} value={note} />
-          ))}
-        </Picker>
-      </View>
-      <View style={styles.rangeContainer}>
-        <Text style={styles.rangeLabel}>End Note:</Text>
-        <Picker
-          selectedValue={endNote}
-          style={styles.picker}
-          onValueChange={(value) => setEndNote(value)}
-        >
-          {NOTES.map((note) => (
-            <Picker.Item key={note} label={note} value={note} />
-          ))}
-        </Picker>
-      </View>
-      <Button title="Add Song" onPress={handleAddSong} />
-    </View>
+          <Text style={{ color: "white", fontWeight: "bold", fontSize: 16 }}>
+            Add Song
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    padding: 20,
+    backgroundColor: "#fff",
+    paddingBottom: 100, // Extra padding at the bottom to allow scrolling past the screen
+  },
   container: { flex: 1, padding: 20, backgroundColor: "#fff" },
   title: { fontSize: 24, fontWeight: "bold", marginBottom: 20 },
   input: {

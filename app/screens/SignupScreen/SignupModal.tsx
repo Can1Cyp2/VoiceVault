@@ -33,17 +33,14 @@ export default function SignupModal({ onClose }: { onClose: () => void }) {
         return;
       }
 
-      // Signup successful
-      if (data.user) {
-        Alert.alert(
-          "Success",
-          "Signup successful! Please check your email to confirm your account."
-        );
-        onClose(); // Close modal after successful signup
-      }
+      Alert.alert(
+        "Success",
+        "Signup successful! Please check your email to confirm your account. You will get an email from "
+      );
+      onClose(); // Close the modal after successful signup
     } catch (err) {
       console.error("Signup Error:", err);
-      Alert.alert("An unexpected error occurred. Please try again.");
+      Alert.alert("An error occurred. Please try again.");
     }
   };
 
@@ -54,7 +51,6 @@ export default function SignupModal({ onClose }: { onClose: () => void }) {
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor="#777"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -62,7 +58,6 @@ export default function SignupModal({ onClose }: { onClose: () => void }) {
         <TextInput
           style={styles.input}
           placeholder="Password"
-          placeholderTextColor="#777"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -70,7 +65,6 @@ export default function SignupModal({ onClose }: { onClose: () => void }) {
         <TextInput
           style={styles.input}
           placeholder="Confirm Password"
-          placeholderTextColor="#777"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry

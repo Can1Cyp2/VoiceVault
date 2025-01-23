@@ -1,3 +1,5 @@
+// app/screens/ProfileScreen/ProfileScreen.tsx
+
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -138,35 +140,6 @@ export default function ProfileScreen({ navigation }: any) {
   );
 }
 
-/*
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-*/
 const styles = StyleSheet.create({
   container: {
     flex: 1,

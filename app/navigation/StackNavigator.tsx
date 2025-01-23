@@ -12,7 +12,12 @@ import AddSongScreen from "../screens/AddSongScreen/AddSongScreen";
 // Define the types for navigation parameters
 export type RootStackParamList = {
   Search: undefined;
-  Details: { name: string; vocalRange: string; artist: string };
+  Details: {
+    name: string;
+    vocalRange: string;
+    artist: string;
+    username: string;
+  };
   ArtistDetails: { name: string };
   AddSong: undefined;
   SavedLists: undefined; // Route for displaying all saved lists

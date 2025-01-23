@@ -61,6 +61,7 @@ export default function SearchScreen() {
         name: item.name,
         artist: item.artist,
         vocalRange: item.vocalRange,
+        username: item.username,
       });
     } else if (filter === "artists") {
       navigation.navigate("ArtistDetails", {

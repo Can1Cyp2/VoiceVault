@@ -167,9 +167,6 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       <Text style={styles.artist}>By {artist}</Text>
       <Text style={styles.vocalRange}>Vocal Range: {vocalRange}</Text>
       <View style={styles.details}>
-        <Text style={styles.title}>{name}</Text>
-        <Text style={styles.artist}>By {artist}</Text>
-        <Text style={styles.vocalRange}>Vocal Range: {vocalRange}</Text>
         {route.params.username ? (
           <Text style={styles.uploadedBy}>
             Uploaded by: {route.params.username}
@@ -225,13 +222,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: "bold", marginBottom: 10 },
   artist: { fontSize: 18, color: "gray", marginBottom: 10 },
   vocalRange: { fontSize: 20, color: "tomato", marginVertical: 10 },
-  details: {
-    marginTop: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderRadius: 10,
-    borderColor: "gray",
-  },
   rangeContainer: {
     marginTop: 30,
     padding: 30,
@@ -330,15 +320,28 @@ const styles = StyleSheet.create({
     marginVertical: 20, // Space around the message
   },
   // uploaded by user styles:
+  details: {
+    marginTop: 3,
+    padding: 1,
+    paddingRight: 5,
+    paddingLeft: 5,
+    borderWidth: 1,
+    borderRadius: 50,
+    borderColor: "gray",
+    opacity: 0.8, // opacity of the content in border
+  },
   uploadedBy: {
-    fontSize: 16,
+    fontSize: 10,
     color: "gray",
     marginTop: 5,
+    fontWeight: "bold",
+    marginBottom: 4,
   },
   verifiedCheck: {
-    fontSize: 16,
+    fontSize: 10,
     color: "tomato",
     marginTop: 5,
     fontWeight: "bold",
+    marginBottom: 4,
   },
 });

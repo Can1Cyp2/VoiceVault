@@ -63,10 +63,11 @@ export default function ListDetailsScreen({ route, navigation }: any) {
   };
 
   const handleSongPress = (song: any) => {
-    navigation.navigate("SongDetails", {
+    navigation.navigate("Details", {
       name: song.name,
       artist: song.artist,
       vocalRange: song.vocal_range,
+      username: song.username,
     });
   };
 

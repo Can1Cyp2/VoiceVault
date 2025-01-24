@@ -17,6 +17,7 @@ export type RootStackParamList = {
     vocalRange: string;
     artist: string;
     username: string;
+    showAddToListModal?: boolean;
   };
   ArtistDetails: { name: string };
   AddSong: undefined;
@@ -55,10 +56,10 @@ export function AppStack() {
           title: "Song Details",
           headerRight: () => (
             <TouchableOpacity
-              onPress={() => navigation.navigate("SavedLists")}
+              onPress={() => navigation.setParams({ showAddToListModal: true })}
               style={{ marginRight: 10 }}
             >
-              <Ionicons name="list" size={24} color="#007bff" />
+              <Ionicons name="add-circle-outline" size={30} color="tomato" />
             </TouchableOpacity>
           ),
         })}
@@ -85,17 +86,10 @@ export function AppStack() {
       <Stack.Screen
         name="AddSong"
         component={AddSongScreen}
-        options={({ navigation }) => ({
+        options={{
           title: "Add Song",
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={() => navigation.navigate("SavedLists")}
-              style={{ marginRight: 10 }}
-            >
-              <Ionicons name="list" size={24} color="#007bff" />
-            </TouchableOpacity>
-          ),
-        })}
+          headerRight: () => null,
+        }}
       />
 
       <Stack.Screen

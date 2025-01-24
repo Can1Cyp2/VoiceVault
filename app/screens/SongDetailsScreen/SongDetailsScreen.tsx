@@ -79,6 +79,15 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
     }
   }, [isModalVisible]);
 
+  // Check if the modal should open based on route params:
+  useEffect(() => {
+    if (route.params?.showAddToListModal) {
+      setModalVisible(true);
+      // Reset the param to avoid reopening the modal unintentionally
+      navigation.setParams({ showAddToListModal: false });
+    }
+  }, [route.params?.showAddToListModal]);
+
   // Helper function to get out-of-range message
   const getOutOfRangeMessage = (outOfRange: string | null) => {
     if (outOfRange === "lower") {
@@ -124,6 +133,13 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
     setModalVisible(false);
   };
 
+  // Function to handle artist, sends user to artist page
+  const handleArtistPress = () => {
+    navigation.navigate("ArtistDetails", {
+      name: artist,
+    });
+  };
+
   return (
     <View style={styles.container}>
       {/* Modal adding custom or selecting existing list */}
@@ -164,7 +180,12 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       </Modal>
       {/* Song details */}
       <Text style={styles.title}>{name}</Text>
-      <Text style={styles.artist}>By {artist}</Text>
+      <Text style={styles.artist}>
+        By{" "}
+        <Text onPress={handleArtistPress} style={styles.artistLink}>
+          {artist}
+        </Text>
+      </Text>
       <Text style={styles.vocalRange}>Vocal Range: {vocalRange}</Text>
       <View style={styles.details}>
         {route.params.username ? (
@@ -221,6 +242,11 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 24, fontWeight: "bold", marginBottom: 10 },
   artist: { fontSize: 18, color: "gray", marginBottom: 10 },
+  artistLink: {
+    color: "#007bff", // Makes it look like a link
+    textDecorationLine: "underline",
+  },
+
   vocalRange: { fontSize: 20, color: "tomato", marginVertical: 10 },
   rangeContainer: {
     marginTop: 30,

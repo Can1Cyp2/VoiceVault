@@ -203,6 +203,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
             {getOutOfRangeMessage(maleOutOfRange)}
           </Text>
         )}
+        <Text style={styles.divider}>- - -</Text>
         <Text style={styles.rangeText}>Best fit for female: {female}</Text>
         {femaleOutOfRange && (
           <Text style={styles.noteText}>
@@ -214,23 +215,6 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   );
 };
 
-// Helper function: Converts musical notes to numeric values for comparison
-const noteToValue = (note: string): number => {
-  const scale: { [key: string]: number } = {
-    C: 0,
-    D: 2,
-    E: 4,
-    F: 5,
-    G: 7,
-    A: 9,
-    B: 11,
-  };
-  const octave = parseInt(note.slice(-1), 10);
-  const key = note.slice(0, -1);
-
-  return scale[key] + (octave + 1) * 12;
-};
-
 // Styles
 const styles = StyleSheet.create({
   container: {
@@ -239,6 +223,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 20,
     backgroundColor: "#fff",
+  },
+  divider: {
+    fontSize: 16,
+    textAlign: "center",
+    color: "gray",
+    margin: 5,
   },
   title: { fontSize: 24, fontWeight: "bold", marginBottom: 10 },
   artist: { fontSize: 18, color: "gray", marginBottom: 10 },
@@ -255,8 +245,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderColor: "gray",
   },
-  rangeText: { fontSize: 16, textAlign: "center", marginVertical: 5 },
-  noteText: { fontSize: 12, textAlign: "center", color: "gray", marginTop: 5 },
+  rangeText: { fontSize: 16, textAlign: "center", marginVertical: 0 },
+  noteText: {
+    fontSize: 12,
+    textAlign: "center",
+    color: "gray",
+  },
   buttonText: {
     color: "#fff",
     backgroundColor: "#32CD32",

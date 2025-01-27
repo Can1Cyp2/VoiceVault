@@ -141,7 +141,7 @@ export default function AddSongScreen({ navigation }: any) {
       // If username is missing, prompt the user to update their profile
       if (!username) {
         setError(
-          "Please update your profile to add a username before adding a song."
+          "Please ensure you are logged in and update your profile to add a username before adding songs."
         );
         return;
       }

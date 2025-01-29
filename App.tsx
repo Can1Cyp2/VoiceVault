@@ -114,7 +114,7 @@ const CustomProfileButton = ({
         } else {
           Alert.alert(
             "Access Denied",
-            "You must be logged in to access the Profile screen. If you need help please contact voicevaultcontant@gmail.com"
+            "You must be logged in to access the Profile screen. If you need help please contact voicevaultcontact@gmail.com"
           );
         }
       }}

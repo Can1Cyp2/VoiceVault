@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "MyNewApp",
-    "slug": "MyNewApp",
+    "name": "VoiceVault",
+    "slug": "VoiceVault",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -19,10 +19,17 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.can1cyp2.VoiceVault"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "33c93c1e-6118-430e-a6d8-ff2e05458e48"
+      }
+    },
+    "owner": "can1cyp2"
   }
 }

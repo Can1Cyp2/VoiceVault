@@ -12,17 +12,18 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/StackNavigator";
+import { Ionicons } from "@expo/vector-icons";
 
 import { SearchBar } from "../../components/SearchBar/SearchBar";
 import { searchSongsByQuery, getArtists } from "../../util/api";
-import { Ionicons } from "@expo/vector-icons";
+import { checkInternetConnection } from "../../util/network";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Search">;
 
 export default function SearchScreen() {
   const navigation = useNavigation<NavigationProp>();
   const handleAddPress = () => {
-    navigation.navigate("AddSong"); // This should now resolve correctly
+    navigation.navigate("AddSong");
   };
 
   const [results, setResults] = useState<any[]>([]);
@@ -30,6 +31,7 @@ export default function SearchScreen() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"songs" | "artists">("songs");
+  const [isConnected, setIsConnected] = useState(true);
 
   useEffect(() => {
     setResults([]); // Clear results when the filter changes
@@ -54,6 +56,44 @@ export default function SearchScreen() {
 
     fetchResults();
   }, [query, filter]);
+
+  // Retry fetching data:
+  const fetchResults = async () => {
+    setLoading(true);
+    setError(null);
+
+    const internetAvailable = await checkInternetConnection();
+    setIsConnected(internetAvailable ?? false);
+
+    if (!internetAvailable) {
+      setLoading(false);
+      setError("No internet connection. Please check your network.");
+      return;
+    }
+
+    try {
+      if (filter === "songs") {
+        const songs = await searchSongsByQuery(query);
+        setResults(songs);
+      } else if (filter === "artists") {
+        const artists = await getArtists(query);
+        setResults(artists);
+      }
+    } catch (err) {
+      setError("An error occurred while fetching data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setResults([]); // Clear results when the filter changes
+    fetchResults();
+  }, [query, filter]);
+
+  const handleRetry = () => {
+    fetchResults(); // Retry fetching data
+  };
 
   const handlePress = (item: any) => {
     if (filter === "songs") {
@@ -103,11 +143,20 @@ export default function SearchScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
       {loading && <ActivityIndicator size="large" color="tomato" />}
-      {error && <Text style={styles.errorText}>{error}</Text>}
-      {!loading && results.length === 0 && (
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity onPress={handleRetry} style={styles.retryButton}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      {!loading && results.length === 0 && !error && (
         <Text style={styles.noResultsText}>No results found.</Text>
       )}
+
       <FlatList
         data={results}
         keyExtractor={(item, index) =>
@@ -149,8 +198,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   loadingText: { textAlign: "center", marginVertical: 10, color: "gray" },
-  errorText: { textAlign: "center", marginVertical: 10, color: "red" },
-  noResultsText: { textAlign: "center", color: "#555", marginVertical: 20 },
   filterContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -187,4 +234,25 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
   },
   resultText: { fontSize: 16 },
+  errorContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: 20,
+  },
+  errorText: {
+    color: "red",
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  retryButton: {
+    backgroundColor: "tomato",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  noResultsText: { textAlign: "center", color: "#555", marginVertical: 20 },
 });

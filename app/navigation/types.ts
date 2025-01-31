@@ -10,5 +10,5 @@ export type RootStackParamList = {
   };
   ArtistDetails: {
     name: string;
-  }; // Add ArtistDetails screen with a name parameter
+  };
 };

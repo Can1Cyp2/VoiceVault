@@ -8,7 +8,7 @@ export const searchSongsByQuery = async (query: string): Promise<any[]> => {
     const { data, error } = await supabase
       .from("songs") // Replace with your table name
       .select("*")
-      .ilike("name", `%${query}%`); // Filter songs by name (case-insensitive)
+      .or(`name.ilike.%${query}%, artist.ilike.%${query}%`); // Searches both song names and songs sung by artist
 
     if (error) {
       console.error("Error fetching songs:", error.message);

@@ -12,7 +12,6 @@ import { useEffect, useState } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 const Tab = createBottomTabNavigator();
-const ProfileStack = createNativeStackNavigator();
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -31,18 +30,6 @@ export default function App() {
 
     checkSession();
   }, []);
-
-  function ProfileStackScreen() {
-    return (
-      <ProfileStack.Navigator>
-        <ProfileStack.Screen
-          name="Profile"
-          component={ProfileScreen}
-          options={{ title: "Profile" }}
-        />
-      </ProfileStack.Navigator>
-    );
-  }
 
   return (
     <NavigationContainer>

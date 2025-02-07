@@ -9,8 +9,10 @@ import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
 import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
 import SavedListsScreen from "./app/screens/SavedListsScreen/SavedListsScreen";
 import { useEffect, useState } from "react";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 const Tab = createBottomTabNavigator();
+const ProfileStack = createNativeStackNavigator();
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -29,6 +31,18 @@ export default function App() {
 
     checkSession();
   }, []);
+
+  function ProfileStackScreen() {
+    return (
+      <ProfileStack.Navigator>
+        <ProfileStack.Screen
+          name="Profile"
+          component={ProfileScreen}
+          options={{ title: "Profile" }}
+        />
+      </ProfileStack.Navigator>
+    );
+  }
 
   return (
     <NavigationContainer>
@@ -60,16 +74,11 @@ export default function App() {
         <Tab.Screen
           name="Profile"
           component={ProfileScreen}
-          options={({ navigation }) => ({
-            //Pass navigation
+          options={{
             tabBarButton: (props) => (
-              <CustomProfileButton
-                {...props}
-                navigation={navigation}
-                isLoggedIn={isLoggedIn}
-              />
+              <CustomProfileButton {...props} isLoggedIn={isLoggedIn} />
             ),
-          })}
+          }}
         />
       </Tab.Navigator>
     </NavigationContainer>
@@ -105,7 +114,7 @@ const CustomTabButton = ({ onPress, accessibilityState, label, icon }: any) => {
 
 // Custom Profile Button
 const CustomProfileButton = ({
-  navigation, // Pass navigation prop
+  onPress, // Use the onPress from tabBarButton props
   accessibilityState,
   isLoggedIn,
 }: any) => {
@@ -115,11 +124,11 @@ const CustomProfileButton = ({
     <Pressable
       onPress={() => {
         if (isLoggedIn) {
-          navigation.navigate("Profile"); // Explicitly navigate to "Profile"
+          onPress(); // Trigger the tab's built-in navigation
         } else {
           Alert.alert(
             "Access Denied",
-            "You must be logged in to access the Profile screen. If you need help, please contact support."
+            "You must be logged in to access the Profile screen."
           );
         }
       }}

@@ -1,190 +1,247 @@
-// File location: app/screens/ProfileScreen/ProfileScreen.tsx
+// app/screens/ProfileScreen/ProfileScreen.tsx
 
 import React, { useState, useEffect } from "react";
 import {
   View,
-  FlatList,
   Text,
-  StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Modal,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { RootStackParamList } from "../../navigation/StackNavigator";
+import ProfileMenu from "./ProfileMenu";
+import { supabase } from "../../util/supabase";
 
-import { SearchBar } from "../../components/SearchBar/SearchBar";
-import { searchSongsByQuery, getArtists } from "../../util/api";
-import { Ionicons } from "@expo/vector-icons";
+export default function ProfileScreen({ navigation }: any) {
+  const [isMenuVisible, setMenuVisible] = useState(false);
+  const [username, setUsername] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isHelpVisible, setHelpVisible] = useState(false);
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Search">;
+  // Fetch the user's display name
+  const fetchDisplayName = async () => {
+    try {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
 
-export default function SearchScreen() {
-  const navigation = useNavigation<NavigationProp>();
-  const handleAddPress = () => {
-    navigation.navigate("AddSong");
-  };
-
-  const [results, setResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"songs" | "artists">("songs");
-
-  useEffect(() => {
-    setResults([]); // Clear results when the filter changes
-    const fetchResults = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        if (filter === "songs") {
-          const songs = await searchSongsByQuery(query);
-          setResults(songs);
-        } else if (filter === "artists") {
-          const artists = await getArtists(query);
-          setResults(artists);
-        }
-      } catch (err) {
-        setError("An error occurred while fetching data.");
-      } finally {
-        setLoading(false);
+      if (error || !user) {
+        setUsername("Edit your profile to add a username.");
+      } else {
+        const displayName = (user as any).user_metadata?.display_name;
+        setUsername(displayName || "Edit your profile to add a username.");
       }
-    };
-
-    fetchResults();
-  }, [query, filter]);
-
-  const handlePress = (item: any) => {
-    if (filter === "songs") {
-      navigation.navigate("Details", {
-        name: item.name,
-        artist: item.artist,
-        vocalRange: item.vocalRange,
-        username: item.username,
-      });
-    } else if (filter === "artists") {
-      navigation.navigate("ArtistDetails", {
-        name: item.name,
-      });
+    } catch (err) {
+      console.error("Error fetching display name:", err);
+      setUsername("Edit your profile to add a username.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  // Run on component mount and listen for auth state changes
+  useEffect(() => {
+    fetchDisplayName();
+
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session) {
+          fetchDisplayName(); // Re-fetch username on login/logout
+        } else {
+          setUsername("Edit your profile to add a username.");
+        }
+      }
+    );
+
+    return () => {
+      subscription?.subscription?.unsubscribe(); // Properly clean up the listener
+    };
+  }, []);
+
+  // Handle logout and clear the username
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      Alert.alert("Logout Failed", error.message);
+    } else {
+      setUsername("Edit your profile to add a username.");
+      Alert.alert("Logged Out", "You have successfully logged out.");
+    }
+    setMenuVisible(false);
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <View style={styles.searchBarContainer}>
-        <SearchBar onSearch={setQuery} />
-      </View>
-      <View style={styles.filterContainer}>
-        {/* Add Button */}
-        <TouchableOpacity style={styles.addButton} onPress={handleAddPress}>
-          <Ionicons name="add-circle" size={36} color="tomato" />
-        </TouchableOpacity>
-
-        {/* Filter Buttons Container */}
-        <View style={styles.filterButtonsWrapper}>
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              filter === "songs" && styles.activeFilter,
-            ]}
-            onPress={() => setFilter("songs")}
-          >
-            <Text style={styles.filterText}>Songs</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              filter === "artists" && styles.activeFilter,
-            ]}
-            onPress={() => setFilter("artists")}
-          >
-            <Text style={styles.filterText}>Artists</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      {loading && <ActivityIndicator size="large" color="tomato" />}
-      {error && <Text style={styles.errorText}>{error}</Text>}
-      {!loading && results.length === 0 && (
-        <Text style={styles.noResultsText}>No results found.</Text>
+      <Text style={styles.title}>Profile</Text>
+      <Text style={styles.username}>
+        {(username ?? "").startsWith("Edit profile")
+          ? username
+          : `Username: ${username}`}
+      </Text>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => navigation.navigate("Search", { screen: "SavedLists" })}
+      >
+        <Text style={styles.buttonText}>View Saved Lists</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.menuButton}
+        onPress={() => setMenuVisible(true)}
+      >
+        <Text style={styles.menuButtonText}>Open Profile Menu</Text>
+      </TouchableOpacity>
+      {isMenuVisible && (
+        <ProfileMenu
+          onClose={() => {
+            fetchDisplayName(); // Refresh profile after closing
+            setMenuVisible(false);
+          }}
+          onLogout={handleLogout}
+        />
       )}
-      <FlatList
-        data={results}
-        keyExtractor={(item, index) =>
-          filter === "songs"
-            ? item?.id?.toString() ?? index.toString()
-            : item?.name ?? index.toString()
-        }
-        renderItem={({ item }) => {
-          if (
-            filter === "songs" &&
-            (!item.name || !item.artist || !item.vocalRange)
-          ) {
-            return null; // Skip rendering invalid song data
-          }
-          if (filter === "artists" && !item.name) {
-            return null; // Skip rendering invalid artist data
-          }
-          return (
-            <TouchableOpacity onPress={() => handlePress(item)}>
-              <View style={styles.resultItem}>
-                <Text style={styles.resultText}>
-                  {filter === "songs"
-                    ? `${item.name} by ${item.artist} - ${item.vocalRange}`
-                    : `${item.name}`}
-                </Text>
-              </View>
+      <TouchableOpacity
+        style={styles.helpButton}
+        onPress={() => setHelpVisible(true)}
+      >
+        <Text style={styles.helpButtonText}>!</Text>
+      </TouchableOpacity>
+      <Modal
+        visible={isHelpVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setHelpVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Need Help?</Text>
+            <Text style={styles.modalText}>
+              Please contact voicevaultcontact@gmail.com for any issues or
+              inquiries.
+            </Text>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setHelpVisible(false)}
+            >
+              <Text style={styles.modalCloseText}>Close</Text>
             </TouchableOpacity>
-          );
-        }}
-      />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", paddingTop: 30 },
-  searchBarContainer: {
-    marginTop: 20,
-    paddingHorizontal: 10,
-  },
-  loadingText: { textAlign: "center", marginVertical: 10, color: "gray" },
-  errorText: { textAlign: "center", marginVertical: 10, color: "red" },
-  noResultsText: { textAlign: "center", color: "#555", marginVertical: 20 },
-  filterContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 10,
-    paddingHorizontal: 10,
-  },
-  addButton: {
-    position: "absolute",
-    left: 17,
-  },
-  filterButtonsWrapper: {
-    flexDirection: "row",
-    justifyContent: "center",
+  container: {
     flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    padding: 20,
   },
-  filterButton: {
-    paddingVertical: 8,
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 20,
+    color: "#333",
+  },
+  username: {
+    fontSize: 18,
+    color: "#555",
+    marginBottom: 30,
+    textAlign: "center",
+  },
+  button: {
+    backgroundColor: "#007bff",
+    padding: 15,
+    borderRadius: 5,
+    marginBottom: 20,
+    width: "80%",
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 16,
+  },
+  menuButton: {
+    backgroundColor: "#4caf50",
+    padding: 15,
+    borderRadius: 5,
+    marginBottom: 20,
+    width: "80%",
+    alignItems: "center",
+  },
+  menuButtonText: {
+    color: "#fff",
+    fontSize: 16,
+  },
+  helpButton: {
+    position: "absolute",
+    bottom: 20,
+    right: 20,
+    backgroundColor: "#f44336",
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  helpButtonText: {
+    color: "#fff",
+    fontSize: 35,
+    fontWeight: "bold",
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    width: "80%",
+    padding: 20,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 15,
+  },
+  modalText: {
+    fontSize: 16,
+    color: "#555",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  modalCloseButton: {
+    backgroundColor: "#007bff",
+    paddingVertical: 10,
     paddingHorizontal: 20,
-    marginHorizontal: 5,
     borderRadius: 5,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    backgroundColor: "#f0f0f0",
   },
-  activeFilter: { backgroundColor: "tomato", borderColor: "tomato" },
-  filterText: { color: "black", fontWeight: "bold" },
-  resultItem: {
-    padding: 10,
-    marginVertical: 5,
-    marginHorizontal: 10,
-    backgroundColor: "#f9f9f9",
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: "#ddd",
+  modalCloseText: {
+    color: "#fff",
+    fontSize: 16,
   },
-  resultText: { fontSize: 16 },
+  loadingText: {
+    fontSize: 18,
+    color: "#555",
+    textAlign: "center",
+  },
 });

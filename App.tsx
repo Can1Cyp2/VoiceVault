@@ -60,11 +60,16 @@ export default function App() {
         <Tab.Screen
           name="Profile"
           component={ProfileScreen}
-          options={{
+          options={({ navigation }) => ({
+            //Pass navigation
             tabBarButton: (props) => (
-              <CustomProfileButton {...props} isLoggedIn={isLoggedIn} />
+              <CustomProfileButton
+                {...props}
+                navigation={navigation}
+                isLoggedIn={isLoggedIn}
+              />
             ),
-          }}
+          })}
         />
       </Tab.Navigator>
     </NavigationContainer>
@@ -100,7 +105,7 @@ const CustomTabButton = ({ onPress, accessibilityState, label, icon }: any) => {
 
 // Custom Profile Button
 const CustomProfileButton = ({
-  onPress,
+  navigation, // Pass navigation prop
   accessibilityState,
   isLoggedIn,
 }: any) => {
@@ -110,11 +115,11 @@ const CustomProfileButton = ({
     <Pressable
       onPress={() => {
         if (isLoggedIn) {
-          onPress();
+          navigation.navigate("Profile"); // Explicitly navigate to "Profile"
         } else {
           Alert.alert(
             "Access Denied",
-            "You must be logged in to access the Profile screen. If you need help please contact voicevaultcontact@gmail.com"
+            "You must be logged in to access the Profile screen. If you need help, please contact support."
           );
         }
       }}
@@ -124,11 +129,7 @@ const CustomProfileButton = ({
       ]}
     >
       <Ionicons
-        name={
-          isSelected
-            ? ("person" as keyof typeof Ionicons.glyphMap)
-            : ("person-outline" as keyof typeof Ionicons.glyphMap)
-        }
+        name={isSelected ? "person" : "person-outline"}
         size={28}
         color={!isLoggedIn ? "white" : isSelected ? "tomato" : "darkgray"}
       />

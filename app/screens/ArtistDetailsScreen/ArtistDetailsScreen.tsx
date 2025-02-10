@@ -1,13 +1,57 @@
 // app/screens/ArtistDetailsScreen/ArtistDetailsScreen.tsx
+import { useNavigation } from "@react-navigation/native";
 
 import React, { useState, useEffect } from "react";
-import { View, Text, FlatList, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+} from "react-native";
 import { searchSongsByQuery } from "../../util/api";
+import { supabase } from "../../util/supabase";
+import { Ionicons } from "@expo/vector-icons";
 
 export const ArtistDetailsScreen = ({ route }: any) => {
   const { name } = route.params;
   const [songs, setSongs] = useState<any[]>([]);
   const [overallRange, setOverallRange] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const navigation = useNavigation();
+
+  // Check to see if the user is logged in:
+  useEffect(() => {
+    const checkLoginStatus = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setIsLoggedIn(!!session);
+
+      supabase.auth.onAuthStateChange((_event, session) => {
+        setIsLoggedIn(!!session);
+      });
+    };
+
+    checkLoginStatus();
+  }, []);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () =>
+        isLoggedIn ? (
+          <TouchableOpacity onPress={() => console.log("List Button Clicked")}>
+            <Ionicons
+              name="add-circle-outline"
+              size={30}
+              color="#32CD32"
+              style={{ marginRight: 15 }}
+            />
+          </TouchableOpacity>
+        ) : null, // Hide button if not logged in
+    });
+  }, [isLoggedIn, navigation]);
 
   useEffect(() => {
     const fetchSongs = async () => {

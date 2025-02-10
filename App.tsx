@@ -9,6 +9,7 @@ import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
 import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
 import SavedListsScreen from "./app/screens/SavedListsScreen/SavedListsScreen";
 import { useEffect, useState } from "react";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 const Tab = createBottomTabNavigator();
 
@@ -100,7 +101,7 @@ const CustomTabButton = ({ onPress, accessibilityState, label, icon }: any) => {
 
 // Custom Profile Button
 const CustomProfileButton = ({
-  onPress,
+  onPress, // Use the onPress from tabBarButton props
   accessibilityState,
   isLoggedIn,
 }: any) => {
@@ -110,11 +111,11 @@ const CustomProfileButton = ({
     <Pressable
       onPress={() => {
         if (isLoggedIn) {
-          onPress();
+          onPress(); // Trigger the tab's built-in navigation
         } else {
           Alert.alert(
             "Access Denied",
-            "You must be logged in to access the Profile screen. If you need help please contact voicevaultcontact@gmail.com"
+            "You must be logged in to access the Profile screen."
           );
         }
       }}
@@ -124,11 +125,7 @@ const CustomProfileButton = ({
       ]}
     >
       <Ionicons
-        name={
-          isSelected
-            ? ("person" as keyof typeof Ionicons.glyphMap)
-            : ("person-outline" as keyof typeof Ionicons.glyphMap)
-        }
+        name={isSelected ? "person" : "person-outline"}
         size={28}
         color={!isLoggedIn ? "white" : isSelected ? "tomato" : "darkgray"}
       />

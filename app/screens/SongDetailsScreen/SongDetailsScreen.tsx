@@ -31,6 +31,8 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   const [customListName, setCustomListName] = useState(""); // Custom list name
   const [existingLists, setExistingLists] = useState<any[]>([]); // Holds user's saved lists
   const [isLoggedIn, setIsLoggedIn] = useState(false); // Tracks user's login status
+  const [isIssueModalVisible, setIssueModalVisible] = useState(false);
+  const [issueText, setIssueText] = useState("");
 
   // Check if the user is logged in and set header options
   useEffect(() => {
@@ -140,6 +142,82 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
     });
   };
 
+  // Submit the issue report to Supabase
+  const handleSubmitIssue = async () => {
+    if (!issueText.trim()) {
+      Alert.alert("Error", "Please enter an issue description.");
+      return;
+    }
+
+    try {
+      // Check if the user is logged in
+      const { data: sessionData } = await supabase.auth.getSession();
+
+      if (!sessionData?.session) {
+        Alert.alert(
+          "Sign In Required",
+          "You must be signed in to report an issue."
+        );
+        return;
+      }
+
+      const { data: user } = await supabase.auth.getUser();
+
+      if (!user?.user) {
+        Alert.alert(
+          "Sign In Required",
+          "You must be signed in to report an issue."
+        );
+        return;
+      }
+
+      console.log("User data from Supabase:", user);
+
+      // Fetch username the same way as ProfileScreen
+      let username = user.user.user_metadata?.display_name;
+
+      console.log("Extracted username:", username);
+
+      // If username is missing, show alert and ask user to set it
+      if (!username || username.trim() === "") {
+        Alert.alert(
+          "Set Username",
+          "Your username is missing. Please go to profile settings and set a display name."
+        );
+        return;
+      }
+
+      const issuePayload = {
+        song_id: route.params.song_id || null,
+        song_name: name,
+        vocal_range: vocalRange,
+        user_id: user.user.id,
+        username: username,
+        user_email: user.user.email || "No email",
+        issue_text: issueText,
+        status: "pending",
+      };
+
+      console.log("Submitting issue with payload:", issuePayload);
+
+      // Try inserting into Supabase
+      const { error } = await supabase.from("issues").insert([issuePayload]);
+
+      if (error) {
+        console.error("Supabase Insert Error:", error);
+        Alert.alert("Error", `Failed to submit issue: ${error.message}`);
+        return;
+      }
+
+      Alert.alert("Success", "Issue reported successfully.");
+      setIssueText("");
+      setIssueModalVisible(false);
+    } catch (error) {
+      console.error("Unexpected Error submitting issue:", error);
+      Alert.alert("Error", "Something went wrong. Please try again.");
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Modal adding custom or selecting existing list */}
@@ -211,6 +289,33 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
           </Text>
         )}
       </View>
+      {/* Report Issue Button */}
+      <TouchableOpacity
+        style={styles.reportButton}
+        onPress={() => setIssueModalVisible(true)}
+      >
+        <Ionicons name="alert-circle-outline" size={28} color="red" />
+      </TouchableOpacity>
+
+      {/* Issue Report Modal */}
+      <Modal visible={isIssueModalVisible} animationType="slide" transparent>
+        <View style={styles.modalContainer}>
+          <Text style={styles.modalTitle}>Report an Issue</Text>
+          <TextInput
+            style={styles.issueText}
+            placeholder="Describe the issue..."
+            value={issueText}
+            onChangeText={setIssueText}
+            multiline
+          />
+          <TouchableOpacity onPress={handleSubmitIssue}>
+            <Text style={styles.buttonText}>Submit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setIssueModalVisible(false)}>
+            <Text style={styles.cancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -363,5 +468,16 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontWeight: "bold",
     marginBottom: 4,
+  },
+  reportButton: { marginTop: 20 },
+  cancelText: { fontSize: 16, color: "#fff", marginTop: 10 },
+  issueText: {
+    width: "80%",
+    height: "40%",
+    padding: 10,
+    backgroundColor: "#fff",
+    borderRadius: 5,
+    marginBottom: 20,
+    textAlignVertical: "top",
   },
 });

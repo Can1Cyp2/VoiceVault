@@ -92,3 +92,85 @@ export const getArtists = async (query: string): Promise<any[]> => {
     return [];
   }
 };
+
+// Report an issue about a song
+export const reportIssue = async (
+  songId: number | null,
+  songName: string,
+  vocalRange: string,
+  issueText: string
+): Promise<void> => {
+  try {
+    const { data: user } = await supabase.auth.getUser();
+
+    if (!user?.user) {
+      throw new Error("You must be logged in to report an issue.");
+    }
+
+    const issuePayload = {
+      song_id: songId,
+      song_name: songName,
+      vocal_range: vocalRange,
+      user_id: user.user.id,
+      username: user.user.user_metadata?.username || "Anonymous",
+      user_email: user.user.email || "No email",
+      issue_text: issueText,
+      status: "pending", // Default status when an issue is reported
+    };
+
+    const { error } = await supabase.from("issues").insert([issuePayload]);
+
+    if (error) {
+      console.error("Error reporting issue:", error.message);
+      throw error;
+    }
+
+    console.log("Issue reported successfully.");
+  } catch (error) {
+    console.error("Error in reportIssue:", error);
+    throw error;
+  }
+};
+
+// Fetch reported issues (for admin or review purposes)
+export const fetchIssues = async (): Promise<any[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("issues")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching issues:", error.message);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("Error in fetchIssues:", error);
+    return [];
+  }
+};
+
+// Update the status of an issue (for admin review)
+export const updateIssueStatus = async (
+  issueId: number,
+  newStatus: string
+): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from("issues")
+      .update({ status: newStatus })
+      .eq("id", issueId);
+
+    if (error) {
+      console.error("Error updating issue status:", error.message);
+      throw error;
+    }
+
+    console.log(`Issue ${issueId} status updated to ${newStatus}`);
+  } catch (error) {
+    console.error("Error in updateIssueStatus:", error);
+    throw error;
+  }
+};

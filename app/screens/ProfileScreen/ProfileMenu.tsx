@@ -1,4 +1,4 @@
-// File: app\screens\ProfileScreen\ProfileMenu.tsx
+// File: app/screens/ProfileScreen/ProfileMenu.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -7,35 +7,10 @@ import {
   StyleSheet,
   Modal,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { supabase } from "../../util/supabase";
-import EditProfileModal from "./EditProfileModal"; // Import the modal component
-
-const handleResetPassword = async () => {
-  try {
-    const user = await supabase.auth.getUser();
-
-    if (!user.data.user?.email) {
-      Alert.alert("Error", "No email found for the user.");
-      return;
-    }
-
-    const { error } = await supabase.auth.resetPasswordForEmail(
-      user.data.user.email
-    );
-
-    if (error) {
-      Alert.alert("Error", error.message);
-    } else {
-      Alert.alert(
-        "Success",
-        "Password reset email sent. Please check your inbox."
-      );
-    }
-  } catch (err) {
-    Alert.alert("Error", "An unexpected error occurred.");
-  }
-};
+import EditProfileModal from "./EditProfileModal";
 
 export default function ProfileMenu({
   onClose,
@@ -44,7 +19,90 @@ export default function ProfileMenu({
   onClose: () => void;
   onLogout: () => void;
 }) {
-  const [isEditProfileVisible, setEditProfileVisible] = useState(false); // State for showing the Edit Profile modal
+  const [isEditProfileVisible, setEditProfileVisible] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Function to reset the user's password
+  const handleResetPassword = async () => {
+    try {
+      const { data: user, error: userError } = await supabase.auth.getUser();
+
+      if (userError || !user?.user?.email) {
+        Alert.alert("Error", "No email found for the user.");
+        return;
+      }
+
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        user.user.email
+      );
+
+      if (error) {
+        Alert.alert("Error", error.message);
+      } else {
+        Alert.alert(
+          "Success",
+          "Password reset email sent. Please check your inbox."
+        );
+      }
+    } catch (err) {
+      Alert.alert("Error", "An unexpected error occurred.");
+    }
+  };
+
+  // Function to delete user account and associated data
+  const handleDeleteAccount = async () => {
+    Alert.alert(
+      "Confirm Deletion",
+      "Are you sure you want to delete your account? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsDeleting(true);
+
+              // Get current user
+              const {
+                data: { user },
+                error,
+              } = await supabase.auth.getUser();
+
+              if (error || !user) {
+                setIsDeleting(false);
+                Alert.alert("Error", "Could not fetch user details.");
+                return;
+              }
+
+              const userId = user.id;
+
+              // Step 1: Update user metadata to mark as deleted
+              const { error: updateError } = await supabase.auth.updateUser({
+                data: { deleted: true }, // Add a "deleted" flag
+              });
+
+              if (updateError) {
+                Alert.alert("Error", "Failed to mark account as deleted.");
+                setIsDeleting(false);
+                return;
+              }
+
+              // Step 2: Log out user
+              await supabase.auth.signOut();
+              setIsDeleting(false);
+              Alert.alert("Success", "Your account has been deleted.");
+              onLogout(); // Redirect to login screen
+            } catch (error) {
+              console.error("Unexpected error:", error);
+              setIsDeleting(false);
+              Alert.alert("Error", "An unexpected error occurred.");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <View style={styles.overlay}>
@@ -52,7 +110,7 @@ export default function ProfileMenu({
         {/* Edit Profile Button */}
         <TouchableOpacity
           style={styles.option}
-          onPress={() => setEditProfileVisible(true)} // Open Edit Profile modal
+          onPress={() => setEditProfileVisible(true)}
         >
           <Text style={styles.optionText}>Edit Profile</Text>
         </TouchableOpacity>
@@ -60,6 +118,21 @@ export default function ProfileMenu({
         {/* Reset Password Button */}
         <TouchableOpacity style={styles.option} onPress={handleResetPassword}>
           <Text style={styles.optionText}>Reset Password</Text>
+        </TouchableOpacity>
+
+        {/* Delete Account Button */}
+        <TouchableOpacity
+          style={styles.option}
+          onPress={handleDeleteAccount}
+          disabled={isDeleting}
+        >
+          {isDeleting ? (
+            <ActivityIndicator size="small" color="red" />
+          ) : (
+            <Text style={[styles.optionText, { color: "red" }]}>
+              Delete Account
+            </Text>
+          )}
         </TouchableOpacity>
 
         {/* Logout Button */}
@@ -76,9 +149,7 @@ export default function ProfileMenu({
       {/* Edit Profile Modal */}
       {isEditProfileVisible && (
         <Modal visible={isEditProfileVisible} transparent animationType="slide">
-          <EditProfileModal
-            onClose={() => setEditProfileVisible(false)} // Close the modal
-          />
+          <EditProfileModal onClose={() => setEditProfileVisible(false)} />
         </Modal>
       )}
     </View>

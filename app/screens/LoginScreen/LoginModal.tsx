@@ -17,6 +17,7 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
 
   const handleLogin = async () => {
     try {
+      // Step 1: Attempt login
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -24,6 +25,20 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
 
       if (error) {
         Alert.alert("Login Failed", error.message);
+        return;
+      }
+
+      // Step 2: Check user metadata for "deleted" status
+      // (if it does contain DELETE this means the user recently set the account to delete, and this prevents users from spamming signup/delete)
+      // (the user must wait before creating a new account with the same email)
+      const { data: user } = await supabase.auth.getUser();
+
+      if (user?.user?.user_metadata?.deleted) {
+        Alert.alert(
+          "Login Failed",
+          "This account has been deleted. Contact support if this is a mistake voicevaultcontact@gmail.com"
+        );
+        await supabase.auth.signOut(); // Log out the user immediately
         return;
       }
 

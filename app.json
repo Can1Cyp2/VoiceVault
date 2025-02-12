@@ -13,7 +13,14 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.can1cyp2.VoiceVault",
+      "buildNumber": "1.0.4",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera for user profile images. (Future updates may require this permission.)",
+        "NSPhotoLibraryUsageDescription": "This app accesses your photo library for profile picture uploads. (Future updates may require this permission.)",
+        "NSMicrophoneUsageDescription": "This app may use the microphone in future updates."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -31,6 +38,16 @@
         "projectId": "33c93c1e-6118-430e-a6d8-ff2e05458e48"
       }
     },
-    "owner": "can1cyp2"
+    "owner": "can1cyp2",
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ]
+    ]
   }
 }

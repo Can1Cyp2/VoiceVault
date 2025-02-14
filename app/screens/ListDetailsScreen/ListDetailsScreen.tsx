@@ -1,5 +1,3 @@
-// File: app/screens/ListDetailsScreen/ListDetailsScreen.tsx
-
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -20,10 +18,20 @@ export default function ListDetailsScreen({ route, navigation }: any) {
   useEffect(() => {
     const fetchSongs = async () => {
       try {
-        const query = supabase.from("saved_songs").select("*");
+        // Get the logged-in user
+        const { data: user, error: userError } = await supabase.auth.getUser();
+        if (userError || !user?.user?.id) {
+          Alert.alert("Error", "Please log in to view this list.");
+          return;
+        }
+
+        let query = supabase
+          .from("saved_songs")
+          .select("*")
+          .eq("user_id", user.user.id); // ✅ Ensuring only user's saved songs are fetched
 
         if (listName !== "All Saved Songs") {
-          query.eq("list_name", listName); // Fetch songs specific to the selected list
+          query = query.eq("list_name", listName); // Filter specific lists
         }
 
         const { data, error } = await query;

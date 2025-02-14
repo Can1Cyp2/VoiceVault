@@ -10,6 +10,7 @@ import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
 import SavedListsScreen from "./app/screens/SavedListsScreen/SavedListsScreen";
 import { useEffect, useState } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Tab = createBottomTabNavigator();
 
@@ -18,17 +19,37 @@ export default function App() {
 
   useEffect(() => {
     const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setIsLoggedIn(!!session);
+      try {
+        // Debug stored session in AsyncStorage:
+        const storedSession = await AsyncStorage.getItem("supabase.auth.token");
+        console.log(
+          "Stored session:",
+          storedSession ? "✅ Exists" : "❌ Not Found"
+        );
 
-      supabase.auth.onAuthStateChange((_event, session) => {
-        setIsLoggedIn(!!session);
-      });
+        // Fetch current session from Supabase
+        const { data } = await supabase.auth.getSession();
+        console.log("Session from Supabase:", data.session);
+
+        setIsLoggedIn(!!data.session);
+      } catch (error) {
+        console.error("Error restoring session:", error);
+      }
     };
 
     checkSession();
+
+    // listener OUTSIDE checkSession to avoid multiple triggers
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        console.log("Auth State Changed:", session);
+        setIsLoggedIn(!!session);
+      }
+    );
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   return (

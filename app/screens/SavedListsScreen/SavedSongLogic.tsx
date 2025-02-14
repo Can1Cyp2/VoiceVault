@@ -18,25 +18,43 @@ export const saveToList = async (
       return;
     }
 
-    // Check if the list exists
-    let { data: listData, error: listError } = await supabase
-      .from("saved_lists")
-      .select("id")
-      .eq("name", listName)
-      .eq("user_id", user.data.user.id)
-      .single();
+    const userId = user.data.user.id;
 
-    if (listError) {
-      // If the list doesn't exist, create it
-      const { data: newList, error: createListError } = await supabase
+    // Ensure "All Saved Songs" is not reinserted manually
+    if (listName === "All Saved Songs") {
+      const { data: existingList } = await supabase
         .from("saved_lists")
-        .insert([{ name: listName, user_id: user.data.user.id }])
-        .select()
+        .select("id")
+        .eq("name", "All Saved Songs")
+        .eq("user_id", userId)
         .single();
 
-      if (createListError) throw createListError;
+      if (!existingList) {
+        // Create "All Saved Songs" list ONLY IF it doesn't exist
+        await supabase
+          .from("saved_lists")
+          .insert([{ name: "All Saved Songs", user_id: userId }]);
+      }
+    } else {
+      // If it's a custom list, check if it exists; otherwise, create it
+      let { data: listData, error: listError } = await supabase
+        .from("saved_lists")
+        .select("id")
+        .eq("name", listName)
+        .eq("user_id", userId)
+        .single();
 
-      listData = newList;
+      if (listError) {
+        const { data: newList, error: createListError } = await supabase
+          .from("saved_lists")
+          .insert([{ name: listName, user_id: userId }])
+          .select()
+          .single();
+
+        if (createListError) throw createListError;
+
+        listData = newList;
+      }
     }
 
     // Check if the song already exists in the list
@@ -46,7 +64,7 @@ export const saveToList = async (
       .eq("name", name)
       .eq("artist", artist)
       .eq("list_name", listName)
-      .eq("user_id", user.data.user.id)
+      .eq("user_id", userId)
       .single();
 
     if (existingSong) {
@@ -64,7 +82,7 @@ export const saveToList = async (
         artist,
         vocal_range: vocalRange,
         list_name: listName,
-        user_id: user.data.user.id,
+        user_id: userId,
       },
     ]);
 

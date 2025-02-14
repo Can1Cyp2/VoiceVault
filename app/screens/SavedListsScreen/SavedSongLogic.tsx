@@ -86,15 +86,15 @@ export const fetchUserSongs = async () => {
       return [];
     }
 
-    // Fetch the saved songs for the user
+    // Ensure only fetching songs belonging to the signed-in user
     const { data, error } = await supabase
       .from("saved_songs")
       .select("*")
-      .eq("user_id", user.data.user.id);
+      .eq("user_id", user.data.user.id); // Filter by user_id
 
     if (error) throw error;
 
-    return data;
+    return data; // Return only the user's songs
   } catch (error: any) {
     Alert.alert("Error", error.message);
     return [];

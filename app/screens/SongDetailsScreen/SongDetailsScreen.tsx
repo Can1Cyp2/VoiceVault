@@ -10,6 +10,10 @@ import {
   TextInput,
   Alert,
   FlatList,
+  TouchableWithoutFeedback,
+  KeyboardAvoidingView,
+  Keyboard,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -222,39 +226,59 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
     <View style={styles.container}>
       {/* Modal adding custom or selecting existing list */}
       <Modal visible={isModalVisible} animationType="slide" transparent>
-        <View style={styles.modalContainer}>
-          <Text style={styles.modalTitle}>Add to List</Text>
-          <FlatList
-            data={existingLists}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalContainer}>
+              <Text style={styles.modalTitle}>Add to List</Text>
+
+              {/* "All Saved Songs" Option */}
               <TouchableOpacity
-                style={styles.listOption}
-                onPress={() => handleSaveToExistingList(item.name)}
+                style={styles.listOptionAlwaysSaved}
+                onPress={() => handleSaveToExistingList("All Saved Songs")}
               >
-                <Text style={styles.listOptionText}>{item.name}</Text>
+                <Text style={styles.listOptionTextAlwaysSaved}>
+                  📌 All Saved Songs (Auto-added)
+                </Text>
               </TouchableOpacity>
-            )}
-            ListEmptyComponent={
-              <Text style={styles.noListText}>No saved lists found.</Text>
-            }
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Custom List Name"
-            value={customListName}
-            onChangeText={setCustomListName}
-          />
-          <TouchableOpacity
-            style={styles.modalOption}
-            onPress={handleSaveToCustomList}
-          >
-            <Text style={styles.modalOptionText}>add to new list</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setModalVisible(false)}>
-            <Text style={styles.modalCancel}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
+              <FlatList
+                data={existingLists.filter(
+                  (list) => list.name !== "All Saved Songs"
+                )}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.listOption}
+                    onPress={() => handleSaveToExistingList(item.name)}
+                  >
+                    <Text style={styles.listOptionText}>{item.name}</Text>
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <Text style={styles.noListText}>No saved lists found.</Text>
+                }
+                keyboardShouldPersistTaps="handled" // Allows taps to dismiss keyboard
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Custom List Name"
+                value={customListName}
+                onChangeText={setCustomListName}
+              />
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={handleSaveToCustomList}
+              >
+                <Text style={styles.modalOptionText}>Add to New List</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Text style={styles.modalCancel}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
       {/* Song details */}
       <Text style={styles.title}>{name}</Text>
@@ -365,27 +389,52 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   modalContainer: {
-    flex: 1,
+    marginTop: "auto",
+    marginBottom: "auto",
+    marginRight: 20,
+    marginLeft: 20,
+    flex: 0.7,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    marginTop: 20,
-    marginBottom: 80,
-    borderRadius: 80,
-    paddingTop: 40,
-    paddingBottom: 40,
+    backgroundColor: "rgba(0, 0, 0, 0.8)", // Darker overlay
+    padding: 20,
+    borderRadius: 10,
+  },
+  modalContent: {
+    width: "85%",
+    backgroundColor: "rgba(255, 255, 255, 0.3)", // Soft glass effect
+    borderRadius: 20,
+    padding: 25,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 15 },
+    shadowOpacity: 0.5,
+    shadowRadius: 15,
+    elevation: 12,
   },
   modalTitle: {
-    fontSize: 30,
+    fontSize: 28,
+    fontWeight: "bold",
     color: "#fff",
-    marginBottom: 20,
+    textAlign: "center",
+    textShadowColor: "rgba(0, 0, 0, 0.7)", // Shadow for contrast
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 4,
   },
   modalOption: {
-    backgroundColor: "#fff",
-    padding: 10,
-    borderRadius: 5,
-    marginVertical: 5,
+    width: "100%",
+    backgroundColor: "tomato",
+    paddingVertical: 12,
+    borderRadius: 8,
     alignItems: "center",
+    marginBottom: 10,
+  },
+  modalOptionText: {
+    fontSize: 18,
+    color: "#fff",
+    fontWeight: "bold",
+    textTransform: "uppercase",
+    letterSpacing: 1,
   },
   modalButton: {
     color: "#fff",
@@ -394,23 +443,30 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginTop: 10,
   },
-  modalOptionText: {
-    fontSize: 16,
-    color: "#000",
-  },
   modalCancelButton: {
-    color: "#fff",
-    backgroundColor: "#ff0000",
-    padding: 10,
-    borderRadius: 5,
+    width: "100%",
+    backgroundColor: "#ff4d4d",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
     marginTop: 10,
   },
   input: {
-    width: "80%",
-    padding: 10,
-    backgroundColor: "#fff",
-    borderRadius: 5,
-    marginBottom: 20,
+    width: "100%",
+    padding: 14,
+    borderWidth: 2, // Make border more visible
+    borderColor: "rgba(255, 255, 255, 0.8)",
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.5)", // Lightened for better visibility
+    fontSize: 18,
+    color: "#fff",
+    marginBottom: 15,
+    textAlign: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
   modalCancel: {
     fontSize: 16,
@@ -479,5 +535,25 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginBottom: 20,
     textAlignVertical: "top",
+  },
+  listOptionAlwaysSaved: {
+    backgroundColor: "#ff9933",
+    padding: 14,
+    borderRadius: 8,
+    marginVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  listOptionTextAlwaysSaved: {
+    fontSize: 16,
+    color: "#000", // Black text for contrast
+    fontWeight: "bold",
+    textAlign: "center",
   },
 });

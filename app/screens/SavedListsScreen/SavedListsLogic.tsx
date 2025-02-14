@@ -94,7 +94,12 @@ export const fetchUserLists = async () => {
 
     if (error) throw error;
 
-    return data || [];
+    // Ensure only ONE "All Saved Songs" entry exists
+    const uniqueLists = Array.from(
+      new Map(data.map((list) => [list.name, list])).values()
+    );
+
+    return uniqueLists;
   } catch (error: any) {
     Alert.alert("Error", error.message);
     return [];

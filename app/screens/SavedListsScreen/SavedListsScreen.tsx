@@ -37,7 +37,12 @@ export default function SavedListsScreen({ navigation }: any) {
           Alert.alert("Error", error.message);
         } else {
           const fetchedLists = data.map((list: any) => list.name) || [];
-          setLists(["All Saved Songs", ...fetchedLists]);
+
+          // Ensure only one "All Saved Songs"
+          const filteredLists = fetchedLists.filter(
+            (list) => list !== "All Saved Songs"
+          );
+          setLists(["All Saved Songs", ...filteredLists]);
         }
       } catch (error) {
         console.error("Error fetching saved lists:", error);

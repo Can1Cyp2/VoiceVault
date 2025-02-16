@@ -74,7 +74,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     <View style={styles.container}>
       {/* Logo Section */}
       <Image
-        source={require("../../../assets/icon.png")}
+        source={require("../../../assets/transparent-icon.png")}
         style={styles.logo}
         resizeMode="contain"
       />

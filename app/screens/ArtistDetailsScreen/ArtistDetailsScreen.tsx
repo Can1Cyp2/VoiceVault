@@ -8,6 +8,7 @@ import {
   FlatList,
   StyleSheet,
   TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
 import { searchSongsByQuery } from "../../util/api";
 import { supabase } from "../../util/supabase";
@@ -18,6 +19,7 @@ export const ArtistDetailsScreen = ({ route }: any) => {
   const [songs, setSongs] = useState<any[]>([]);
   const [overallRange, setOverallRange] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true); // loading state
 
   const navigation = useNavigation();
 
@@ -53,12 +55,18 @@ export const ArtistDetailsScreen = ({ route }: any) => {
     });
   }, [isLoggedIn, navigation]);
 
-  useEffect(() => {
-    const fetchSongs = async () => {
-      const allSongs = await searchSongsByQuery("");
-      const artistSongs = allSongs.filter((song) => song.artist === name);
+  const fetchSongs = async () => {
+    setLoading(true); // Show loading indicator
+    const { data: artistSongs, error } = await supabase
+      .from("songs")
+      .select("*")
+      .ilike("artist", name);
 
-      setSongs(artistSongs);
+    if (error) {
+      console.error("Error fetching songs:", error);
+    } else {
+      console.log(`Fetched songs for artist ${name}:`, artistSongs);
+      setSongs(artistSongs || []);
 
       if (artistSongs.length > 0) {
         const { lowestNote, highestNote } = calculateOverallRange(artistSongs);
@@ -66,29 +74,45 @@ export const ArtistDetailsScreen = ({ route }: any) => {
       } else {
         setOverallRange(null);
       }
-    };
+    }
+    setLoading(false); // Hide loading indicator
+  };
 
+  useEffect(() => {
     fetchSongs();
   }, [name]);
 
   const calculateOverallRange = (songs: any[]) => {
+    // Mapping notes to numerical values (including sharps)
+    const scale: { [key: string]: number } = {
+      C: 0,
+      "C#": 1,
+      D: 2,
+      "D#": 3,
+      E: 4,
+      F: 5,
+      "F#": 6,
+      G: 7,
+      "G#": 8,
+      A: 9,
+      "A#": 10,
+      B: 11,
+    };
+
     const noteToValue = (note: string): number => {
-      const scale: { [key: string]: number } = {
-        C: 0,
-        D: 2,
-        E: 4,
-        F: 5,
-        G: 7,
-        A: 9,
-        B: 11,
-      };
-      const octave = parseInt(note.slice(-1), 10);
-      const key = note.slice(0, -1);
-      return scale[key] + (octave + 1) * 12;
+      // Extract note and octave
+      const match = note.match(/^([A-G]#?)(\d+)$/);
+      if (!match) {
+        console.error("Invalid note format:", note);
+        return NaN;
+      }
+
+      const [, key, octave] = match;
+      return scale[key] + (parseInt(octave, 10) + 1) * 12;
     };
 
     const valueToNote = (value: number): string => {
-      const scale = [
+      const scaleArray = [
         "C",
         "C#",
         "D",
@@ -102,7 +126,7 @@ export const ArtistDetailsScreen = ({ route }: any) => {
         "A#",
         "B",
       ];
-      const note = scale[value % 12];
+      const note = scaleArray[value % 12];
       const octave = Math.floor(value / 12) - 1;
       return `${note}${octave}`;
     };
@@ -112,8 +136,8 @@ export const ArtistDetailsScreen = ({ route }: any) => {
 
     songs.forEach((song) => {
       const [minNote, maxNote] = song.vocalRange.split(" - ").map(noteToValue);
-      if (minNote < minValue) minValue = minNote;
-      if (maxNote > maxValue) maxValue = maxNote;
+      if (!isNaN(minNote) && minNote < minValue) minValue = minNote;
+      if (!isNaN(maxNote) && maxNote > maxValue) maxValue = maxNote;
     });
 
     return {
@@ -125,27 +149,34 @@ export const ArtistDetailsScreen = ({ route }: any) => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{name}</Text>
-      {overallRange && (
-        <Text style={styles.overallRange}>
-          Overall Vocal Range: {overallRange}
-        </Text>
-      )}
 
-      {songs.length > 0 && <Text style={styles.title}>Songs:</Text>}
+      {loading ? (
+        <ActivityIndicator size="large" color="#32CD32" style={styles.loader} />
+      ) : (
+        <>
+          {overallRange && (
+            <Text style={styles.overallRange}>
+              Overall Vocal Range: {overallRange}
+            </Text>
+          )}
 
-      <FlatList
-        data={songs}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <Text style={styles.songItem}>
-            {item.name} - {item.vocalRange}
-          </Text>
-        )}
-      />
-      {!songs.length && (
-        <Text style={styles.noSongsText}>
-          No songs available for this artist.
-        </Text>
+          {songs.length > 0 && <Text style={styles.title}>Songs:</Text>}
+
+          <FlatList
+            data={songs}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => (
+              <Text style={styles.songItem}>
+                {item.name} - {item.vocalRange}
+              </Text>
+            )}
+          />
+          {!songs.length && (
+            <Text style={styles.noSongsText}>
+              No songs available for this artist.
+            </Text>
+          )}
+        </>
       )}
     </View>
   );
@@ -161,5 +192,9 @@ const styles = StyleSheet.create({
     color: "gray",
     marginTop: 20,
     textAlign: "center",
+  },
+  loader: {
+    marginTop: 50,
+    alignSelf: "center",
   },
 });

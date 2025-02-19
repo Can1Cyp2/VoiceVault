@@ -221,7 +221,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: -5,
     alignSelf: "center",
-    backgroundColor: "#ff9933", // Brighter and modern orange
     shadowColor: "#000",
     shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 6 },

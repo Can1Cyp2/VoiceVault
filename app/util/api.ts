@@ -1,5 +1,6 @@
 // app/util/api.ts
 
+import { Alert } from "react-native";
 import { supabase } from "./supabase"; // Import your Supabase client
 
 // Fetch songs based on a query
@@ -66,6 +67,27 @@ export const addSong = async (song: {
     console.error("Error in addSong:", (error as any).message);
     throw error;
   }
+};
+
+// Gets a users vocal ranges
+export const fetchUserVocalRange = async () => {
+  const user = await supabase.auth.getUser();
+  if (!user.data.user) {
+    Alert.alert("Error", "You must be logged in to view your vocal range.");
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("user_vocal_ranges")
+    .select("min_range, max_range")
+    .eq("user_id", user.data.user.id)
+    .single(); // Fetch only the logged-in user's range
+
+  if (error && error.code !== "PGRST116") {
+    console.error("Error fetching user's vocal range:", error);
+    return null;
+  }
+  return data;
 };
 
 // Fetch artists based on a query

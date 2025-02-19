@@ -1,4 +1,4 @@
-// app/screens/ProfileScreen/ProfileScreen.tsx
+// File: app/screens/ProfileScreen/ProfileScreen.tsx
 
 import React, { useState, useEffect } from "react";
 import {
@@ -8,19 +8,27 @@ import {
   Alert,
   StyleSheet,
   Modal,
+  ActivityIndicator,
 } from "react-native";
 import ProfileMenu from "./ProfileMenu";
 import { supabase } from "../../util/supabase";
+import { fetchUserVocalRange } from "../../util/api";
+import EditProfileModal from "./EditProfileModal";
 
 export default function ProfileScreen({ navigation }: any) {
   const [isMenuVisible, setMenuVisible] = useState(false);
+  const [isModalVisible, setModalVisible] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
+  const [vocalRange, setVocalRange] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isHelpVisible, setHelpVisible] = useState(false);
+  const [updateTrigger, setUpdateTrigger] = useState(0); // Triggers refresh
 
-  // Fetch the user's display name
-  const fetchDisplayName = async () => {
+  // Fetch user data (display name + vocal range)
+  const fetchUserData = async () => {
     try {
+      setIsLoading(true);
+
       const {
         data: { user },
         error,
@@ -28,44 +36,59 @@ export default function ProfileScreen({ navigation }: any) {
 
       if (error || !user) {
         setUsername("Edit your profile to add a username.");
+        setVocalRange("Edit your profile to set a vocal range.");
       } else {
-        const displayName = (user as any).user_metadata?.display_name;
+        const displayName = user.user_metadata?.display_name || "";
         setUsername(displayName || "Edit your profile to add a username.");
       }
+
+      // Fetch vocal range
+      const rangeData = await fetchUserVocalRange();
+      if (rangeData) {
+        const { min_range, max_range } = rangeData;
+        setVocalRange(
+          min_range === "C0" || max_range === "C0"
+            ? "Edit your profile to set a vocal range."
+            : `${min_range} - ${max_range}`
+        );
+      } else {
+        setVocalRange("Edit your profile to set a vocal range.");
+      }
     } catch (err) {
-      console.error("Error fetching display name:", err);
-      setUsername("Edit your profile to add a username.");
+      console.error("Error fetching user data:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Run on component mount and listen for auth state changes
+  // Run on mount and listen for updates
   useEffect(() => {
-    fetchDisplayName();
+    fetchUserData();
 
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (session) {
-          fetchDisplayName(); // Re-fetch username on login/logout
+          fetchUserData(); // Re-fetch user data on login/logout
         } else {
           setUsername("Edit your profile to add a username.");
+          setVocalRange("Edit your profile to set a vocal range.");
         }
       }
     );
 
     return () => {
-      subscription?.subscription?.unsubscribe(); // Properly clean up the listener
+      subscription?.subscription?.unsubscribe();
     };
-  }, []);
+  }, [updateTrigger]); // Refresh on updates
 
-  // Handle logout and clear the username
+  // Handle logout
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
       Alert.alert("Logout Failed", error.message);
     } else {
       setUsername("Edit your profile to add a username.");
+      setVocalRange("Edit your profile to set a vocal range.");
       Alert.alert("Logged Out", "You have successfully logged out.");
     }
     setMenuVisible(false);
@@ -74,6 +97,7 @@ export default function ProfileScreen({ navigation }: any) {
   if (isLoading) {
     return (
       <View style={styles.container}>
+        <ActivityIndicator size="large" color="#007bff" />
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
@@ -87,12 +111,17 @@ export default function ProfileScreen({ navigation }: any) {
           ? username
           : `Username: ${username}`}
       </Text>
+      {/* Display Vocal Range */}
+      <Text style={styles.vocalRange}>{vocalRange}</Text>
+
       <TouchableOpacity
         style={styles.button}
         onPress={() => navigation.navigate("Search", { screen: "SavedLists" })}
       >
         <Text style={styles.buttonText}>View Saved Lists</Text>
       </TouchableOpacity>
+
+      {/* Profile Menu */}
       <TouchableOpacity
         style={styles.menuButton}
         onPress={() => setMenuVisible(true)}
@@ -102,12 +131,14 @@ export default function ProfileScreen({ navigation }: any) {
       {isMenuVisible && (
         <ProfileMenu
           onClose={() => {
-            fetchDisplayName(); // Refresh profile after closing
+            setUpdateTrigger((prev) => prev + 1); // Triggers refresh
             setMenuVisible(false);
           }}
           onLogout={handleLogout}
         />
       )}
+
+      {/* Help Modal */}
       <TouchableOpacity
         style={styles.helpButton}
         onPress={() => setHelpVisible(true)}
@@ -157,14 +188,21 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 18,
     color: "#555",
-    marginBottom: 30,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  vocalRange: {
+    fontSize: 16,
+    color: "#888",
+    fontStyle: "italic",
+    marginBottom: 20,
     textAlign: "center",
   },
   button: {
     backgroundColor: "#007bff",
     padding: 15,
     borderRadius: 5,
-    marginBottom: 20,
+    marginBottom: 10,
     width: "80%",
     alignItems: "center",
   },
@@ -176,7 +214,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#4caf50",
     padding: 15,
     borderRadius: 5,
-    marginBottom: 20,
+    marginBottom: 10,
     width: "80%",
     alignItems: "center",
   },
@@ -194,11 +232,6 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 3,
-    elevation: 5,
   },
   helpButtonText: {
     color: "#fff",

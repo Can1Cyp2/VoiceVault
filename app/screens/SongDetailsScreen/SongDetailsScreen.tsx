@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   Platform,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -24,6 +25,7 @@ import {
 import { saveToList } from "../SavedListsScreen/SavedSongLogic";
 import { supabase } from "../../util/supabase";
 import { findClosestVocalRangeFit } from "./RangeBestFit";
+import SongRangeRecommendation from "./SongRangeRecommendation";
 
 export const SongDetailsScreen = ({ route, navigation }: any) => {
   const { name, artist, vocalRange } = route.params;
@@ -223,7 +225,11 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      bounces={true}
+      showsVerticalScrollIndicator={false}
+    >
       {/* Modal adding custom or selecting existing list */}
       <Modal visible={isModalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView
@@ -313,6 +319,10 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
           </Text>
         )}
       </View>
+
+      {/* Personalized Recommendation Component */}
+      <SongRangeRecommendation songVocalRange={vocalRange} />
+
       {/* Report Issue Button */}
       <TouchableOpacity
         style={styles.reportButton}
@@ -340,18 +350,21 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
           </TouchableOpacity>
         </View>
       </Modal>
-    </View>
+      <View style={{ height: 100 }} />
+    </ScrollView>
   );
 };
 
 // Styles
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
     padding: 20,
     backgroundColor: "#fff",
+    paddingBottom: 50,
+    paddingTop: 50,
   },
   divider: {
     fontSize: 16,
@@ -420,6 +433,7 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0, 0, 0, 0.7)", // Shadow for contrast
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 4,
+    paddingBottom: 15,
   },
   modalOption: {
     width: "100%",
@@ -525,7 +539,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 4,
   },
-  reportButton: { marginTop: 20 },
+  reportButton: { marginTop: 50, marginLeft: "auto" },
   cancelText: { fontSize: 16, color: "#fff", marginTop: 10 },
   issueText: {
     width: "80%",

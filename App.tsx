@@ -184,9 +184,15 @@ const CustomSearchButton = ({ onPress, accessibilityState }: any) => {
     >
       <Ionicons
         name="search"
-        size={55}
+        size={90}
         color="#fff"
-        style={{ alignSelf: "center", position: "relative", top: -4 }}
+        style={{
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.4,
+          shadowRadius: 6,
+          elevation: 10, // For Android
+        }}
       />
     </Pressable>
   );
@@ -209,19 +215,19 @@ const styles = StyleSheet.create({
   searchButton: {
     width: 100,
     height: 95,
-    borderTopLeftRadius: 40,
-    borderTopRightRadius: 40,
-    borderBottomLeftRadius: 40,
-    borderBottomRightRadius: 40,
+    borderRadius: 50, // Smooth circular edges
     justifyContent: "center",
     alignItems: "center",
     position: "absolute",
     bottom: -5,
     alignSelf: "center",
+    backgroundColor: "#ff9933", // Brighter and modern orange
     shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 8,
+    elevation: 10,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.6)", // Soft white border
   },
 });

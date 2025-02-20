@@ -214,8 +214,8 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   searchButton: {
-    width: 100,
-    height: 95,
+    width: 115,
+    height: 100,
     borderRadius: 50, // Smooth circular edges
     justifyContent: "center",
     alignItems: "center",
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 8,
+    shadowRadius: 5,
     elevation: 10,
     borderWidth: 2,
     borderColor: "rgba(255, 255, 255, 0.6)", // Soft white border

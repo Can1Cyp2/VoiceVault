@@ -13,10 +13,13 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/StackNavigator";
 import { Ionicons } from "@expo/vector-icons";
-
 import { SearchBar } from "../../components/SearchBar/SearchBar";
 import { searchSongsByQuery, getArtists } from "../../util/api";
 import { checkInternetConnection } from "../../util/network";
+import UserVocalRangeFilter from "../UserVocalRange/UserVocalRangeFilter";
+import { NOTES } from "../ProfileScreen/EditProfileModal";
+import { supabase } from "../../util/supabase";
+
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Search">;
 
@@ -32,6 +35,34 @@ export default function SearchScreen() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"songs" | "artists">("songs");
   const [isConnected, setIsConnected] = useState(true);
+
+  // Vocal Range for User:
+  const [vocalRange, setVocalRange] = useState<{ min_range: string; max_range: string } | null>(null);
+  const [vocalRangeFilterActive, setVocalRangeFilterActive] = useState(false);
+
+
+  useEffect(() => {
+    const fetchUserVocalRange = async () => {
+      try {
+        const { data: user, error } = await supabase.auth.getUser();
+        if (error || !user?.user) return;
+
+        const { data, error: rangeError } = await supabase
+          .from("user_vocal_ranges")
+          .select("min_range, max_range")
+          .eq("user_id", user.user.id)
+          .single();
+
+        if (!rangeError) {
+          setVocalRange(data);
+        }
+      } catch (err) {
+        console.error("Error fetching vocal range:", err);
+      }
+    };
+
+    fetchUserVocalRange();
+  }, []);
 
   useEffect(() => {
     setResults([]); // Clear results when the filter changes
@@ -56,6 +87,15 @@ export default function SearchScreen() {
 
     fetchResults();
   }, [query, filter]);
+
+  // Check if the song is within the user's vocal range:
+  const isSongInRange = (songRange: string) => {
+    if (!vocalRange) return false;
+    const songIndex = NOTES.indexOf(songRange);
+    const minIndex = NOTES.indexOf(vocalRange.min_range);
+    const maxIndex = NOTES.indexOf(vocalRange.max_range);
+    return songIndex >= minIndex && songIndex <= maxIndex;
+  };
 
   // Retry fetching data:
   const fetchResults = async () => {
@@ -141,6 +181,46 @@ export default function SearchScreen() {
           >
             <Text style={styles.filterText}>Artists</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.filterButtonRight}
+            onPress={() => {
+              if (vocalRange && vocalRange.min_range !== "C0" && vocalRange.max_range !== "C0") {
+                setVocalRangeFilterActive((prev) => !prev);
+              }
+            }}
+            disabled={!vocalRange || vocalRange.min_range === "C0" || vocalRange.max_range === "C0"}
+          >
+            <Ionicons
+              name="checkmark-circle"
+              size={30}
+              color={
+                !vocalRange || vocalRange.min_range === "C0" || vocalRange.max_range === "C0"
+                  ? "gray"
+                  : vocalRangeFilterActive
+                    ? "tomato"
+                    : "gray"
+              }
+              style={styles.filterIcon}
+            />
+            <Text
+              style={[
+                styles.filterText,
+                {
+                  fontSize: 10,
+                  bottom: 3,
+                  color:
+                    !vocalRange || vocalRange.min_range === "C0" || vocalRange.max_range === "C0"
+                      ? "gray"
+                      : vocalRangeFilterActive
+                        ? "tomato"
+                        : "grey",
+                },
+              ]}
+            >
+              In Range
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -156,13 +236,11 @@ export default function SearchScreen() {
       {!loading && results.length === 0 && !error && (
         <Text style={styles.noResultsText}>No results found.</Text>
       )}
-
       <FlatList
-        data={results}
-        keyExtractor={(item, index) =>
-          filter === "songs"
-            ? item?.id?.toString() ?? index.toString()
-            : item?.name ?? index.toString()
+        data={
+          vocalRangeFilterActive && filter === "songs"
+            ? results.filter((item) => isSongInRange(item.vocalRange))
+            : results
         }
         renderItem={({ item }) => {
           if (
@@ -183,20 +261,35 @@ export default function SearchScreen() {
                   style={styles.resultIcon}
                 />
                 <View style={styles.resultTextContainer}>
-                  <Text style={styles.resultText}>
-                    {filter === "songs" ? item.name : item.name}
-                  </Text>
+                  <Text style={styles.resultText}>{item.name}</Text>
                   {filter === "songs" && (
                     <Text style={styles.resultSubText}>
                       {item.artist} • {item.vocalRange}
                     </Text>
                   )}
                 </View>
+                {filter === "songs" && vocalRange && (
+                  <Ionicons
+                    name={
+                      isSongInRange(item.vocalRange)
+                        ? "checkmark-circle"
+                        : "close-circle"
+                    }
+                    size={30}
+                    color={
+                      isSongInRange(item.vocalRange)
+                        ? "green"
+                        : "red"
+                    }
+                    style={styles.inRangeIcon}
+                  />
+                )}
               </View>
             </TouchableOpacity>
           );
         }}
       />
+
     </View>
   );
 }
@@ -233,7 +326,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0f0f0",
   },
   activeFilter: { backgroundColor: "tomato", borderColor: "tomato" },
-  filterText: { color: "black", fontWeight: "bold" },
   resultItem: {
     padding: 15,
     marginVertical: 8,
@@ -261,10 +353,6 @@ const styles = StyleSheet.create({
     color: "#888",
     marginTop: 2,
   },
-  resultIcon: {
-    marginRight: 15,
-    color: "tomato",
-  },
   errorContainer: {
     alignItems: "center",
     justifyContent: "center",
@@ -286,4 +374,28 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   noResultsText: { textAlign: "center", color: "#555", marginVertical: 20 },
+  inRangeIcon: {
+    marginLeft: 'auto', // Pushes the icon to the right
+    color: "grey",
+    opacity: 0.5,
+  },
+  resultIcon: {
+    marginRight: 15,
+    color: "tomato",
+  },
+  filterButtonRight: {
+    position: "absolute",
+    right: 17,
+    alignItems: "center",
+    zIndex: 10, // Ensure the button is on top
+  },
+  filterIcon: {
+    paddingLeft: 15,
+    alignSelf: "center",
+  },
+  filterText: {
+    fontSize: 12,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
 });

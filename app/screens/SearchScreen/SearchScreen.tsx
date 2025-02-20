@@ -88,14 +88,55 @@ export default function SearchScreen() {
     fetchResults();
   }, [query, filter]);
 
-  // Check if the song is within the user's vocal range:
+  // Function to normalize enharmonic notes to valid piano keys
+  const normalizeNote = (note: string): string => {
+    const enharmonicMap: { [key: string]: string } = {
+      "E#": "F",
+      "B#": "C",
+      "Cb": "B",
+      "Fb": "E",
+    };
+    return enharmonicMap[note] ?? note;
+  };
+
+  // Checks if the song is in the user's vocal range
   const isSongInRange = (songRange: string) => {
     if (!vocalRange) return false;
-    const songIndex = NOTES.indexOf(songRange);
-    const minIndex = NOTES.indexOf(vocalRange.min_range);
-    const maxIndex = NOTES.indexOf(vocalRange.max_range);
-    return songIndex >= minIndex && songIndex <= maxIndex;
+
+    const [songMin, songMax] = songRange.split(" - ").map(note => note.trim());
+
+    if (!songMin || !songMax) {
+      console.error("Invalid song range format:", songRange);
+      return false;
+    }
+
+    const songMinIndex = NOTES.indexOf(songMin);
+    const songMaxIndex = NOTES.indexOf(songMax);
+    const userMinIndex = NOTES.indexOf(vocalRange.min_range);
+    const userMaxIndex = NOTES.indexOf(vocalRange.max_range);
+
+    if (
+      songMinIndex === -1 ||
+      songMaxIndex === -1 ||
+      userMinIndex === -1 ||
+      userMaxIndex === -1
+    ) {
+      console.error("Range not found in NOTES array", {
+        userMin: vocalRange.min_range,
+        userMax: vocalRange.max_range,
+        songMin,
+        songMax,
+        songMinIndex,
+        songMaxIndex,
+        userMinIndex,
+        userMaxIndex
+      });
+      return false;
+    }
+
+    return songMinIndex >= userMinIndex && songMaxIndex <= userMaxIndex;
   };
+
 
   // Retry fetching data:
   const fetchResults = async () => {
@@ -270,19 +311,15 @@ export default function SearchScreen() {
                 </View>
                 {filter === "songs" && vocalRange && (
                   <Ionicons
-                    name={
-                      isSongInRange(item.vocalRange)
-                        ? "checkmark-circle"
-                        : "close-circle"
-                    }
-                    size={30}
-                    color={
-                      isSongInRange(item.vocalRange)
-                        ? "green"
-                        : "red"
-                    }
-                    style={styles.inRangeIcon}
-                  />
+                  name={
+                    isSongInRange(item.vocalRange)
+                      ? "checkmark-circle"
+                      : "close-circle"
+                  }
+                  size={30}
+                  color={isSongInRange(item.vocalRange) ? "tomato" : "grey"} // Updated colors
+                  style={styles.inRangeIcon}
+                />
                 )}
               </View>
             </TouchableOpacity>
@@ -376,8 +413,6 @@ const styles = StyleSheet.create({
   noResultsText: { textAlign: "center", color: "#555", marginVertical: 20 },
   inRangeIcon: {
     marginLeft: 'auto', // Pushes the icon to the right
-    color: "grey",
-    opacity: 0.5,
   },
   resultIcon: {
     marginRight: 15,

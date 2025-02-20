@@ -14,7 +14,7 @@ import { fetchUserVocalRange } from "../../util/api";
 import { Ionicons } from "@expo/vector-icons";
 
 // All musical notes in order from C0 to C7
-const NOTES = [
+export const NOTES = [
   "C0",
   "C#0",
   "D0",

@@ -17,7 +17,7 @@ import { submitVocalRange } from "../UserVocalRange/UserVocalRangeLogic";
 import { Picker } from "@react-native-picker/picker";
 
 // Define all notes from C1 to C7
-const NOTES = [
+export const NOTES = [
   "C0",
   "C1",
   "C#1",

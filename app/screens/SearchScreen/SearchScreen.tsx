@@ -177,11 +177,21 @@ export default function SearchScreen() {
           return (
             <TouchableOpacity onPress={() => handlePress(item)}>
               <View style={styles.resultItem}>
-                <Text style={styles.resultText}>
-                  {filter === "songs"
-                    ? `${item.name} by ${item.artist} - ${item.vocalRange}`
-                    : `${item.name}`}
-                </Text>
+                <Ionicons
+                  name={filter === "songs" ? "musical-notes" : "person"}
+                  size={30}
+                  style={styles.resultIcon}
+                />
+                <View style={styles.resultTextContainer}>
+                  <Text style={styles.resultText}>
+                    {filter === "songs" ? item.name : item.name}
+                  </Text>
+                  {filter === "songs" && (
+                    <Text style={styles.resultSubText}>
+                      {item.artist} • {item.vocalRange}
+                    </Text>
+                  )}
+                </View>
               </View>
             </TouchableOpacity>
           );
@@ -225,15 +235,36 @@ const styles = StyleSheet.create({
   activeFilter: { backgroundColor: "tomato", borderColor: "tomato" },
   filterText: { color: "black", fontWeight: "bold" },
   resultItem: {
-    padding: 10,
-    marginVertical: 5,
+    padding: 15,
+    marginVertical: 8,
     marginHorizontal: 10,
-    backgroundColor: "#f9f9f9",
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: "#ddd",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5, // For Android shadow
+    flexDirection: "row",
+    alignItems: "center",
   },
-  resultText: { fontSize: 16 },
+  resultTextContainer: {
+    flex: 1,
+  },
+  resultText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+  },
+  resultSubText: {
+    fontSize: 14,
+    color: "#888",
+    marginTop: 2,
+  },
+  resultIcon: {
+    marginRight: 15,
+    color: "tomato",
+  },
   errorContainer: {
     alignItems: "center",
     justifyContent: "center",

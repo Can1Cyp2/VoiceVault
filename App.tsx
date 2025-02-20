@@ -184,7 +184,7 @@ const CustomSearchButton = ({ onPress, accessibilityState }: any) => {
     >
       <Ionicons
         name="search"
-        size={86}
+        size={72}
         color="#fff"
         style={{
           shadowColor: "#000",
@@ -192,7 +192,8 @@ const CustomSearchButton = ({ onPress, accessibilityState }: any) => {
           shadowOpacity: 0.1,
           shadowRadius: 6,
           elevation: 10, // For Android
-          bottom: 3,
+          bottom: 2,
+          left: 1.5,
         }}
       />
     </Pressable>

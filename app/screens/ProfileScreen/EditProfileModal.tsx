@@ -8,6 +8,8 @@ import {
   Alert,
   StyleSheet,
   ActivityIndicator,
+  Platform,
+  ActionSheetIOS,
 } from "react-native";
 import { supabase } from "../../util/supabase";
 import { fetchUserVocalRange } from "../../util/api";
@@ -189,6 +191,39 @@ export default function EditProfileModal({
     }
   };
 
+  // Handle presses for ios devices for choosing user vocal range
+  const handleMinRangePress = () => {
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Cancel", ...NOTES],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex > 0) {
+            setMinRange(NOTES[buttonIndex - 1]);
+          }
+        }
+      );
+    }
+  };
+
+  const handleMaxRangePress = () => {
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Cancel", ...NOTES],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex > 0) {
+            setMaxRange(NOTES[buttonIndex - 1]);
+          }
+        }
+      );
+    }
+  };
+
   return (
     <View style={styles.overlay}>
       <View style={styles.modal}>
@@ -206,26 +241,38 @@ export default function EditProfileModal({
         ) : (
           <>
             <Text style={styles.label}>Lowest Note:</Text>
-            <Picker
-              selectedValue={minRange}
-              style={styles.picker}
-              onValueChange={(value) => setMinRange(value)}
-            >
-              {NOTES.map((note) => (
-                <Picker.Item key={note} label={note} value={note} />
-              ))}
-            </Picker>
+            {Platform.OS === "ios" ? (
+              <TouchableOpacity style={styles.pickerButton} onPress={handleMinRangePress}>
+                <Text style={styles.pickerButtonText}>{minRange}</Text>
+              </TouchableOpacity>
+            ) : (
+              <Picker
+                selectedValue={minRange}
+                style={styles.picker}
+                onValueChange={(value) => setMinRange(value)}
+              >
+                {NOTES.map((note) => (
+                  <Picker.Item key={note} label={note} value={note} />
+                ))}
+              </Picker>
+            )}
 
             <Text style={styles.label}>Highest Note:</Text>
-            <Picker
-              selectedValue={maxRange}
-              style={styles.picker}
-              onValueChange={(value) => setMaxRange(value)}
-            >
-              {NOTES.map((note) => (
-                <Picker.Item key={note} label={note} value={note} />
-              ))}
-            </Picker>
+            {Platform.OS === "ios" ? (
+              <TouchableOpacity style={styles.pickerButton} onPress={handleMaxRangePress}>
+                <Text style={styles.pickerButtonText}>{maxRange}</Text>
+              </TouchableOpacity>
+            ) : (
+              <Picker
+                selectedValue={maxRange}
+                style={styles.picker}
+                onValueChange={(value) => setMaxRange(value)}
+              >
+                {NOTES.map((note) => (
+                  <Picker.Item key={note} label={note} value={note} />
+                ))}
+              </Picker>
+            )}
 
             {/* Save Button */}
             <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
@@ -299,5 +346,20 @@ const styles = StyleSheet.create({
   picker: {
     width: "100%",
     height: 50,
+  },
+  pickerButton: {
+    width: "100%",
+    height: 50,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    backgroundColor: "#f9f9f9",
+    marginVertical: 5,
+  },
+  pickerButtonText: {
+    fontSize: 16,
+    color: "#333",
   },
 });

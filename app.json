@@ -30,9 +30,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.can1cyp2.VoiceVault",
-      "permissions": [
-        "INTERNET"
-      ]
+      "permissions": ["INTERNET"]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -49,6 +47,9 @@
         {
           "ios": {
             "useFrameworks": "static"
+          },
+          "android": {
+            "kotlinVersion": "1.9.25"
           }
         }
       ]

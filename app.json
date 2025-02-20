@@ -19,17 +19,20 @@
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera for user profile images. (Future updates may require this permission.)",
         "NSPhotoLibraryUsageDescription": "This app accesses your photo library for profile picture uploads. (Future updates may require this permission.)",
-        "NSMicrophoneUsageDescription": "This app may use the microphone in future updates."
+        "NSMicrophoneUsageDescription": "This app may use the microphone in future updates.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "versionCode": 9,
+      "versionCode": 10,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.can1cyp2.VoiceVault",
-      "permissions": ["INTERNET"]
+      "permissions": [
+        "INTERNET"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

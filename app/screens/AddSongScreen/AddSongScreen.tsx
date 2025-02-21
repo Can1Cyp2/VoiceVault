@@ -179,7 +179,7 @@ export default function AddSongScreen({ navigation }: any) {
           onChangeText={setArtist}
         />
         <View style={styles.rangeContainer}>
-          <Text style={styles.rangeLabel}>Start Note:</Text>
+          <Text style={styles.rangeLabel}>Low Note:</Text>
           <Picker
             selectedValue={startNote}
             style={styles.picker}
@@ -191,7 +191,7 @@ export default function AddSongScreen({ navigation }: any) {
           </Picker>
         </View>
         <View style={styles.rangeContainer}>
-          <Text style={styles.rangeLabel}>End Note:</Text>
+          <Text style={styles.rangeLabel}>High Note:</Text>
           <Picker
             selectedValue={endNote}
             style={styles.picker}

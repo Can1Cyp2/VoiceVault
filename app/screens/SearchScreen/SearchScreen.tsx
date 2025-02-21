@@ -16,7 +16,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { SearchBar } from "../../components/SearchBar/SearchBar";
 import { searchSongsByQuery, getArtists } from "../../util/api";
 import { checkInternetConnection } from "../../util/network";
-import UserVocalRangeFilter from "../UserVocalRange/UserVocalRangeFilter";
 import { NOTES } from "../ProfileScreen/EditProfileModal";
 import { supabase } from "../../util/supabase";
 
@@ -88,17 +87,6 @@ export default function SearchScreen() {
     fetchResults();
   }, [query, filter]);
 
-  // Function to normalize enharmonic notes to valid piano keys
-  const normalizeNote = (note: string): string => {
-    const enharmonicMap: { [key: string]: string } = {
-      "E#": "F",
-      "B#": "C",
-      "Cb": "B",
-      "Fb": "E",
-    };
-    return enharmonicMap[note] ?? note;
-  };
-
   // Checks if the song is in the user's vocal range
   const isSongInRange = (songRange: string) => {
     if (!vocalRange) return false;
@@ -136,7 +124,6 @@ export default function SearchScreen() {
 
     return songMinIndex >= userMinIndex && songMaxIndex <= userMaxIndex;
   };
-
 
   // Retry fetching data:
   const fetchResults = async () => {
@@ -193,6 +180,7 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.container}>
+    
       <View style={styles.searchBarContainer}>
         <SearchBar onSearch={setQuery} />
       </View>

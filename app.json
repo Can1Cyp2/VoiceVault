@@ -2,7 +2,7 @@
   "expo": {
     "name": "VoiceVault",
     "slug": "VoiceVault",
-    "version": "1.0.10",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.can1cyp2.VoiceVault",
-      "buildNumber": "1.0.10",
+      "buildNumber": "1.1.1",
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera for user profile images. (Future updates may require this permission.)",
         "NSPhotoLibraryUsageDescription": "This app accesses your photo library for profile picture uploads. (Future updates may require this permission.)",
@@ -24,13 +24,20 @@
       }
     },
     "android": {
-      "versionCode": 10,
+      "versionCode": 10101,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.can1cyp2.VoiceVault",
-      "permissions": ["INTERNET"]
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "CHANGE_NETWORK_STATE",
+        "ACCESS_WIFI_STATE",
+        "CHANGE_WIFI_STATE"
+      ],
+      "usesCleartextTraffic": true
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -158,7 +158,7 @@ const CustomProfileButton = ({
           },
         ]}
       >
-        {isLoggedIn ? "Profile" : "Log In"}
+        {isLoggedIn ? "Profile" : "Profile"}
       </Text>
     </Pressable>
   );

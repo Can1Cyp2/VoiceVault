@@ -7,7 +7,7 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Login</Text>
-      {/* Add your login form or functionality here */}
+      {/* might add later */}
     </View>
   );
 }

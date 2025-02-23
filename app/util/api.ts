@@ -2,20 +2,20 @@
 
 import { Alert } from "react-native";
 import { supabase } from "./supabase"; // Import your Supabase client
+import { calculateOverallRange, noteToValue } from "./vocalRange";
 
 // Fetch songs based on a query
+// In api.ts
 export const searchSongsByQuery = async (query: string): Promise<any[]> => {
   try {
     const { data, error } = await supabase
-      .from("songs") // Replace with your table name
+      .from("songs")
       .select("*")
-      .or(`name.ilike.%${query}%, artist.ilike.%${query}%`); // Searches both song names and songs sung by artist
-
+      .or(`name.ilike.%${query}%, artist.ilike.%${query}%`); // No range filtering here
     if (error) {
       console.error("Error fetching songs:", error.message);
       throw error;
     }
-
     return data || [];
   } catch (error) {
     console.error("Error in searchSongsByQuery:", error);
@@ -90,25 +90,27 @@ export const fetchUserVocalRange = async () => {
   return data;
 };
 
-// Fetch artists based on a query
+// Fetch artists based on a query with their associated songs and vocal ranges
 export const getArtists = async (query: string): Promise<any[]> => {
   try {
     const { data, error } = await supabase
-      .from("songs") // Fetch from the "songs" table
-      .select("artist") // Only fetch the "artist" field
-      .ilike("artist", `%${query}%`); // Filter artists by query (case-insensitive)
-
+      .from("songs")
+      .select("artist, vocalRange")
+      .ilike("artist", `%${query}%`);
     if (error) {
       console.error("Error fetching artists:", error.message);
       throw error;
     }
-
-    // Filter out invalid entries and deduplicate artist names
-    const uniqueArtists = Array.from(
-      new Set(data?.filter((song) => song.artist).map((song) => song.artist))
-    ).map((artist) => ({ name: artist }));
-
-    return uniqueArtists;
+    const artistMap = new Map<string, { name: string; songs: { vocalRange: string }[] }>();
+    data?.forEach((song) => {
+      if (song.artist && song.vocalRange) {
+        if (!artistMap.has(song.artist)) {
+          artistMap.set(song.artist, { name: song.artist, songs: [] });
+        }
+        artistMap.get(song.artist)!.songs.push({ vocalRange: song.vocalRange });
+      }
+    });
+    return Array.from(artistMap.values());
   } catch (error) {
     console.error("Error in getArtists:", error);
     return [];

@@ -18,7 +18,7 @@ import { searchSongsByQuery, getArtists } from "../../util/api";
 import { checkInternetConnection } from "../../util/network";
 import { NOTES } from "../ProfileScreen/EditProfileModal";
 import { supabase } from "../../util/supabase";
-
+import { calculateOverallRange, noteToValue } from "../../util/vocalRange";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Search">;
 
@@ -92,53 +92,64 @@ export default function SearchScreen() {
     if (!vocalRange) return false;
 
     const [songMin, songMax] = songRange.split(" - ").map(note => note.trim());
-
     if (!songMin || !songMax) {
       console.error("Invalid song range format:", songRange);
       return false;
     }
 
-    const songMinIndex = NOTES.indexOf(songMin);
-    const songMaxIndex = NOTES.indexOf(songMax);
-    const userMinIndex = NOTES.indexOf(vocalRange.min_range);
-    const userMaxIndex = NOTES.indexOf(vocalRange.max_range);
+    const songMinIndex = noteToValue(songMin);
+    const songMaxIndex = noteToValue(songMax);
+    const userMinIndex = noteToValue(vocalRange.min_range);
+    const userMaxIndex = noteToValue(vocalRange.max_range);
 
     if (
-      songMinIndex === -1 ||
-      songMaxIndex === -1 ||
-      userMinIndex === -1 ||
-      userMaxIndex === -1
+      isNaN(songMinIndex) || isNaN(songMaxIndex) ||
+      isNaN(userMinIndex) || isNaN(userMaxIndex)
     ) {
-      console.error("Range not found in NOTES array", {
-        userMin: vocalRange.min_range,
-        userMax: vocalRange.max_range,
-        songMin,
-        songMax,
-        songMinIndex,
-        songMaxIndex,
-        userMinIndex,
-        userMaxIndex
-      });
+      console.error("Invalid range calculation", { songMin, songMax, userMin: vocalRange.min_range, userMax: vocalRange.max_range });
       return false;
     }
 
     return songMinIndex >= userMinIndex && songMaxIndex <= userMaxIndex;
   };
 
+  // Checks if an artist's overall vocal range is within the user's vocal range
+  const isArtistInRange = (artist: {
+    name: any; songs: { vocalRange: string }[] 
+}) => {
+    if (!vocalRange || !artist.songs || artist.songs.length === 0) return false;
+
+    const { lowestNote, highestNote } = calculateOverallRange(artist.songs);
+    const artistMinIndex = noteToValue(lowestNote);
+    const artistMaxIndex = noteToValue(highestNote);
+    const userMinIndex = noteToValue(vocalRange.min_range);
+    const userMaxIndex = noteToValue(vocalRange.max_range);
+
+    if (isNaN(artistMinIndex) || isNaN(artistMaxIndex) || isNaN(userMinIndex) || isNaN(userMaxIndex)) {
+      console.error("Invalid range calculation", {
+        artist: artist.name,
+        lowestNote,
+        highestNote,
+        userMin: vocalRange.min_range,
+        userMax: vocalRange.max_range,
+      });
+      return false;
+    }
+
+    return artistMinIndex >= userMinIndex && artistMaxIndex <= userMaxIndex;
+  };
+
   // Retry fetching data:
   const fetchResults = async () => {
     setLoading(true);
     setError(null);
-
     const internetAvailable = await checkInternetConnection();
     setIsConnected(internetAvailable ?? false);
-
     if (!internetAvailable) {
       setLoading(false);
       setError("No internet connection. Please check your network.");
       return;
     }
-
     try {
       if (filter === "songs") {
         const songs = await searchSongsByQuery(query);
@@ -180,7 +191,7 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.container}>
-    
+
       <View style={styles.searchBarContainer}>
         <SearchBar onSearch={setQuery} />
       </View>
@@ -267,8 +278,10 @@ export default function SearchScreen() {
       )}
       <FlatList
         data={
-          vocalRangeFilterActive && filter === "songs"
-            ? results.filter((item) => isSongInRange(item.vocalRange))
+          vocalRangeFilterActive
+            ? filter === "songs"
+              ? results.filter((item) => isSongInRange(item.vocalRange))
+              : results.filter((item) => isArtistInRange(item))
             : results
         }
         renderItem={({ item }) => {
@@ -297,17 +310,29 @@ export default function SearchScreen() {
                     </Text>
                   )}
                 </View>
-                {filter === "songs" && vocalRange && (
+                {vocalRange && (
                   <Ionicons
-                  name={
-                    isSongInRange(item.vocalRange)
-                      ? "checkmark-circle"
-                      : "close-circle"
-                  }
-                  size={30}
-                  color={isSongInRange(item.vocalRange) ? "tomato" : "grey"} // Updated colors
-                  style={styles.inRangeIcon}
-                />
+                    name={
+                      filter === "songs"
+                        ? isSongInRange(item.vocalRange)
+                          ? "checkmark-circle"
+                          : "close-circle"
+                        : isArtistInRange(item)
+                          ? "checkmark-circle"
+                          : "close-circle"
+                    }
+                    size={30}
+                    color={
+                      filter === "songs"
+                        ? isSongInRange(item.vocalRange)
+                          ? "tomato"
+                          : "grey"
+                        : isArtistInRange(item)
+                          ? "tomato"
+                          : "grey"
+                    }
+                    style={styles.inRangeIcon}
+                  />
                 )}
               </View>
             </TouchableOpacity>

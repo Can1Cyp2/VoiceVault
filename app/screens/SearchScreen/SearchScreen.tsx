@@ -45,13 +45,13 @@ export default function SearchScreen() {
       try {
         const { data: user, error } = await supabase.auth.getUser();
         if (error || !user?.user) return;
-  
+
         const { data, error: rangeError } = await supabase
           .from("user_vocal_ranges")
           .select("min_range, max_range")
           .eq("user_id", user.user.id)
           .single();
-  
+
         if (!rangeError) {
           setVocalRange(data);
         }
@@ -59,7 +59,7 @@ export default function SearchScreen() {
         console.error("Error fetching vocal range:", err);
       }
     };
-  
+
     fetchUserVocalRange();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
@@ -67,8 +67,12 @@ export default function SearchScreen() {
         fetchUserVocalRange(); // Update vocal range on sign-in
         fetchResults(); // Refresh search results on sign-in
       }
+      else if (event === "SIGNED_OUT") {
+        setVocalRange(null); // Clear vocal range on sign
+      }
     });
-  
+
+
     return () => {
       authListener.subscription.unsubscribe(); // Clean up listener on unmount
     };
@@ -98,11 +102,10 @@ export default function SearchScreen() {
     fetchResults();
   }, [query, filter]);
 
-  
 
   // Checks if the song is in the user's vocal range
   const isSongInRange = (songRange: string) => {
-    if (!vocalRange) return false;
+    if (!vocalRange || typeof songRange !== "string") return false;
 
     const [songMin, songMax] = songRange.split(" - ").map(note => note.trim());
     if (!songMin || !songMax) {
@@ -128,8 +131,8 @@ export default function SearchScreen() {
 
   // Checks if an artist's overall vocal range is within the user's vocal range
   const isArtistInRange = (artist: {
-    name: any; songs: { vocalRange: string }[] 
-}) => {
+    name: any; songs: { vocalRange: string }[]
+  }) => {
     if (!vocalRange || !artist.songs || artist.songs.length === 0) return false;
 
     const { lowestNote, highestNote } = calculateOverallRange(artist.songs);

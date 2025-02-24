@@ -1,6 +1,6 @@
 // app/screens/ArtistDetailsScreen/ArtistDetailsScreen.tsx
-import { useNavigation } from "@react-navigation/native";
 
+import { useNavigation, NavigationProp  } from "@react-navigation/native";
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -9,21 +9,23 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from "react-native";
-import { searchSongsByQuery } from "../../util/api";
 import { supabase } from "../../util/supabase";
 import { Ionicons } from "@expo/vector-icons";
+import { NOTES } from "../ProfileScreen/EditProfileModal";
+import { RootStackParamList } from "../../navigation/StackNavigator";
 
 export const ArtistDetailsScreen = ({ route }: any) => {
   const { name } = route.params;
   const [songs, setSongs] = useState<any[]>([]);
   const [overallRange, setOverallRange] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loading, setLoading] = useState(true); // loading state
+  const [loading, setLoading] = useState(true);
+  const [userRange, setUserRange] = useState<{ min_range: string; max_range: string } | null>(null);
 
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
-  // Check to see if the user is logged in:
   useEffect(() => {
     const checkLoginStatus = async () => {
       const {
@@ -36,54 +38,43 @@ export const ArtistDetailsScreen = ({ route }: any) => {
       });
     };
 
+    const fetchUserVocalRange = async () => {
+      const { data: user, error } = await supabase.auth.getUser();
+      if (error || !user || !user.user) return;
+
+      const { data, error: rangeError } = await supabase
+        .from("user_vocal_ranges")
+        .select("min_range, max_range")
+        .eq("user_id", user.user.id)
+        .single();
+
+      if (!rangeError) setUserRange(data);
+    };
+
     checkLoginStatus();
+    fetchUserVocalRange();
   }, []);
 
   useEffect(() => {
-    navigation.setOptions({
-      headerRight: () =>
-        isLoggedIn ? (
-          <TouchableOpacity onPress={() => console.log("List Button Clicked")}>
-            <Ionicons
-              name="add-circle-outline"
-              size={30}
-              color="#32CD32"
-              style={{ marginRight: 15 }}
-            />
-          </TouchableOpacity>
-        ) : null, // Hide button if not logged in
-    });
-  }, [isLoggedIn, navigation]);
+    const fetchSongs = async () => {
+      setLoading(true);
+      const { data: artistSongs, error } = await supabase
+        .from("songs")
+        .select("*")
+        .ilike("artist", name);
 
-  const fetchSongs = async () => {
-    setLoading(true); // Show loading indicator
-    const { data: artistSongs, error } = await supabase
-      .from("songs")
-      .select("*")
-      .ilike("artist", name);
-
-    if (error) {
-      console.error("Error fetching songs:", error);
-    } else {
-      console.log(`Fetched songs for artist ${name}:`, artistSongs);
-      setSongs(artistSongs || []);
-
-      if (artistSongs.length > 0) {
+      if (!error && artistSongs) {
+        setSongs(artistSongs);
         const { lowestNote, highestNote } = calculateOverallRange(artistSongs);
         setOverallRange(`${lowestNote} - ${highestNote}`);
-      } else {
-        setOverallRange(null);
       }
-    }
-    setLoading(false); // Hide loading indicator
-  };
+      setLoading(false);
+    };
 
-  useEffect(() => {
     fetchSongs();
   }, [name]);
 
   const calculateOverallRange = (songs: any[]) => {
-    // Mapping notes to numerical values (including sharps)
     const scale: { [key: string]: number } = {
       C: 0,
       "C#": 1,
@@ -100,32 +91,14 @@ export const ArtistDetailsScreen = ({ route }: any) => {
     };
 
     const noteToValue = (note: string): number => {
-      // Extract note and octave
       const match = note.match(/^([A-G]#?)(\d+)$/);
-      if (!match) {
-        console.error("Invalid note format:", note);
-        return NaN;
-      }
-
+      if (!match) return NaN;
       const [, key, octave] = match;
       return scale[key] + (parseInt(octave, 10) + 1) * 12;
     };
 
     const valueToNote = (value: number): string => {
-      const scaleArray = [
-        "C",
-        "C#",
-        "D",
-        "D#",
-        "E",
-        "F",
-        "F#",
-        "G",
-        "G#",
-        "A",
-        "A#",
-        "B",
-      ];
+      const scaleArray = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
       const note = scaleArray[value % 12];
       const octave = Math.floor(value / 12) - 1;
       return `${note}${octave}`;
@@ -136,65 +109,92 @@ export const ArtistDetailsScreen = ({ route }: any) => {
 
     songs.forEach((song) => {
       const [minNote, maxNote] = song.vocalRange.split(" - ").map(noteToValue);
-      if (!isNaN(minNote) && minNote < minValue) minValue = minNote;
-      if (!isNaN(maxNote) && maxNote > maxValue) maxValue = maxNote;
+      if (minNote < minValue) minValue = minNote;
+      if (maxNote > maxValue) maxValue = maxNote;
     });
 
-    return {
-      lowestNote: valueToNote(minValue),
-      highestNote: valueToNote(maxValue),
-    };
+    return { lowestNote: valueToNote(minValue), highestNote: valueToNote(maxValue) };
   };
+  const handleSongPress = (song: any) => {
+    navigation.navigate("Details", {
+        name: song.name,
+        artist: song.artist,
+        vocalRange: song.vocalRange,
+    });
+  };
+
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
+      <Text style={styles.title}>{name}</Text>
+
+      {overallRange && (
+        <View style={styles.card}>
+          <Text style={styles.overallRange}>Overall Vocal Range: {overallRange}</Text>
+
+          {userRange && userRange.min_range !== "C0" && userRange.max_range !== "C0" && (
+            <Text style={styles.personalRange}>
+              Your Range: {userRange.min_range} - {userRange.max_range}
+            </Text>
+          )}
+        </View>
+      )}
+
+      {songs.length > 0 && <Text style={styles.subtitle}>Songs:</Text>}
+    </View>
+  );
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{name}</Text>
-
       {loading ? (
-        <ActivityIndicator size="large" color="#32CD32" style={styles.loader} />
+        <ActivityIndicator size="large" color="tomato" />
       ) : (
-        <>
-          {overallRange && (
-            <Text style={styles.overallRange}>
-              Overall Vocal Range: {overallRange}
-            </Text>
+        <FlatList
+          data={songs}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => (
+            <TouchableOpacity onPress={() => handleSongPress(item)}>
+              <View style={styles.songCard}>
+                <Text style={styles.songTitle}>{item.name}</Text>
+                <Text style={styles.songRange}>{item.vocalRange}</Text>
+              </View>
+            </TouchableOpacity>
           )}
-
-          {songs.length > 0 && <Text style={styles.title}>Songs:</Text>}
-
-          <FlatList
-            data={songs}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => (
-              <Text style={styles.songItem}>
-                {item.name} - {item.vocalRange}
-              </Text>
-            )}
-          />
-          {!songs.length && (
-            <Text style={styles.noSongsText}>
-              No songs available for this artist.
-            </Text>
-          )}
-        </>
+          ListHeaderComponent={renderHeader}
+        />
       )}
     </View>
   );
 };
 
+
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#fff" },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20 },
-  overallRange: { fontSize: 18, color: "blue", marginBottom: 20 },
-  songItem: { fontSize: 18, marginVertical: 5 },
-  noSongsText: {
-    fontSize: 16,
-    color: "gray",
-    marginTop: 20,
-    textAlign: "center",
+  container: { flex: 1, backgroundColor: "#ffffff", padding: 10 },
+  headerContainer: { paddingBottom: 20 },
+  title: { fontSize: 32, fontWeight: "bold", color: "#ff5722", marginBottom: 10 },
+  subtitle: { fontSize: 24, color: "#000000", marginVertical: 10 },
+  card: {
+    backgroundColor: "#f5f5f5",
+    padding: 20,
+    borderRadius: 10,
+    marginBottom: 20,
+    borderColor: "#ff5722",
+    borderWidth: 1,
   },
-  loader: {
-    marginTop: 50,
-    alignSelf: "center",
+  overallRange: { fontSize: 20, color: "#000000", marginBottom: 10 },
+  personalRange: { fontSize: 18, color: "#ff5722", fontWeight: "600" },
+  songCard: {
+    backgroundColor: "#ffffff",
+    padding: 15,
+    borderRadius: 8,
+    marginVertical: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    borderColor: "#ff5722",
+    borderWidth: 1,
   },
+  songTitle: { fontSize: 18, color: "#000000" },
+  songRange: { fontSize: 16, color: "#555555" },
 });
+

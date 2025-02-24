@@ -16,13 +16,14 @@ export type RootStackParamList = {
     name: string;
     vocalRange: string;
     artist: string;
-    username: string;
+    username?: string;
     showAddToListModal?: boolean;
   };
   ArtistDetails: { name: string };
   AddSong: undefined;
   SavedLists: undefined; // Route for displaying all saved lists
   ListDetails: { listName: string }; // Route for showing a specific list's details
+  SongDetails: { name: string; artist: string; vocalRange: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();

@@ -22,8 +22,8 @@ export const ArtistDetailsScreen = ({ route }: any) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userRange, setUserRange] = useState<{ min_range: string; max_range: string } | null>(null);
-  const [showTooltip, setShowTooltip] = useState(false); // Tooltip visibility
-  const indicatorRef = useRef<View>(null); // Ref to position tooltip
+  const [showTooltip, setShowTooltip] = useState(false);
+  const indicatorRef = useRef<View>(null);
 
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
@@ -144,12 +144,42 @@ export const ArtistDetailsScreen = ({ route }: any) => {
     const maxDiff = artistMax - userMax;
     const isWithinRange = artistMin >= userMin && artistMax <= userMax;
     if (isWithinRange) {
-      return { color: "green", minDiff: 0, maxDiff: 0, reason: " = Within your range!" };
+      return { color: "green", minDiff: 0, maxDiff: 0, reason: " ~ Within your range" };
     }
 
     const closestDiff = Math.min(Math.abs(minDiff), Math.abs(maxDiff));
     const isClose = closestDiff <= 3;
-    return { color: isClose ? "yellow" : "red", minDiff, maxDiff, reason: isClose ? " = Close to your range" : " = Outside your range" };
+    return { color: isClose ? "yellow" : "red", minDiff, maxDiff, reason: isClose ? " ~ Close to your range" : " ~ Outside your range" };
+  };
+
+  const renderTooltip = () => {
+    const { color, minDiff, maxDiff, reason } = getRangeComparison();
+    if (!showTooltip) return null;
+
+    // Check if low and high ends are individually within range
+    const userMin = noteToValue(userRange!.min_range);
+    const userMax = noteToValue(userRange!.max_range);
+    const artistMin = noteToValue(overallRange!.split(" - ")[0]);
+    const artistMax = noteToValue(overallRange!.split(" - ")[1]);
+
+    let lowText = artistMin >= userMin ? "In range" : `${minDiff} notes lower than your range`;
+    let highText = artistMax <= userMax ? "In range" : `+${maxDiff} notes higher than your range`;
+
+    if (minDiff > 0) {
+      lowText = `+${minDiff} notes higher than your range`;
+    }
+    if (maxDiff < 0) {
+      highText = `${maxDiff} notes lower than your range`;
+    }
+
+    return (
+      <View style={[styles.tooltip, { borderColor: "#ff5722" }]}>
+        <Text style={styles.tooltipText}>Low: {lowText}</Text>
+        <Text style={styles.tooltipText}>High: {highText}</Text>
+        <Text style={styles.tooltipText}>{reason}</Text>
+        <View style={[styles.tooltipArrow, { borderTopColor: "#ff5722" }]} />
+      </View>
+    );
   };
 
   const handleSongPress = (song: any) => {
@@ -158,24 +188,6 @@ export const ArtistDetailsScreen = ({ route }: any) => {
       artist: song.artist,
       vocalRange: song.vocalRange,
     });
-  };
-
-  const renderTooltip = () => {
-    const { color, minDiff, maxDiff, reason } = getRangeComparison();
-    if (!showTooltip) return null;
-
-    return (
-      <View style={[styles.tooltip, { borderColor: "#ff5722" }]}>
-        <Text style={styles.tooltipText}>
-          {minDiff !== 0 && `${minDiff < 0 ? minDiff : "+" + minDiff} notes lower`}
-          {minDiff !== 0 && maxDiff !== 0 && " and "}
-          {maxDiff !== 0 && `${maxDiff < 0 ? maxDiff : "+" + maxDiff} notes higher`}
-          {(minDiff === 0 && maxDiff === 0) && "No difference"}
-        </Text>
-        <Text style={styles.tooltipText}>{reason}</Text>
-        <View style={[styles.tooltipArrow, { borderTopColor: "#ff5722" }]} />
-      </View>
-    );
   };
 
   const renderHeader = () => {
@@ -258,7 +270,7 @@ const styles = StyleSheet.create({
   },
   tooltip: {
     position: "absolute",
-    top: 20, // Position below the circle
+    top: 20,
     right: -10,
     backgroundColor: "#fff",
     padding: 10,
@@ -278,7 +290,7 @@ const styles = StyleSheet.create({
   tooltipArrow: {
     position: "absolute",
     top: -6,
-    right: 10,
+    right: 150,
     width: 0,
     height: 0,
     borderLeftWidth: 6,

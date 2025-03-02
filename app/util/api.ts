@@ -73,7 +73,7 @@ export const addSong = async (song: {
 export const fetchUserVocalRange = async () => {
   const user = await supabase.auth.getUser();
   if (!user.data.user) {
-    Alert.alert("Error", "You must be logged in to view your vocal range.");
+    Alert.alert("Error", "Log in for a personalized view based on your vocal range.");
     return null;
   }
 

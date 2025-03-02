@@ -8,15 +8,15 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useIsFocused, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/StackNavigator";
 import { Ionicons } from "@expo/vector-icons";
 import { SearchBar } from "../../components/SearchBar/SearchBar";
 import { searchSongsByQuery, getArtists } from "../../util/api";
 import { checkInternetConnection } from "../../util/network";
-import { NOTES } from "../ProfileScreen/EditProfileModal";
 import { supabase } from "../../util/supabase";
 import { calculateOverallRange, noteToValue } from "../../util/vocalRange";
 
@@ -24,6 +24,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Search">;
 
 export default function SearchScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const isFocused = useIsFocused(); // detect screen focus
   const handleAddPress = () => {
     navigation.navigate("AddSong");
   };
@@ -34,29 +35,33 @@ export default function SearchScreen() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"songs" | "artists">("songs");
   const [isConnected, setIsConnected] = useState(true);
-
-  // Vocal Range for User:
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [vocalRange, setVocalRange] = useState<{ min_range: string; max_range: string } | null>(null);
   const [vocalRangeFilterActive, setVocalRangeFilterActive] = useState(false);
-
 
   useEffect(() => {
     const fetchUserVocalRange = async () => {
       try {
         const { data: user, error } = await supabase.auth.getUser();
-        if (error || !user?.user) return;
-
+        if (error || !user?.user) {
+          setIsLoggedIn(false);
+          setVocalRange(null);
+          return;
+        }
+        setIsLoggedIn(true);
         const { data, error: rangeError } = await supabase
           .from("user_vocal_ranges")
           .select("min_range, max_range")
           .eq("user_id", user.user.id)
           .single();
-
         if (!rangeError) {
           setVocalRange(data);
+        } else {
+          setVocalRange(null); // No range set for user
         }
       } catch (err) {
         console.error("Error fetching vocal range:", err);
+        setIsLoggedIn(false);
       }
     };
 
@@ -64,83 +69,53 @@ export default function SearchScreen() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN") {
-        fetchUserVocalRange(); // Update vocal range on sign-in
-        fetchResults(); // Refresh search results on sign-in
-      }
-      else if (event === "SIGNED_OUT") {
-        setVocalRange(null); // Clear vocal range on sign
+        setIsLoggedIn(true);
+        fetchUserVocalRange();
+        fetchResults();
+      } else if (event === "SIGNED_OUT") {
+        setIsLoggedIn(false);
+        setVocalRange(null);
+        setVocalRangeFilterActive(false); // Reset filter on sign-out
       }
     });
 
-
     return () => {
-      authListener.subscription.unsubscribe(); // Clean up listener on unmount
+      authListener.subscription.unsubscribe();
     };
   }, []);
 
+  // Refresh when screen regains focus
   useEffect(() => {
-    setResults([]); // Clear results when the filter changes
-    const fetchResults = async () => {
-      setLoading(true);
-      setError(null);
+    if (isFocused) {
+      fetchResults(); // Refresh results when returning to screen
+    }
+  }, [isFocused, query, filter]);
 
-      try {
-        if (filter === "songs") {
-          const songs = await searchSongsByQuery(query);
-          setResults(songs);
-        } else if (filter === "artists") {
-          const artists = await getArtists(query);
-          setResults(artists);
-        }
-      } catch (err) {
-        setError("An error occurred while fetching data.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchResults();
-  }, [query, filter]);
-
-
-  // Checks if the song is in the user's vocal range
   const isSongInRange = (songRange: string) => {
     if (!vocalRange || typeof songRange !== "string") return false;
-
     const [songMin, songMax] = songRange.split(" - ").map(note => note.trim());
     if (!songMin || !songMax) {
       console.error("Invalid song range format:", songRange);
       return false;
     }
-
     const songMinIndex = noteToValue(songMin);
     const songMaxIndex = noteToValue(songMax);
     const userMinIndex = noteToValue(vocalRange.min_range);
     const userMaxIndex = noteToValue(vocalRange.max_range);
-
-    if (
-      isNaN(songMinIndex) || isNaN(songMaxIndex) ||
-      isNaN(userMinIndex) || isNaN(userMaxIndex)
-    ) {
+    if (isNaN(songMinIndex) || isNaN(songMaxIndex) || isNaN(userMinIndex) || isNaN(userMaxIndex)) {
       console.error("Invalid range calculation", { songMin, songMax, userMin: vocalRange.min_range, userMax: vocalRange.max_range });
       return false;
     }
-
     return songMinIndex >= userMinIndex && songMaxIndex <= userMaxIndex;
   };
 
-  // Checks if an artist's overall vocal range is within the user's vocal range
-  const isArtistInRange = (artist: {
-    name: any; songs: { vocalRange: string }[]
-  }) => {
+  const isArtistInRange = (artist: { name: any; songs: { vocalRange: string }[] }) => {
     if (!vocalRange || !artist.songs || artist.songs.length === 0) return false;
-
     const { lowestNote, highestNote } = calculateOverallRange(artist.songs);
     const artistMinIndex = noteToValue(lowestNote);
     const artistMaxIndex = noteToValue(highestNote);
     const userMinIndex = noteToValue(vocalRange.min_range);
     const userMaxIndex = noteToValue(vocalRange.max_range);
-
     if (isNaN(artistMinIndex) || isNaN(artistMaxIndex) || isNaN(userMinIndex) || isNaN(userMaxIndex)) {
       console.error("Invalid range calculation", {
         artist: artist.name,
@@ -151,11 +126,9 @@ export default function SearchScreen() {
       });
       return false;
     }
-
     return artistMinIndex >= userMinIndex && artistMaxIndex <= userMaxIndex;
   };
 
-  // Retry fetching data:
   const fetchResults = async () => {
     setLoading(true);
     setError(null);
@@ -181,13 +154,8 @@ export default function SearchScreen() {
     }
   };
 
-  useEffect(() => {
-    setResults([]); // Clear results when the filter changes
-    fetchResults();
-  }, [query, filter]);
-
   const handleRetry = () => {
-    fetchResults(); // Retry fetching data
+    fetchResults();
   };
 
   const handlePress = (item: any) => {
@@ -205,47 +173,57 @@ export default function SearchScreen() {
     }
   };
 
+  const handleInRangePress = () => {
+    if (!isLoggedIn) {
+      Alert.alert(
+        "Login Required",
+        "You need to log in to use the 'In Range' filter. Would you like to log in now?",
+        [
+          {
+            text: "Yes",
+            onPress: () => navigation.navigate("Home"),
+          },
+          { text: "No", style: "cancel" },
+        ],
+        { cancelable: true }
+      );
+    } else {
+      // Toggle filter even if range isn’t set yet, but it only filters if range exists
+      setVocalRangeFilterActive((prev) => !prev);
+      if (!vocalRange || vocalRange.min_range === "C0" || vocalRange.max_range === "C0") {
+        Alert.alert(
+          "No Vocal Range Set",
+          "You haven’t set your vocal range yet. Please set it in your profile to use this filter."
+        );
+      }
+    }
+  };
+
   return (
     <View style={styles.container}>
-
       <View style={styles.searchBarContainer}>
         <SearchBar onSearch={setQuery} />
       </View>
       <View style={styles.filterContainer}>
-        {/* Add Button */}
         <TouchableOpacity style={styles.addButton} onPress={handleAddPress}>
           <Ionicons name="add-circle" size={36} color="tomato" />
         </TouchableOpacity>
-
-        {/* Filter Buttons Container */}
         <View style={styles.filterButtonsWrapper}>
           <TouchableOpacity
-            style={[
-              styles.filterButton,
-              filter === "songs" && styles.activeFilter,
-            ]}
+            style={[styles.filterButton, filter === "songs" && styles.activeFilter]}
             onPress={() => setFilter("songs")}
           >
             <Text style={styles.filterText}>Songs</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[
-              styles.filterButton,
-              filter === "artists" && styles.activeFilter,
-            ]}
+            style={[styles.filterButton, filter === "artists" && styles.activeFilter]}
             onPress={() => setFilter("artists")}
           >
             <Text style={styles.filterText}>Artists</Text>
           </TouchableOpacity>
-
           <TouchableOpacity
             style={styles.filterButtonRight}
-            onPress={() => {
-              if (vocalRange && vocalRange.min_range !== "C0" && vocalRange.max_range !== "C0") {
-                setVocalRangeFilterActive((prev) => !prev);
-              }
-            }}
-            disabled={!vocalRange || vocalRange.min_range === "C0" || vocalRange.max_range === "C0"}
+            onPress={handleInRangePress}
           >
             <Ionicons
               name="checkmark-circle"
@@ -301,14 +279,11 @@ export default function SearchScreen() {
             : results
         }
         renderItem={({ item }) => {
-          if (
-            filter === "songs" &&
-            (!item.name || !item.artist || !item.vocalRange)
-          ) {
-            return null; // Skip rendering invalid song data
+          if (filter === "songs" && (!item.name || !item.artist || !item.vocalRange)) {
+            return null;
           }
           if (filter === "artists" && !item.name) {
-            return null; // Skip rendering invalid artist data
+            return null;
           }
           return (
             <TouchableOpacity onPress={() => handlePress(item)}>
@@ -355,7 +330,6 @@ export default function SearchScreen() {
           );
         }}
       />
-
     </View>
   );
 }
@@ -402,7 +376,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 5, // For Android shadow
+    elevation: 5,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -441,7 +415,7 @@ const styles = StyleSheet.create({
   },
   noResultsText: { textAlign: "center", color: "#555", marginVertical: 20 },
   inRangeIcon: {
-    marginLeft: 'auto', // Pushes the icon to the right
+    marginLeft: "auto",
   },
   resultIcon: {
     marginRight: 15,
@@ -451,7 +425,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 17,
     alignItems: "center",
-    zIndex: 10, // Ensure the button is on top
+    zIndex: 10,
   },
   filterIcon: {
     paddingLeft: 15,

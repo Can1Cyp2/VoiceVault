@@ -1,6 +1,6 @@
 // app/screens/ArtistDetailsScreen/ArtistDetailsScreen.tsx
 
-import { useNavigation, NavigationProp  } from "@react-navigation/native";
+import { useNavigation, NavigationProp } from "@react-navigation/native";
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -9,11 +9,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { supabase } from "../../util/supabase";
 import { Ionicons } from "@expo/vector-icons";
-import { NOTES } from "../ProfileScreen/EditProfileModal";
 import { RootStackParamList } from "../../navigation/StackNavigator";
 
 export const ArtistDetailsScreen = ({ route }: any) => {
@@ -27,6 +25,11 @@ export const ArtistDetailsScreen = ({ route }: any) => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
   useEffect(() => {
+    // Remove the list button from the navigation bar
+    navigation.setOptions({
+      headerRight: undefined, // Explicitly clear the headerRight button
+    });
+
     const checkLoginStatus = async () => {
       const {
         data: { session },
@@ -115,22 +118,21 @@ export const ArtistDetailsScreen = ({ route }: any) => {
 
     return { lowestNote: valueToNote(minValue), highestNote: valueToNote(maxValue) };
   };
+
   const handleSongPress = (song: any) => {
     navigation.navigate("Details", {
-        name: song.name,
-        artist: song.artist,
-        vocalRange: song.vocalRange,
+      name: song.name,
+      artist: song.artist,
+      vocalRange: song.vocalRange,
     });
   };
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
       <Text style={styles.title}>{name}</Text>
-
       {overallRange && (
         <View style={styles.card}>
           <Text style={styles.overallRange}>Overall Vocal Range: {overallRange}</Text>
-
           {userRange && userRange.min_range !== "C0" && userRange.max_range !== "C0" && (
             <Text style={styles.personalRange}>
               Your Range: {userRange.min_range} - {userRange.max_range}
@@ -138,7 +140,6 @@ export const ArtistDetailsScreen = ({ route }: any) => {
           )}
         </View>
       )}
-
       {songs.length > 0 && <Text style={styles.subtitle}>Songs:</Text>}
     </View>
   );
@@ -165,7 +166,6 @@ export const ArtistDetailsScreen = ({ route }: any) => {
     </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#ffffff", padding: 10 },
@@ -197,4 +197,3 @@ const styles = StyleSheet.create({
   songTitle: { fontSize: 18, color: "#000000" },
   songRange: { fontSize: 16, color: "#555555" },
 });
-

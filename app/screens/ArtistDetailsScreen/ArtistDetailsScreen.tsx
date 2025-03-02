@@ -1,7 +1,7 @@
 // app/screens/ArtistDetailsScreen/ArtistDetailsScreen.tsx
 
 import { useNavigation, NavigationProp } from "@react-navigation/native";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 import { supabase } from "../../util/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { RootStackParamList } from "../../navigation/StackNavigator";
+import { noteToValue } from "../SongDetailsScreen/RangeBestFit";
 
 export const ArtistDetailsScreen = ({ route }: any) => {
   const { name } = route.params;
@@ -21,13 +22,14 @@ export const ArtistDetailsScreen = ({ route }: any) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userRange, setUserRange] = useState<{ min_range: string; max_range: string } | null>(null);
+  const [showTooltip, setShowTooltip] = useState(false); // Tooltip visibility
+  const indicatorRef = useRef<View>(null); // Ref to position tooltip
 
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
   useEffect(() => {
-    // Remove the list button from the navigation bar
     navigation.setOptions({
-      headerRight: undefined, // Explicitly clear the headerRight button
+      headerRight: undefined,
     });
 
     const checkLoginStatus = async () => {
@@ -42,16 +44,26 @@ export const ArtistDetailsScreen = ({ route }: any) => {
     };
 
     const fetchUserVocalRange = async () => {
-      const { data: user, error } = await supabase.auth.getUser();
-      if (error || !user || !user.user) return;
-
-      const { data, error: rangeError } = await supabase
-        .from("user_vocal_ranges")
-        .select("min_range, max_range")
-        .eq("user_id", user.user.id)
-        .single();
-
-      if (!rangeError) setUserRange(data);
+      try {
+        const { data: user, error } = await supabase.auth.getUser();
+        if (error || !user || !user.user) {
+          setUserRange(null);
+          return;
+        }
+        const { data, error: rangeError } = await supabase
+          .from("user_vocal_ranges")
+          .select("min_range, max_range")
+          .eq("user_id", user.user.id)
+          .single();
+        if (!rangeError && data) {
+          setUserRange(data);
+        } else {
+          setUserRange(null);
+        }
+      } catch (err) {
+        console.error("Error fetching vocal range:", err);
+        setUserRange(null);
+      }
     };
 
     checkLoginStatus();
@@ -66,10 +78,13 @@ export const ArtistDetailsScreen = ({ route }: any) => {
         .select("*")
         .ilike("artist", name);
 
-      if (!error && artistSongs) {
+      if (!error && artistSongs && artistSongs.length > 0) {
         setSongs(artistSongs);
         const { lowestNote, highestNote } = calculateOverallRange(artistSongs);
         setOverallRange(`${lowestNote} - ${highestNote}`);
+      } else {
+        setSongs([]);
+        setOverallRange(null);
       }
       setLoading(false);
     };
@@ -79,18 +94,7 @@ export const ArtistDetailsScreen = ({ route }: any) => {
 
   const calculateOverallRange = (songs: any[]) => {
     const scale: { [key: string]: number } = {
-      C: 0,
-      "C#": 1,
-      D: 2,
-      "D#": 3,
-      E: 4,
-      F: 5,
-      "F#": 6,
-      G: 7,
-      "G#": 8,
-      A: 9,
-      "A#": 10,
-      B: 11,
+      C: 0, "C#": 1, D: 2, "D#": 3, E: 4, F: 5, "F#": 6, G: 7, "G#": 8, A: 9, "A#": 10, B: 11,
     };
 
     const noteToValue = (note: string): number => {
@@ -112,11 +116,40 @@ export const ArtistDetailsScreen = ({ route }: any) => {
 
     songs.forEach((song) => {
       const [minNote, maxNote] = song.vocalRange.split(" - ").map(noteToValue);
-      if (minNote < minValue) minValue = minNote;
-      if (maxNote > maxValue) maxValue = maxNote;
+      if (!isNaN(minNote) && minNote < minValue) minValue = minNote;
+      if (!isNaN(maxNote) && maxNote > maxValue) maxValue = maxNote;
     });
 
+    if (minValue === Infinity || maxValue === -Infinity) {
+      return { lowestNote: "N/A", highestNote: "N/A" };
+    }
+
     return { lowestNote: valueToNote(minValue), highestNote: valueToNote(maxValue) };
+  };
+
+  const getRangeComparison = () => {
+    if (!userRange || !overallRange || userRange.min_range === "C0" || userRange.max_range === "C0") {
+      return { color: "gray", minDiff: 0, maxDiff: 0, reason: "No user range set" };
+    }
+
+    const userMin = noteToValue(userRange.min_range);
+    const userMax = noteToValue(userRange.max_range);
+    const [artistMin, artistMax] = overallRange.split(" - ").map(noteToValue);
+
+    if (isNaN(userMin) || isNaN(userMax) || isNaN(artistMin) || isNaN(artistMax)) {
+      return { color: "gray", minDiff: 0, maxDiff: 0, reason: "Invalid range data" };
+    }
+
+    const minDiff = artistMin - userMin;
+    const maxDiff = artistMax - userMax;
+    const isWithinRange = artistMin >= userMin && artistMax <= userMax;
+    if (isWithinRange) {
+      return { color: "green", minDiff: 0, maxDiff: 0, reason: " = Within your range!" };
+    }
+
+    const closestDiff = Math.min(Math.abs(minDiff), Math.abs(maxDiff));
+    const isClose = closestDiff <= 3;
+    return { color: isClose ? "yellow" : "red", minDiff, maxDiff, reason: isClose ? " = Close to your range" : " = Outside your range" };
   };
 
   const handleSongPress = (song: any) => {
@@ -127,22 +160,52 @@ export const ArtistDetailsScreen = ({ route }: any) => {
     });
   };
 
-  const renderHeader = () => (
-    <View style={styles.headerContainer}>
-      <Text style={styles.title}>{name}</Text>
-      {overallRange && (
-        <View style={styles.card}>
-          <Text style={styles.overallRange}>Overall Vocal Range: {overallRange}</Text>
-          {userRange && userRange.min_range !== "C0" && userRange.max_range !== "C0" && (
-            <Text style={styles.personalRange}>
-              Your Range: {userRange.min_range} - {userRange.max_range}
-            </Text>
-          )}
-        </View>
-      )}
-      {songs.length > 0 && <Text style={styles.subtitle}>Songs:</Text>}
-    </View>
-  );
+  const renderTooltip = () => {
+    const { color, minDiff, maxDiff, reason } = getRangeComparison();
+    if (!showTooltip) return null;
+
+    return (
+      <View style={[styles.tooltip, { borderColor: "#ff5722" }]}>
+        <Text style={styles.tooltipText}>
+          {minDiff !== 0 && `${minDiff < 0 ? minDiff : "+" + minDiff} notes lower`}
+          {minDiff !== 0 && maxDiff !== 0 && " and "}
+          {maxDiff !== 0 && `${maxDiff < 0 ? maxDiff : "+" + maxDiff} notes higher`}
+          {(minDiff === 0 && maxDiff === 0) && "No difference"}
+        </Text>
+        <Text style={styles.tooltipText}>{reason}</Text>
+        <View style={[styles.tooltipArrow, { borderTopColor: "#ff5722" }]} />
+      </View>
+    );
+  };
+
+  const renderHeader = () => {
+    const { color } = getRangeComparison();
+
+    return (
+      <View style={styles.headerContainer}>
+        <Text style={styles.title}>{name}</Text>
+        {overallRange && (
+          <View style={styles.card}>
+            <Text style={styles.overallRange}>Overall Vocal Range: {overallRange}</Text>
+            {userRange && userRange.min_range !== "C0" && userRange.max_range !== "C0" && (
+              <View style={styles.rangeContainer}>
+                <Text style={styles.personalRange}>
+                  Your Range: {userRange.min_range} - {userRange.max_range}
+                </Text>
+                <TouchableOpacity
+                  ref={indicatorRef}
+                  style={[styles.rangeIndicator, { backgroundColor: color }]}
+                  onPress={() => setShowTooltip((prev) => !prev)}
+                />
+                {renderTooltip()}
+              </View>
+            )}
+          </View>
+        )}
+        {songs.length > 0 && <Text style={styles.subtitle}>Songs:</Text>}
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -182,6 +245,50 @@ const styles = StyleSheet.create({
   },
   overallRange: { fontSize: 20, color: "#000000", marginBottom: 10 },
   personalRange: { fontSize: 18, color: "#ff5722", fontWeight: "600" },
+  rangeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    position: "relative",
+  },
+  rangeIndicator: {
+    width: 15,
+    height: 15,
+    borderRadius: 7.5,
+    marginLeft: 10,
+  },
+  tooltip: {
+    position: "absolute",
+    top: 20, // Position below the circle
+    right: -10,
+    backgroundColor: "#fff",
+    padding: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 100,
+  },
+  tooltipText: {
+    fontSize: 14,
+    color: "#333",
+  },
+  tooltipArrow: {
+    position: "absolute",
+    top: -6,
+    right: 10,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderBottomWidth: 6,
+    borderStyle: "solid",
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderBottomColor: "#ff5722",
+  },
   songCard: {
     backgroundColor: "#ffffff",
     padding: 15,

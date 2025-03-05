@@ -70,3 +70,114 @@
 VoiceVault is the perfect tool for vocalists, music students, and karaoke enthusiasts to discover music and understand their vocal abilities! 🚀
 
 ---
+
+## 🖥️ Installation and Setup
+
+### Prerequisites
+- **Node.js**: Version 18.x or higher
+- **npm**: Version 9.x or higher
+- **Expo CLI**: Install globally with `npm install -g expo-cli`
+- **Expo Go App**: For testing on physical devices (available on iOS and Android)
+
+### Steps to Run Locally
+1. **Clone the Repository**:
+   ===bash
+   git clone https://github.com/your-username/voicevault.git
+   cd voicevault
+   ===
+
+2. **Install Dependencies**:
+   ===bash
+   npm install
+   ===
+
+3. **Set Up Supabase**:
+   - Create a Supabase project at [supabase.com](https://supabase.com).
+   - Note your Supabase URL and Anon Key from the project settings.
+   - Create the necessary tables (e.g., `songs`, `user_vocal_ranges`, `issues`) in your Supabase database. Refer to the schema in `app/util/supabase.ts`.
+   - Update the Supabase configuration in `app/util/supabase.ts` with your URL and Anon Key:
+     ===typescript
+     const SUPABASE_URL = "https://your-supabase-url.supabase.co";
+     const SUPABASE_ANON_KEY = "your-anon-key";
+     ===
+
+4. **Run the App**:
+   - Start the Expo development server:
+     ===bash
+     npx expo start
+     ===
+   - Scan the QR code with the Expo Go app on your device, or run in an emulator/simulator.
+
+5. **Build for Production**:
+   - To build for Android or iOS and submit to app stores, use EAS:
+     ===bash
+     eas build --platform android
+     ===
+   - Follow the EAS CLI prompts to configure and build your app.
+
+---
+
+## 🐞 Known Issues
+
+### Network Connectivity on Android (Play Store)
+- **Issue**: On some Android devices (e.g., Samsung Galaxy S22, Google Pixel 4), the app fails to connect to the Supabase backend when installed via the Play Store, resulting in a "TypeError: Network request failed" error. No requests are logged in Supabase, indicating the issue occurs before the request leaves the device.
+- **Devices Affected**:
+  - Samsung Galaxy S22 (inconsistent—some devices work, others don’t)
+  - Google Pixel 4
+  - LG G4 (likely due to Android 6.0, API 23, being below the minimum SDK of 24)
+- **Workaround**: The app works correctly when installed via APK, suggesting a Play Store delivery or device-specific issue.
+- **Steps Taken**:
+  - Added network diagnostics (e.g., `checkInternetConnection`, raw `fetch` tests to Supabase and Google) to confirm the issue.
+  - Attempted to apply a network security configuration to allow requests to `ydxbhxstbspjpncpsmrz.supabase.co`, but encountered a `PluginError` with the custom plugin.
+  - Manually applied the network security config by prebuilding the Expo project and modifying `AndroidManifest.xml`.
+- **Next Steps**:
+  - Test the new build with the network security config on affected devices.
+  - If the issue persists, explore using a `fetch` polyfill (e.g., `whatwg-fetch`) or investigate Play Store app signing issues.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! If you can help resolve the network connectivity issue on Android or have ideas for new features, please contribute.
+
+### How to Contribute
+1. Fork the repository.
+2. Create a new branch:
+   ===bash
+   git checkout -b feature/your-feature-name
+   ===
+3. Make your changes and commit:
+   ===bash
+   git commit -m "Add your feature or fix"
+   ===
+4. Push to your fork:
+   ===bash
+   git push origin feature/your-feature-name
+   ===
+5. Open a pull request with a detailed description of your changes.
+
+### Areas for Contribution
+- **Network Issue Resolution**: Help debug and fix the "TypeError: Network request failed" issue on Android devices when installed via the Play Store.
+- **Feature Enhancements**: Contribute to planned features like song difficulty ratings, recording integration, or AI vocal coaching.
+- **Bug Fixes**: Address any other bugs or improve performance.
+
+---
+
+## 🔮 Future Enhancements
+
+- **Song Difficulty Ratings**: Add difficulty levels (e.g., beginner, intermediate, advanced) based on vocal range, technique, and style.
+- **Recording Integration**: Allow users to record their singing sessions and compare them to the song’s vocal range.
+- **AI Vocal Coaching**: Integrate AI to provide real-time feedback on pitch, tone, and technique during practice.
+- **Improved Network Reliability**: Resolve the Android network connectivity issue by:
+  - Implementing a `fetch` polyfill if the issue is with React Native’s `fetch` implementation.
+  - Exploring Play Store app signing configurations to ensure network requests work consistently.
+- **Expanded Database**: Add more songs, artists, and vocal range data to the Supabase database.
+- **Offline Mode**: Cache song and artist data for offline access.
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+---

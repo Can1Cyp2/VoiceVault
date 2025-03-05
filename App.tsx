@@ -4,13 +4,13 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { AppStack } from "./app/navigation/StackNavigator";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "./app/util/supabase";
-
+import { checkInternetConnection } from "./app/util/network";
 import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
 import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
 import SavedListsScreen from "./app/screens/SavedListsScreen/SavedListsScreen";
 import { useEffect, useState } from "react";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import 'whatwg-fetch';
 
 const Tab = createBottomTabNavigator();
 
@@ -18,28 +18,89 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    const checkSession = async () => {
+    const checkSessionAndHealth = async () => {
       try {
-        // Debug stored session in AsyncStorage:
+        // Debug stored session in AsyncStorage
         const storedSession = await AsyncStorage.getItem("supabase.auth.token");
         console.log(
           "Stored session:",
           storedSession ? "✅ Exists" : "❌ Not Found"
         );
 
+        // Check network state
+        const isConnected = await checkInternetConnection();
+        if (!isConnected) {
+          console.error("Cannot fetch session: No internet connection");
+          Alert.alert(
+            "Connection Error",
+            "Please check your internet connection and try again."
+          );
+          return;
+        }
+
         // Fetch current session from Supabase
         const { data } = await supabase.auth.getSession();
         console.log("Session from Supabase:", data.session);
-
         setIsLoggedIn(!!data.session);
+
+        // Health check: Test Supabase connectivity
+        console.log('Running Supabase health check...');
+        const { data: healthData, error: healthError } = await supabase.from('songs').select('id').limit(1);
+        if (healthError) {
+          console.error('Supabase health check failed:', healthError.message, healthError.details, healthError.hint);
+        } else {
+          console.log('Supabase health check succeeded:', healthData);
+        }
+
+        // Raw fetch test to Supabase
+        console.log('Running raw fetch test to Supabase...');
+        try {
+          const fetchResponse = await fetch('https://ydxbhxstbspjpncpsmrz.supabase.co/health', {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+            },
+          });
+          const fetchText = await fetchResponse.text();
+          console.log('Raw fetch response:', fetchText);
+          console.log('Raw fetch status:', fetchResponse.status);
+          console.log('Raw fetch headers:', [...fetchResponse.headers.entries()]);
+        } catch (fetchError) {
+          console.error('Raw fetch test failed:', fetchError);
+          if (fetchError instanceof Error) {
+            console.error('Fetch error details:', fetchError.message, fetchError.stack);
+          }
+        }
+
+        // Raw fetch test to Google
+        console.log('Running raw fetch test to a public endpoint (Google)...');
+        try {
+          const googleResponse = await fetch('https://www.google.com', {
+            method: 'GET',
+            headers: {
+              'Accept': 'text/html',
+            },
+          });
+          const googleText = await googleResponse.text();
+          console.log('Google fetch response (first 100 chars):', googleText.substring(0, 100));
+          console.log('Google fetch status:', googleResponse.status);
+        } catch (googleError) {
+          console.error('Google fetch test failed:', googleError);
+          if (googleError instanceof Error) {
+            console.error('Google fetch error details:', googleError.message, googleError.stack);
+          }
+        }
       } catch (error) {
-        console.error("Error restoring session:", error);
+        console.error("Error during session or health check:", error);
+        if (error instanceof Error) {
+          console.error('Error details:', error.message, error.stack);
+        }
       }
     };
 
-    checkSession();
+    checkSessionAndHealth();
 
-    // listener OUTSIDE checkSession to avoid multiple triggers
+    // Auth state change listener
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         console.log("Auth State Changed:", session);
@@ -64,7 +125,7 @@ export default function App() {
         }}
       >
         <Tab.Screen
-          name="Home"
+          name="HomeTab"
           component={HomeScreen}
           options={{
             tabBarButton: (props) => (
@@ -73,14 +134,14 @@ export default function App() {
           }}
         />
         <Tab.Screen
-          name="Search"
+          name="SearchTab"
           component={AppStack}
           options={{
             tabBarButton: (props) => <CustomSearchButton {...props} />,
           }}
         />
         <Tab.Screen
-          name="Profile"
+          name="ProfileTab"
           component={ProfileScreen}
           options={{
             tabBarButton: (props) => (

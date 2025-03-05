@@ -10,6 +10,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@expo/config-plugins": "^9.0.16",
     "@expo/vector-icons": "^14.0.4",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-picker/picker": "2.9.0",
@@ -36,7 +37,8 @@
     "react-navigation-stack": "^2.10.4",
     "react-redux": "^9.1.2",
     "VoiceVault": "file:",
-    "VoiceVault-app": "file:"
+    "VoiceVault-app": "file:",
+    "whatwg-fetch": "^3.6.20"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

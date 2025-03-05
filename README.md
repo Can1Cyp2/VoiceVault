@@ -81,38 +81,38 @@ VoiceVault is the perfect tool for vocalists, music students, and karaoke enthus
 
 ### Steps to Run Locally
 1. **Clone the Repository**:
-   ===bash
+   ```bash
    git clone https://github.com/your-username/voicevault.git
    cd voicevault
-   ===
+   ```
 
 2. **Install Dependencies**:
-   ===bash
+   ```bash
    npm install
-   ===
+   ```
 
 3. **Set Up Supabase**:
    - Create a Supabase project at [supabase.com](https://supabase.com).
    - Note your Supabase URL and Anon Key from the project settings.
    - Create the necessary tables (e.g., `songs`, `user_vocal_ranges`, `issues`) in your Supabase database. Refer to the schema in `app/util/supabase.ts`.
    - Update the Supabase configuration in `app/util/supabase.ts` with your URL and Anon Key:
-     ===typescript
+     ```typescript
      const SUPABASE_URL = "https://your-supabase-url.supabase.co";
      const SUPABASE_ANON_KEY = "your-anon-key";
-     ===
+     ```
 
 4. **Run the App**:
    - Start the Expo development server:
-     ===bash
+     ```bash
      npx expo start
-     ===
+     ```
    - Scan the QR code with the Expo Go app on your device, or run in an emulator/simulator.
 
 5. **Build for Production**:
    - To build for Android or iOS and submit to app stores, use EAS:
-     ===bash
+     ```bash
      eas build --platform android
-     ===
+     ```
    - Follow the EAS CLI prompts to configure and build your app.
 
 ---
@@ -143,17 +143,17 @@ Contributions are welcome! If you can help resolve the network connectivity issu
 ### How to Contribute
 1. Fork the repository.
 2. Create a new branch:
-   ===bash
+   ```bash
    git checkout -b feature/your-feature-name
-   ===
+   ```
 3. Make your changes and commit:
-   ===bash
+   ```bash
    git commit -m "Add your feature or fix"
-   ===
+   ```
 4. Push to your fork:
-   ===bash
+   ```bash
    git push origin feature/your-feature-name
-   ===
+   ```
 5. Open a pull request with a detailed description of your changes.
 
 ### Areas for Contribution

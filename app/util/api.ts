@@ -4,6 +4,8 @@ import { Alert } from "react-native";
 import { supabase } from "./supabase"; // Import your Supabase client
 import { calculateOverallRange, noteToValue } from "./vocalRange";
 
+export let errorCount = 0;
+
 // Fetch songs based on a query
 // In api.ts
 export const searchSongsByQuery = async (query: string): Promise<any[]> => {
@@ -73,7 +75,10 @@ export const addSong = async (song: {
 export const fetchUserVocalRange = async () => {
   const user = await supabase.auth.getUser();
   if (!user.data.user) {
-    Alert.alert("Error", "Log in for a personalized view based on your vocal range.");
+    if (errorCount < 1) {
+      Alert.alert("One Time Message:", "Log in for a personalized view based on your vocal range.");
+      errorCount++;
+    }
     return null;
   }
 

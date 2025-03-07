@@ -20,6 +20,7 @@
     "@reduxjs/toolkit": "^2.4.0",
     "@supabase/supabase-js": "^2.48.0",
     "argparse": "^2.0.1",
+    "dotenv": "^16.4.7",
     "eas-cli": "^14.7.1",
     "expo": "~52.0.17",
     "expo-build-properties": "~0.13.2",

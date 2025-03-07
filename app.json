@@ -45,8 +45,8 @@
       "eas": {
         "projectId": "33c93c1e-6118-430e-a6d8-ff2e05458e48"
       },
-      "supabaseUrl": "SUPABASE_URL",
-      "supabaseAnonKey": "SUPABASE_ANON_KEY"
+      "supabaseUrl": "https://ydxbhxstbspjpncpsmrz.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlkeGJoeHN0YnNwanBuY3BzbXJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEyMDcwNjAsImV4cCI6MjA1Njc4MzA2MH0.2Uns6xbZqav3vnU-DfsdCB2o1qGBAzbFaT7Lxx9wYOY"
     },
     "owner": "can1cyp2",
     "plugins": [

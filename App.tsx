@@ -96,7 +96,7 @@ export default function App() {
 // Custom Tab Button for Home and other tabs
 const CustomTabButton = ({ onPress, accessibilityState, label, icon }: any) => {
   const isSelected = accessibilityState.selected;
-
+  
   return (
     <Pressable onPress={onPress} style={styles.tabButtonContainer}>
       <Ionicons

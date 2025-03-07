@@ -1,0 +1,3 @@
+// supabaseConfig.js
+export const SUPABASE_URL="https://ydxbhxstbspjpncpsmrz.supabase.co"
+export const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlkeGJoeHN0YnNwanBuY3BzbXJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEyMDcwNjAsImV4cCI6MjA1Njc4MzA2MH0.2Uns6xbZqav3vnU-DfsdCB2o1qGBAzbFaT7Lxx9wYOY"

@@ -36,4 +36,4 @@ yarn-error.*
 *.tsbuildinfo
 
 # supabase keys
-supabaseConfig.js
+#

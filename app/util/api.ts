@@ -1,7 +1,7 @@
 // app/util/api.ts
 
 import { Alert } from "react-native";
-import { supabase } from "./supabase"; // Import your Supabase client
+import { supabase } from "./supabase"; // Import Supabase client
 import { calculateOverallRange, noteToValue } from "./vocalRange";
 
 export let errorCount = 0;

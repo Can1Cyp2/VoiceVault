@@ -18,12 +18,14 @@
     "@react-navigation/native-stack": "^7.1.14",
     "@react-navigation/stack": "^7.1.1",
     "@reduxjs/toolkit": "^2.4.0",
-    "@supabase/supabase-js": "^2.48.0",
+    "@supabase/supabase-js": "^2.49.1",
     "argparse": "^2.0.1",
     "eas-cli": "^14.7.1",
     "expo": "~52.0.17",
     "expo-build-properties": "~0.13.2",
+    "expo-constants": "~17.0.7",
     "expo-network": "~7.0.5",
+    "expo-secure-store": "~14.0.1",
     "expo-status-bar": "~2.0.0",
     "expo-updates": "~0.27.1",
     "react": "18.3.1",
@@ -36,8 +38,7 @@
     "react-navigation-stack": "^2.10.4",
     "react-redux": "^9.1.2",
     "VoiceVault": "file:",
-    "VoiceVault-app": "file:",
-    "expo-constants": "~17.0.7"
+    "VoiceVault-app": "file:"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

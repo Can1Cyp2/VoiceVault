@@ -3,7 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { AppStack } from "./app/navigation/StackNavigator";
 import { Ionicons } from "@expo/vector-icons";
-import { supabase } from "./app/util/supabase";
+import { getSession, supabase } from "./app/util/supabase";
 
 import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
 import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
@@ -19,30 +19,15 @@ export default function App() {
 
   useEffect(() => {
     const checkSession = async () => {
-      try {
-        // Debug stored session in AsyncStorage:
-        const storedSession = await AsyncStorage.getItem("supabase.auth.token");
-        console.log(
-          "Stored session:",
-          storedSession ? "✅ Exists" : "❌ Not Found"
-        );
-
-        // Fetch current session from Supabase
-        const { data } = await supabase.auth.getSession();
-        console.log("Session from Supabase:", data.session);
-
-        setIsLoggedIn(!!data.session);
-      } catch (error) {
-        console.error("Error restoring session:", error);
-      }
+      const session = await getSession();
+      console.log("Session from Supabase in App:", session);
+      setIsLoggedIn(!!session);
     };
-
     checkSession();
 
-    // listener OUTSIDE checkSession to avoid multiple triggers
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        console.log("Auth State Changed:", session);
+        console.log("Auth State Changed in App:", session);
         setIsLoggedIn(!!session);
       }
     );

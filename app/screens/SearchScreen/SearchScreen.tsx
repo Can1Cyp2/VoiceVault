@@ -283,6 +283,14 @@ export default function SearchScreen() {
       {!loading && results.length === 0 && !error && (
         <Text style={styles.noResultsText}>No results found.</Text>
       )}
+      {/* Display "In Range" explanation for artists */}
+      {filter === "artists" && vocalRangeFilterActive && vocalRange && vocalRange.min_range !== "C0" && vocalRange.max_range !== "C0" && (
+        <View style={styles.inRangeExplanationContainer}>
+          <Text style={styles.inRangeExplanationText}>
+            "In Range" for artists means that some songs this artist sings are in your range.
+          </Text>
+        </View>
+      )}
       <FlatList
         data={
           vocalRangeFilterActive
@@ -478,5 +486,16 @@ const styles = StyleSheet.create({
   },
   loadingHeader: {
     paddingVertical: 10,
+  },
+  inRangeExplanationContainer: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "#f0f0f0",
+    marginBottom: 5,
+  },
+  inRangeExplanationText: {
+    fontSize: 14,
+    color: "#333",
+    textAlign: "center",
   },
 });

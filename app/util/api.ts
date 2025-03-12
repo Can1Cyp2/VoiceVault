@@ -122,6 +122,96 @@ export const getArtists = async (query: string): Promise<any[]> => {
   }
 };
 
+// Helper function to generate unique random IDs
+const generateRandomIds = (min: number, max: number, count: number): number[] => {
+  const ids = new Set<number>();
+  while (ids.size < count) {
+    const randomId = Math.floor(Math.random() * (max - min + 1)) + min;
+    ids.add(randomId);
+  }
+  return Array.from(ids);
+};
+
+// Fetch 50 random songs by selecting random IDs
+export const getRandomSongs = async (limit: number = 50): Promise<any[]> => {
+  try {
+    const MIN_ID = 2;
+    const MAX_ID = 24800;
+    let selectedSongs: any[] = [];
+    let attempts = 0;
+    const maxAttempts = 3; // Prevent infinite loops
+
+    // Keep trying until we get enough songs or hit max attempts
+    while (selectedSongs.length < limit && attempts < maxAttempts) {
+      const remaining = limit - selectedSongs.length;
+      const randomIds = generateRandomIds(MIN_ID, MAX_ID, remaining);
+
+      const { data, error } = await supabase
+        .from("songs")
+        .select("*")
+        .in("id", randomIds);
+
+      if (error) {
+        console.error("Error fetching random songs by ID:", error.message);
+        throw error;
+      }
+
+      if (data && data.length > 0) {
+        selectedSongs.push(...data);
+      }
+
+      attempts++;
+      console.log(`Attempt ${attempts}: Fetched ${data?.length || 0} songs, total ${selectedSongs.length}/${limit}`);
+    }
+
+    // If we couldn't get enough songs, log a warning
+    if (selectedSongs.length < limit) {
+      console.warn(`Only found ${selectedSongs.length} songs out of requested ${limit}`);
+    }
+
+    // Shuffle the final selection to add an extra layer of randomness
+    return selectedSongs.sort(() => 0.5 - Math.random()).slice(0, limit);
+  } catch (error) {
+    console.error("Error in getRandomSongs:", error);
+    return [];
+  }
+};
+
+// Fetch 50 random artists based on random songs
+export const getRandomArtists = async (limit: number = 50): Promise<any[]> => {
+  try {
+    // Fetch more songs than needed to ensure we get enough unique artists
+    const randomSongs = await getRandomSongs(200); // Fetch 200 songs to get diverse artists
+    if (randomSongs.length === 0) {
+      console.log("No songs available for artist randomization");
+      return [];
+    }
+
+    // Group songs by artist to create artist entries
+    const artistMap = new Map<string, { name: string; songs: { vocalRange: string }[] }>();
+    randomSongs.forEach((song) => {
+      if (song.artist && song.vocalRange) {
+        if (!artistMap.has(song.artist)) {
+          artistMap.set(song.artist, { name: song.artist, songs: [] });
+        }
+        artistMap.get(song.artist)!.songs.push({ vocalRange: song.vocalRange });
+      }
+    });
+
+    // Convert to array and shuffle
+    const artists = Array.from(artistMap.values()).sort(() => 0.5 - Math.random());
+
+    // Log the number of artists found for debugging
+    console.log(`Found ${artists.length} unique artists`);
+
+    // Return the first 'limit' artists, or all if fewer than 'limit'
+    return artists.slice(0, limit);
+  } catch (error) {
+    console.error("Error in getRandomArtists:", error);
+    return [];
+  }
+};
+
 // Report an issue about a song
 export const reportIssue = async (
   songId: number | null,

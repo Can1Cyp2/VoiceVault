@@ -1,6 +1,6 @@
 // File location: app/screens/SearchScreen/SearchScreen.tsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   FlatList,
@@ -9,13 +9,14 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { useIsFocused, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/StackNavigator";
 import { Ionicons } from "@expo/vector-icons";
 import { SearchBar } from "../../components/SearchBar/SearchBar";
-import { searchSongsByQuery, getArtists } from "../../util/api";
+import { searchSongsByQuery, getArtists, getRandomSongs, getRandomArtists } from "../../util/api";
 import { checkInternetConnection } from "../../util/network";
 import { supabase } from "../../util/supabase";
 import { calculateOverallRange, noteToValue } from "../../util/vocalRange";
@@ -38,6 +39,7 @@ export default function SearchScreen() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [vocalRange, setVocalRange] = useState<{ min_range: string; max_range: string } | null>(null);
   const [vocalRangeFilterActive, setVocalRangeFilterActive] = useState(false);
+  const [endReachedLoading, setEndReachedLoading] = useState(false);
 
   useEffect(() => {
     const fetchUserVocalRange = async () => {
@@ -129,6 +131,7 @@ export default function SearchScreen() {
     return artistMinIndex >= userMinIndex && artistMaxIndex <= userMaxIndex;
   };
 
+  // Function to fetch search results and default search screen to random results
   const fetchResults = async () => {
     setLoading(true);
     setError(null);
@@ -141,11 +144,21 @@ export default function SearchScreen() {
     }
     try {
       if (filter === "songs") {
-        const songs = await searchSongsByQuery(query);
-        setResults(songs);
+        if (query.trim() === "") {
+          const randomSongs = await getRandomSongs(50); // Fetch 50 random songs
+          setResults(randomSongs);
+        } else {
+          const songs = await searchSongsByQuery(query); // Fetch search results
+          setResults(songs);
+        }
       } else if (filter === "artists") {
-        const artists = await getArtists(query);
-        setResults(artists);
+        if (query.trim() === "") {
+          const randomArtists = await getRandomArtists(50); // Fetch 50 random artists
+          setResults(randomArtists);
+        } else {
+          const artists = await getArtists(query); // Fetch search results
+          setResults(artists);
+        }
       }
     } catch (err) {
       setError("An error occurred while fetching data.");
@@ -329,6 +342,30 @@ export default function SearchScreen() {
             </TouchableOpacity>
           );
         }}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={async () => {
+              if (query.trim() === "") {
+                setLoading(true);
+                try {
+                  if (filter === "songs") {
+                    const newSongs = await getRandomSongs(50); // Fetch 50 new random songs
+                    setResults(newSongs);
+                  } else if (filter === "artists") {
+                    const newArtists = await getRandomArtists(50); // Fetch 50 new random artists
+                    setResults(newArtists);
+                  }
+                } catch (err) {
+                  setError("An error occurred while loading new content.");
+                } finally {
+                  setLoading(false);
+                }
+              }
+            }}
+            colors={["tomato"]}
+          />
+        }
       />
     </View>
   );
@@ -435,5 +472,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
     textAlign: "center",
+  },
+  loadingFooter: {
+    paddingVertical: 10,
+  },
+  loadingHeader: {
+    paddingVertical: 10,
   },
 });

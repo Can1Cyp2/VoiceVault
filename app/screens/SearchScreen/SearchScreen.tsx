@@ -31,7 +31,8 @@ export default function SearchScreen() {
   };
 
   const [results, setResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [songsLoading, setSongsLoading] = useState(true); // Separate loading for songs
+  const [artistsLoading, setArtistsLoading] = useState(true); // Separate loading for artists
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"songs" | "artists">("songs");
@@ -40,6 +41,46 @@ export default function SearchScreen() {
   const [vocalRange, setVocalRange] = useState<{ min_range: string; max_range: string } | null>(null);
   const [vocalRangeFilterActive, setVocalRangeFilterActive] = useState(false);
   const [endReachedLoading, setEndReachedLoading] = useState(false);
+  const [initialFetchDone, setInitialFetchDone] = useState(false); // Track if initial fetch is done
+
+  // State vars for random data to display when no search query is entered
+  const [randomSongs, setRandomSongs] = useState<any[]>([]);
+  const [randomArtists, setRandomArtists] = useState<any[]>([]);
+
+  // Fetch Random Data on Mount
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      // Fetch songs first
+      setSongsLoading(true);
+      try {
+        const songs = await getRandomSongs(50);
+        setRandomSongs(songs);
+        setResults(songs); // Default to songs
+      } catch (err) {
+        console.error("Error fetching random songs:", err);
+        setError("Failed to load songs.");
+      } finally {
+        setSongsLoading(false);
+      }
+
+      // Fetch artists in the background
+      setArtistsLoading(true);
+      try {
+        const artists = await getRandomArtists(50);
+        setRandomArtists(artists);
+      } catch (err) {
+        console.error("Error fetching random artists:", err);
+        setError("Failed to load artists.");
+      } finally {
+        setArtistsLoading(false);
+        setInitialFetchDone(true);
+      }
+    };
+    fetchInitialData();
+  }, []);
+
+  // Add this in the render to log each render
+  console.log("Rendering with songsLoading:", songsLoading, "artistsLoading:", artistsLoading); // Empty dependency array ensures this runs only on mount
 
   useEffect(() => {
     const fetchUserVocalRange = async () => {
@@ -88,10 +129,8 @@ export default function SearchScreen() {
 
   // Refresh when screen regains focus
   useEffect(() => {
-    if (isFocused) {
-      fetchResults(); // Refresh results when returning to screen
-    }
-  }, [isFocused, query, filter]);
+    fetchResults();
+  }, [query, filter]); // Depend on query, filter, and random data
 
   const isSongInRange = (songRange: string) => {
     if (!vocalRange || typeof songRange !== "string") return false;
@@ -112,12 +151,16 @@ export default function SearchScreen() {
   };
 
   const isArtistInRange = (artist: { name: any; songs: { vocalRange: string }[] }) => {
-    if (!vocalRange || !artist.songs || artist.songs.length === 0) return false;
+    if (!vocalRange || !artist.songs || artist.songs.length === 0) {
+      console.log(`No vocal range or songs for artist: ${artist.name}`);
+      return false;
+    }
     const { lowestNote, highestNote } = calculateOverallRange(artist.songs);
     const artistMinIndex = noteToValue(lowestNote);
     const artistMaxIndex = noteToValue(highestNote);
     const userMinIndex = noteToValue(vocalRange.min_range);
     const userMaxIndex = noteToValue(vocalRange.max_range);
+
     if (isNaN(artistMinIndex) || isNaN(artistMaxIndex) || isNaN(userMinIndex) || isNaN(userMaxIndex)) {
       console.error("Invalid range calculation", {
         artist: artist.name,
@@ -128,44 +171,45 @@ export default function SearchScreen() {
       });
       return false;
     }
+
+    console.log(`Artist ${artist.name}: ${lowestNote} (${artistMinIndex}) to ${highestNote} (${artistMaxIndex})`);
+    console.log(`User range: ${vocalRange.min_range} (${userMinIndex}) to ${vocalRange.max_range} (${userMaxIndex})`);
+    console.log(`Comparison: ${artistMinIndex} >= ${userMinIndex} && ${artistMaxIndex} <= ${userMaxIndex}`);
+
     return artistMinIndex >= userMinIndex && artistMaxIndex <= userMaxIndex;
   };
 
   // Function to fetch search results and default search screen to random results
   const fetchResults = async () => {
-    setLoading(true);
+    if (songsLoading || artistsLoading) return; // Wait for initial loads
+    setSongsLoading(filter === "songs");
+    setArtistsLoading(filter === "artists");
     setError(null);
-    const internetAvailable = await checkInternetConnection();
-    setIsConnected(internetAvailable ?? false);
-    if (!internetAvailable) {
-      setLoading(false);
-      setError("No internet connection. Please check your network.");
-      return;
-    }
     try {
       if (filter === "songs") {
-        if (query.trim() === "") {
-          const randomSongs = await getRandomSongs(50); // Fetch 50 random songs
-          setResults(randomSongs);
-        } else {
-          const songs = await searchSongsByQuery(query); // Fetch search results
+        if (query.trim() === "") setResults(randomSongs);
+        else {
+          const songs = await searchSongsByQuery(query);
           setResults(songs);
         }
-      } else if (filter === "artists") {
-        if (query.trim() === "") {
-          const randomArtists = await getRandomArtists(50); // Fetch 50 random artists
-          setResults(randomArtists);
-        } else {
-          const artists = await getArtists(query); // Fetch search results
+      } else {
+        if (query.trim() === "") setResults(randomArtists);
+        else {
+          const artists = await getArtists(query);
           setResults(artists);
         }
       }
     } catch (err) {
       setError("An error occurred while fetching data.");
     } finally {
-      setLoading(false);
+      setSongsLoading(false);
+      setArtistsLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchResults();
+  }, [query, filter]);
 
   const handleRetry = () => {
     fetchResults();
@@ -214,167 +258,182 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.searchBarContainer}>
-        <SearchBar onSearch={setQuery} />
-      </View>
-      <View style={styles.filterContainer}>
-        <TouchableOpacity style={styles.addButton} onPress={handleAddPress}>
-          <Ionicons name="add-circle" size={36} color="tomato" />
-        </TouchableOpacity>
-        <View style={styles.filterButtonsWrapper}>
-          <TouchableOpacity
-            style={[styles.filterButton, filter === "songs" && styles.activeFilter]}
-            onPress={() => setFilter("songs")}
-          >
-            <Text style={styles.filterText}>Songs</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, filter === "artists" && styles.activeFilter]}
-            onPress={() => setFilter("artists")}
-          >
-            <Text style={styles.filterText}>Artists</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.filterButtonRight}
-            onPress={handleInRangePress}
-          >
-            <Ionicons
-              name="checkmark-circle"
-              size={30}
-              color={
-                !vocalRange || vocalRange.min_range === "C0" || vocalRange.max_range === "C0"
-                  ? "gray"
-                  : vocalRangeFilterActive
-                    ? "tomato"
-                    : "gray"
-              }
-              style={styles.filterIcon}
-            />
-            <Text
-              style={[
-                styles.filterText,
-                {
-                  fontSize: 10,
-                  bottom: 3,
-                  color:
+        <>
+          <View style={styles.searchBarContainer}>
+            <SearchBar onSearch={setQuery} />
+          </View>
+          <View style={styles.filterContainer}>
+            <TouchableOpacity style={styles.addButton} onPress={handleAddPress}>
+              <Ionicons name="add-circle" size={36} color="tomato" />
+            </TouchableOpacity>
+            <View style={styles.filterButtonsWrapper}>
+              <TouchableOpacity
+                style={[styles.filterButton, filter === "songs" && styles.activeFilter]}
+                onPress={() => setFilter("songs")}
+              >
+                <Text style={styles.filterText}>Songs</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.filterButton, filter === "artists" && styles.activeFilter]}
+                onPress={() => {
+                  if (artistsLoading) {
+                    setError("Artists are still loading, please wait...");
+                  } else {
+                    setFilter("artists");
+                  }
+                }}
+                disabled={artistsLoading}
+              >
+                <Text style={styles.filterText}>
+                  Artists{artistsLoading ? " (Loading...)" : ""}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.filterButtonRight}
+                onPress={handleInRangePress}
+              >
+                <Ionicons
+                  name="checkmark-circle"
+                  size={30}
+                  color={
                     !vocalRange || vocalRange.min_range === "C0" || vocalRange.max_range === "C0"
                       ? "gray"
                       : vocalRangeFilterActive
                         ? "tomato"
-                        : "grey",
-                },
-              ]}
-            >
-              In Range
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {loading && <ActivityIndicator size="large" color="tomato" />}
-      {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={handleRetry} style={styles.retryButton}>
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-      {!loading && results.length === 0 && !error && (
-        <Text style={styles.noResultsText}>No results found.</Text>
-      )}
-      {/* Display "In Range" explanation for artists */}
-      {filter === "artists" && vocalRangeFilterActive && vocalRange && vocalRange.min_range !== "C0" && vocalRange.max_range !== "C0" && (
-        <View style={styles.inRangeExplanationContainer}>
-          <Text style={styles.inRangeExplanationText}>
-            "In Range" for artists means that some songs this artist sings are in your range.
-          </Text>
-        </View>
-      )}
-      <FlatList
-        data={
-          vocalRangeFilterActive
-            ? filter === "songs"
-              ? results.filter((item) => isSongInRange(item.vocalRange))
-              : results.filter((item) => isArtistInRange(item))
-            : results
-        }
-        renderItem={({ item }) => {
-          if (filter === "songs" && (!item.name || !item.artist || !item.vocalRange)) {
-            return null;
-          }
-          if (filter === "artists" && !item.name) {
-            return null;
-          }
-          return (
-            <TouchableOpacity onPress={() => handlePress(item)}>
-              <View style={styles.resultItem}>
-                <Ionicons
-                  name={filter === "songs" ? "musical-notes" : "person"}
-                  size={30}
-                  style={styles.resultIcon}
-                />
-                <View style={styles.resultTextContainer}>
-                  <Text style={styles.resultText}>{item.name}</Text>
-                  {filter === "songs" && (
-                    <Text style={styles.resultSubText}>
-                      {item.artist} • {item.vocalRange}
-                    </Text>
-                  )}
-                </View>
-                {vocalRange && (
-                  <Ionicons
-                    name={
-                      filter === "songs"
-                        ? isSongInRange(item.vocalRange)
-                          ? "checkmark-circle"
-                          : "close-circle"
-                        : isArtistInRange(item)
-                          ? "checkmark-circle"
-                          : "close-circle"
-                    }
-                    size={30}
-                    color={
-                      filter === "songs"
-                        ? isSongInRange(item.vocalRange)
-                          ? "tomato"
-                          : "grey"
-                        : isArtistInRange(item)
-                          ? "tomato"
-                          : "grey"
-                    }
-                    style={styles.inRangeIcon}
-                  />
-                )}
-              </View>
-            </TouchableOpacity>
-          );
-        }}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading}
-            onRefresh={async () => {
-              if (query.trim() === "") {
-                setLoading(true);
-                try {
-                  if (filter === "songs") {
-                    const newSongs = await getRandomSongs(50); // Fetch 50 new random songs
-                    setResults(newSongs);
-                  } else if (filter === "artists") {
-                    const newArtists = await getRandomArtists(50); // Fetch 50 new random artists
-                    setResults(newArtists);
+                        : "gray"
                   }
-                } catch (err) {
-                  setError("An error occurred while loading new content.");
-                } finally {
-                  setLoading(false);
-                }
+                  style={styles.filterIcon}
+                />
+                <Text
+                  style={[
+                    styles.filterText,
+                    {
+                      fontSize: 10,
+                      bottom: 3,
+                      color:
+                        !vocalRange || vocalRange.min_range === "C0" || vocalRange.max_range === "C0"
+                          ? "gray"
+                          : vocalRangeFilterActive
+                            ? "tomato"
+                            : "grey",
+                    },
+                  ]}
+                >
+                  In Range
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity onPress={handleRetry} style={styles.retryButton}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {!songsLoading && !artistsLoading && initialFetchDone && results.length === 0 && !error && (
+            <Text style={styles.noResultsText}>No results found.</Text>
+          )}
+          {filter === "artists" &&
+            vocalRangeFilterActive &&
+            vocalRange &&
+            vocalRange.min_range !== "C0" &&
+            vocalRange.max_range !== "C0" && (
+              <View style={styles.inRangeExplanationContainer}>
+                <Text style={styles.inRangeExplanationText}>
+                  Now filtering by artists who are within your range.
+                </Text>
+              </View>
+            )}
+          <FlatList
+            data={
+              vocalRangeFilterActive
+                ? filter === "songs"
+                  ? results.filter((item) => isSongInRange(item.vocalRange))
+                  : results.filter((item) => isArtistInRange(item))
+                : results
+            }
+            renderItem={({ item }) => {
+              if (filter === "songs" && (!item.name || !item.artist || !item.vocalRange)) {
+                return null;
               }
+              if (filter === "artists" && !item.name) {
+                return null;
+              }
+              return (
+                <TouchableOpacity onPress={() => handlePress(item)}>
+                  <View style={styles.resultItem}>
+                    <Ionicons
+                      name={filter === "songs" ? "musical-notes" : "person"}
+                      size={30}
+                      style={styles.resultIcon}
+                    />
+                    <View style={styles.resultTextContainer}>
+                      <Text style={styles.resultText}>{item.name}</Text>
+                      {filter === "songs" && (
+                        <Text style={styles.resultSubText}>
+                          {item.artist} • {item.vocalRange}
+                        </Text>
+                      )}
+                    </View>
+                    {vocalRange && (
+                      <Ionicons
+                        name={
+                          filter === "songs"
+                            ? isSongInRange(item.vocalRange)
+                              ? "checkmark-circle"
+                              : "close-circle"
+                            : isArtistInRange(item)
+                              ? "checkmark-circle"
+                              : "close-circle"
+                        }
+                        size={30}
+                        color={
+                          filter === "songs"
+                            ? isSongInRange(item.vocalRange)
+                              ? "tomato"
+                              : "grey"
+                            : isArtistInRange(item)
+                              ? "tomato"
+                              : "grey"
+                        }
+                        style={styles.inRangeIcon}
+                      />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
             }}
-            colors={["tomato"]}
+            refreshControl={
+              <RefreshControl
+                refreshing={filter === "songs" ? songsLoading : artistsLoading}
+                onRefresh={async () => {
+                  if (query.trim() === "") {
+                    setSongsLoading(filter === "songs");
+                    setArtistsLoading(filter === "artists");
+                    try {
+                      if (filter === "songs") {
+                        const newSongs = await getRandomSongs(50);
+                        setResults(newSongs);
+                      } else {
+                        const newArtists = await getRandomArtists(50);
+                        setResults(newArtists);
+                      }
+                    } catch (err) {
+                      setError("An error occurred while loading new content.");
+                    } finally {
+                      setSongsLoading(false);
+                      setArtistsLoading(false);
+                    }
+                  }
+                }}
+                colors={["tomato"]}
+              />
+            }
           />
-        }
-      />
+        </>
     </View>
   );
 }
@@ -497,5 +556,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#333",
     textAlign: "center",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

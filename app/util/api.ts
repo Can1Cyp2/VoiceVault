@@ -178,49 +178,18 @@ export const getRandomSongs = async (limit: number = 50): Promise<any[]> => {
 };
 
 // Fetch 25 random artists based on random songs
-export const getRandomArtists = async (limit: number = 25): Promise<any[]> => {
-  try {
-    // Step 1: Fetch a larger set of random songs to identify unique artists
-    const randomSongs = await getRandomSongs(50);
-    if (randomSongs.length === 0) {
-      console.log("No songs available for artist randomization");
-      return [];
-    }
-
-    // Step 2: Identify unique artists from the random songs
-    const uniqueArtists = [...new Set(randomSongs.map(song => song.artist))];
-    console.log(`Found ${uniqueArtists.length} unique artists in initial sample`);
-
-    // Step 3: Select a random subset of these artists
-    const selectedArtists = uniqueArtists.sort(() => 0.5 - Math.random()).slice(0, limit);
-
-    // Step 4: Fetch all songs for each selected artist
-    const artistMap = new Map<string, { name: string; songs: { vocalRange: string }[] }>();
-    for (const artistName of selectedArtists) {
-      const { data, error } = await supabase
-        .from("songs")
-        .select("vocalRange")
-        .eq("artist", artistName); // Fetch all songs for this artist
-      if (error) {
-        console.error(`Error fetching songs for ${artistName}:`, error.message);
-        continue;
-      }
-      if (data && data.length > 0) {
-        artistMap.set(artistName, {
-          name: artistName,
-          songs: data.map(song => ({ vocalRange: song.vocalRange }))
-        });
-      }
-    }
-
-    const artists = Array.from(artistMap.values());
-    console.log(`Final artist count: ${artists.length}`);
-    return artists;
-  } catch (error) {
-    console.error("Error in getRandomArtists:", error);
-    return [];
-  }
-};
+export async function getRandomArtists(limit: number): Promise<any[]> {
+  console.time("getRandomArtists");
+  const songs = await getRandomSongs(25); // Fixed to 25 songs
+  const uniqueArtists = [...new Set(songs.map((song) => song.artist))];
+  const artistPromises = uniqueArtists.map(async (artist) => {
+    const allSongs = await searchSongsByQuery(artist);
+    return { name: artist, songs: allSongs, vocalRange: calculateOverallRange(allSongs) };
+  });
+  const artists = await Promise.all(artistPromises);
+  console.timeEnd("getRandomArtists");
+  return artists; // Return all derived artists, or slice if limit is needed
+}
 
 // Report an issue about a song
 export const reportIssue = async (

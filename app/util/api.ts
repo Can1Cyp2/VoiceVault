@@ -180,7 +180,7 @@ export const getRandomSongs = async (limit: number = 50): Promise<any[]> => {
 // Fetch 25 random artists based on random songs
 export async function getRandomArtists(limit: number): Promise<any[]> {
   console.time("getRandomArtists");
-  const songs = await getRandomSongs(25); // Fixed to 25 songs
+  const songs = await getRandomSongs(limit); // Fixed to 25 songs
   const uniqueArtists = [...new Set(songs.map((song) => song.artist))];
   const artistPromises = uniqueArtists.map(async (artist) => {
     const allSongs = await searchSongsByQuery(artist);

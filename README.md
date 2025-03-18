@@ -120,16 +120,14 @@ VoiceVault is the perfect tool for vocalists, music students, and karaoke enthus
 ## 🐞 Known Issues
 
 ### Network Connectivity on Android (Play Store)
-- **Issue**: On some Android devices (e.g., Samsung Galaxy S22, Google Pixel 4), the app fails to connect to the Supabase backend when installed via the Play Store, resulting in a "TypeError: Network request failed" error. No requests are logged in Supabase, indicating the issue occurs before the request leaves the device.
+- **Issue**: On some Android devices (e.g., Samsung Galaxy S22, Google Pixel, more), the app fails to connect to the Supabase backend when installed via the Play Store, resulting in a "TypeError: Network request failed" error. No requests are logged in Supabase, indicating the issue occurs before the request leaves the device.
 - **Devices Affected**:
-  - In_consistent—some devices work, others don’t
+  - Inconsistent: some devices work, others don’t
 - **Steps Taken**:
   - Added network diagnostics (e.g., `checkInternetConnection`, raw `fetch` tests to Supabase and Google) to confirm the issue.
-  - Attempted to apply a network security configuration to allow requests to `ydxbhxstbspjpncpsmrz.supabase.co`, but encountered a `PluginError` with the custom plugin.
-  - Manually applied the network security config by prebuilding the Expo project and modifying `AndroidManifest.xml`.
+  - Attempted to apply a network security configuration to allow requests to `URL`.
 - **Next Steps**:
-  - Test the new build with the network security config on affected devices.
-  - If the issue persists, explore using a `fetch` polyfill (e.g., `whatwg-fetch`) or investigate Play Store app signing issues.
+  - The issue persists, explore using a `fetch` polyfill (e.g., `whatwg-fetch`) or investigate Play Store app signing issues.
 
 ---
 

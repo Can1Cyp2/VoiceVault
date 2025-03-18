@@ -517,7 +517,7 @@ export default function SearchScreen() {
                       setSongsPage(1); // Reset songs page
                       setHasMoreSongs(true); // Reset hasMore for songs
                     } else {
-                      const newArtists = await getRandomArtists(25); // Reset to initial 25 artists
+                      const newArtists = await getRandomArtists(12);
                       setResults(newArtists);
                       setRandomArtists(newArtists);
                       setAllArtists(newArtists); // Reset allArtists

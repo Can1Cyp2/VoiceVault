@@ -173,6 +173,12 @@ Contributions are welcome! If you can help resolve the network connectivity issu
 
 ## 📜 License
 
-This project is licensed under the GNU GENERAL PUBLIC LICENSE (GPL-3.0 license). See the [LICENSE](LICENSE) file for details.
 
+This project is licensed under the Apache License, Version 2.0 (See the [LICENSE](LICENSE) file for details.),
+    with the Commons Clause restriction:
+
+    You may not use the software for commercial purposes, including selling the software
+    or using it to provide services for a fee, without explicit permission from the project owner.
+    You may contribute to the original project via pull requests, but you may not fork the project
+    to create an independent version or distribute it without permission.
 ---

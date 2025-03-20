@@ -412,7 +412,8 @@ export default function SearchScreen() {
           vocalRange.max_range !== "C0" && (
             <View style={styles.inRangeExplanationContainer}>
               <Text style={styles.inRangeExplanationText}>
-                Now filtering by artists who are within your range.
+                Now filtering by artists who are within your range...
+                Continue refreshing to see more artists by swiping down.
               </Text>
             </View>
           )}

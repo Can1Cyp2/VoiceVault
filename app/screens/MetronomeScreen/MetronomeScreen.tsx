@@ -11,6 +11,8 @@ import {
   Platform,
   Alert,
   TextInput,
+  Dimensions,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
@@ -18,24 +20,41 @@ import { Picker } from "@react-native-picker/picker";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/StackNavigator";
 
+// Get screen dimensions
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+// Scaling utility functions with a cap to prevent oversized elements
+const scale = (size: number) => {
+  const scaled = (SCREEN_WIDTH / 375) * size;
+  return Math.min(scaled, size * 1.2);
+};
+const verticalScale = (size: number) => {
+  const scaled = (SCREEN_HEIGHT / 667) * size;
+  return Math.min(scaled, size * 1.2);
+};
+const moderateScale = (size: number, factor = 0.5) => {
+  const scaled = size + (scale(size) - size) * factor;
+  return Math.min(scaled, size * 1.2);
+};
+
 type MetronomeScreenProps = NativeStackScreenProps<RootStackParamList, "Metronome">;
 
 export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
   const [bpm, setBpm] = useState(120);
-  const [bpmInput, setBpmInput] = useState("120"); // For TextInput
+  const [bpmInput, setBpmInput] = useState("120");
   const [isPlaying, setIsPlaying] = useState(false);
   const [timeSignature, setTimeSignature] = useState("4/4");
   const [beatCount, setBeatCount] = useState(0);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [accentSound, setAccentSound] = useState<Audio.Sound | null>(null);
+  const [tapTimes, setTapTimes] = useState<number[]>([]);
   const flashAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(1)).current; // For beat indicator pulse
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // Request audio permissions on mount
   useEffect(() => {
     const setupAudio = async () => {
       try {
-        // Request audio permissions
         const { status } = await Audio.requestPermissionsAsync();
         if (status !== "granted") {
           console.error("Audio permissions not granted");
@@ -46,7 +65,6 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
           return;
         }
 
-        // Set audio mode for consistent playback
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: false,
           playsInSilentModeIOS: true,
@@ -54,7 +72,6 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
           shouldDuckAndroid: true,
         });
 
-        // Load sounds
         const clickSoundObj = new Audio.Sound();
         const accentSoundObj = new Audio.Sound();
 
@@ -69,7 +86,6 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
             "Audio Error",
             "Failed to load metronome sounds. Using fallback audio."
           );
-          // Fallback: Use the same sound for both if one fails
           await clickSoundObj.loadAsync(require("../../../assets/click.mp3"));
           setSound(clickSoundObj);
           setAccentSound(clickSoundObj);
@@ -109,7 +125,6 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
           const beatsPerMeasure = getBeatsPerMeasure();
           const newBeat = (prev % beatsPerMeasure) + 1;
 
-          // Play sound with error handling
           const playSound = async (soundObj: Audio.Sound | null) => {
             try {
               if (soundObj) {
@@ -126,7 +141,6 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
             playSound(sound);
           }
 
-          // Flash and scale animation for beat indicator
           Animated.parallel([
             Animated.sequence([
               Animated.timing(flashAnim, {
@@ -167,9 +181,73 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
     };
   }, [isPlaying, bpm, timeSignature, sound, accentSound, flashAnim, scaleAnim]);
 
+  // Reset tap times if the user stops tapping for 2 seconds
+  useEffect(() => {
+    if (tapTimes.length === 0) return;
+
+    const lastTap = tapTimes[tapTimes.length - 1];
+    const timeout = setTimeout(() => {
+      const now = Date.now();
+      if (now - lastTap > 2000) {
+        setTapTimes([]);
+      }
+    }, 2000);
+
+    return () => clearTimeout(timeout);
+  }, [tapTimes]);
+
+  const handleTapTempo = () => {
+    const now = Date.now();
+    setTapTimes((prev) => {
+      const newTapTimes = [...prev, now].slice(-5);
+
+      if (newTapTimes.length > 1) {
+        const intervals = newTapTimes
+          .slice(1)
+          .map((time, i) => time - newTapTimes[i]);
+        const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+        const calculatedBpm = Math.round(60000 / avgInterval);
+
+        if (calculatedBpm > 240) {
+          setTapTimes([]);
+          Alert.alert(
+            "BPM Too High",
+            "The calculated BPM exceeds 240. Tap history reset. Start tapping again.",
+            [{ text: "OK" }]
+          );
+          return [];
+        }
+
+        if (calculatedBpm >= 30 && calculatedBpm <= 240) {
+          setBpm(calculatedBpm);
+          setBpmInput(calculatedBpm.toString());
+        }
+      }
+
+      return newTapTimes;
+    });
+
+    // Flash the circle on tap for visual feedback
+    Animated.sequence([
+      Animated.timing(flashAnim, {
+        toValue: 1,
+        duration: 100,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+      Animated.timing(flashAnim, {
+        toValue: 0,
+        duration: 100,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   const toggleMetronome = () => {
     setIsPlaying((prev) => !prev);
     setBeatCount(0);
+    setTapTimes([]);
   };
 
   const adjustBpm = (delta: number) => {
@@ -198,183 +276,261 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Metronome</Text>
-      <Animated.View
-        style={[
-          styles.beatIndicator,
-          {
-            opacity: flashAnim,
-            transform: [{ scale: scaleAnim }],
-            backgroundColor: beatCount === 1 ? "#ff6600" : "#32CD32",
-            shadowColor: beatCount === 1 ? "#ff6600" : "#32CD32",
-            shadowOpacity: flashAnim,
-          },
-        ]}
-      />
-      <Text style={styles.beatText}>
-        Beat: {beatCount || 1}/{getBeatsPerMeasure()}
-      </Text>
-      <View style={styles.bpmContainer}>
-        <TouchableOpacity
-          onPress={() => adjustBpm(-1)}
-          style={styles.bpmButton}
-          accessible={true}
-          accessibilityLabel="Decrease BPM"
-        >
-          <Ionicons name="remove-circle-outline" size={40} color="#ff6600" />
-        </TouchableOpacity>
-        <TextInput
-          style={styles.bpmInput}
-          value={bpmInput}
-          onChangeText={handleBpmInputChange}
-          onBlur={handleBpmInputSubmit}
-          onSubmitEditing={handleBpmInputSubmit}
-          keyboardType="numeric"
-          returnKeyType="done"
-          placeholder="BPM"
-          placeholderTextColor="#888"
-          accessible={true}
-          accessibilityLabel="BPM Input"
-          accessibilityHint="Enter a BPM value between 30 and 240"
-        />
-        <TouchableOpacity
-          onPress={() => adjustBpm(1)}
-          style={styles.bpmButton}
-          accessible={true}
-          accessibilityLabel="Increase BPM"
-        >
-          <Ionicons name="add-circle-outline" size={40} color="#ff6600" />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.pickerContainer}>
-        <Text style={styles.label}>Time Signature:</Text>
-        <View style={styles.pickerWrapper}>
-          <Picker
-            selectedValue={timeSignature}
-            style={styles.picker}
-            onValueChange={(itemValue) => {
-              setTimeSignature(itemValue);
-              setBeatCount(0);
-            }}
+    <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={styles.scrollContent}
+      bounces={true}
+    >
+      <View style={styles.container}>
+        <Text style={styles.title}>Metronome</Text>
+        {isPlaying ? (
+          <Animated.View
+            style={[
+              styles.beatIndicator,
+              {
+                opacity: flashAnim,
+                transform: [{ scale: scaleAnim }],
+                backgroundColor: beatCount === 1 ? "#ff6600" : "#32CD32",
+                shadowColor: beatCount === 1 ? "#ff6600" : "#32CD32",
+                shadowOpacity: flashAnim,
+              },
+            ]}
+          />
+        ) : (
+          <TouchableOpacity
+            style={styles.tapIndicator}
+            onPress={handleTapTempo}
             accessible={true}
-            accessibilityLabel="Time Signature Picker"
+            accessibilityLabel="Tap to set BPM"
           >
-            <Picker.Item label="4/4" value="4/4" />
-            <Picker.Item label="3/4" value="3/4" />
-            <Picker.Item label="6/8" value="6/8" />
-          </Picker>
+            <Animated.View
+              style={[
+                styles.beatIndicator,
+                {
+                  backgroundColor: "#ff6600",
+                  shadowColor: "#ff6600",
+                  shadowOpacity: 0.5,
+                  opacity: flashAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.5, 1],
+                  }),
+                },
+              ]}
+            >
+              <Text style={styles.tapText}>Tap to BPM</Text>
+            </Animated.View>
+          </TouchableOpacity>
+        )}
+        <Text style={styles.beatText}>
+          Beat: {beatCount || 1}/{getBeatsPerMeasure()}
+        </Text>
+        <View style={styles.bpmContainer}>
+          <TouchableOpacity
+            onPress={() => adjustBpm(-1)}
+            style={styles.bpmButton}
+            accessible={true}
+            accessibilityLabel="Decrease BPM"
+          >
+            <Ionicons
+              name="remove-circle-outline"
+              size={moderateScale(30)}
+              color="#ff6600"
+            />
+          </TouchableOpacity>
+          <TextInput
+            style={styles.bpmInput}
+            value={bpmInput}
+            onChangeText={handleBpmInputChange}
+            onBlur={handleBpmInputSubmit}
+            onSubmitEditing={handleBpmInputSubmit}
+            keyboardType="numeric"
+            returnKeyType="done"
+            placeholder="BPM"
+            placeholderTextColor="#888"
+            accessible={true}
+            accessibilityLabel="BPM Input"
+            accessibilityHint="Enter a BPM value between 30 and 240"
+          />
+          <TouchableOpacity
+            onPress={() => adjustBpm(1)}
+            style={styles.bpmButton}
+            accessible={true}
+            accessibilityLabel="Increase BPM"
+          >
+            <Ionicons
+              name="add-circle-outline"
+              size={moderateScale(30)}
+              color="#ff6600"
+            />
+          </TouchableOpacity>
         </View>
+        <View style={styles.pickerContainer}>
+          <Text style={styles.label}>Time Signature:</Text>
+          <View style={styles.pickerWrapper}>
+            <Picker
+              selectedValue={timeSignature}
+              style={styles.picker}
+              onValueChange={(itemValue) => {
+                setTimeSignature(itemValue);
+                setBeatCount(0);
+              }}
+              itemStyle={styles.pickerItem} // Add itemStyle to control Picker.Item text
+              accessible={true}
+              accessibilityLabel="Time Signature Picker"
+            >
+              <Picker.Item label="4/4" value="4/4" />
+              <Picker.Item label="3/4" value="3/4" />
+              <Picker.Item label="6/8" value="6/8" />
+            </Picker>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={[styles.playButton, isPlaying && styles.playButtonActive]}
+          onPress={toggleMetronome}
+          accessible={true}
+          accessibilityLabel={isPlaying ? "Stop Metronome" : "Start Metronome"}
+        >
+          <Ionicons
+            name={isPlaying ? "pause" : "play"}
+            size={moderateScale(24)}
+            color="#fff"
+          />
+          <Text style={styles.playButtonText}>{isPlaying ? "Stop" : "Start"}</Text>
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        style={[styles.playButton, isPlaying && styles.playButtonActive]}
-        onPress={toggleMetronome}
-        accessible={true}
-        accessibilityLabel={isPlaying ? "Stop Metronome" : "Start Metronome"}
-      >
-        <Ionicons
-          name={isPlaying ? "pause" : "play"}
-          size={30}
-          color="#fff"
-        />
-        <Text style={styles.playButtonText}>{isPlaying ? "Stop" : "Start"}</Text>
-      </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scrollView: {
     flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
-    padding: 30,
+    paddingVertical: verticalScale(20),
+  },
+  container: {
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: "5%",
+    paddingVertical: "3%",
   },
   title: {
-    fontSize: 32,
+    fontSize: moderateScale(24),
     fontWeight: "bold",
     color: "#ff6600",
-    marginBottom: 40,
+    marginBottom: verticalScale(20),
   },
   beatIndicator: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    marginBottom: 40,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 8,
+    width: SCREEN_WIDTH * 0.3,
+    height: SCREEN_WIDTH * 0.3,
+    borderRadius: SCREEN_WIDTH * 0.15,
+    marginBottom: verticalScale(20),
+    shadowOffset: { width: 0, height: moderateScale(2) },
+    shadowRadius: moderateScale(4),
+    elevation: 4,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  tapIndicator: {
+    width: SCREEN_WIDTH * 0.3,
+    height: SCREEN_WIDTH * 0.3,
+    borderRadius: SCREEN_WIDTH * 0.15,
+    marginBottom: verticalScale(20),
+  },
+  tapText: {
+    fontSize: moderateScale(14),
+    fontWeight: "bold",
+    color: "#fff",
+    textAlign: "center",
   },
   beatText: {
-    fontSize: 20,
+    fontSize: moderateScale(16),
     fontWeight: "600",
     color: "#333",
-    marginBottom: 40,
+    marginBottom: verticalScale(20),
   },
   bpmContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 50,
+    justifyContent: "center",
+    marginBottom: verticalScale(30),
+    width: "70%",
   },
   bpmButton: {
-    padding: 10,
+    padding: moderateScale(8),
+    justifyContent: "center",
   },
   bpmInput: {
-    fontSize: 28,
+    fontSize: moderateScale(20),
     fontWeight: "bold",
     color: "#333",
     textAlign: "center",
-    width: 100,
-    marginHorizontal: 20,
+    width: SCREEN_WIDTH * 0.2,
+    marginHorizontal: SCREEN_WIDTH * 0.03,
     borderWidth: 1,
     borderColor: "#ddd",
-    borderRadius: 8,
+    borderRadius: moderateScale(6),
     backgroundColor: "#fff",
-    paddingVertical: 5,
+    paddingVertical: verticalScale(3),
+    paddingHorizontal: scale(5),
+    textAlignVertical: "center",
   },
   pickerContainer: {
     alignItems: "center",
-    marginBottom: 50,
+    marginBottom: verticalScale(30),
+    width: "50%",
   },
   label: {
-    fontSize: 18,
+    fontSize: moderateScale(14),
     fontWeight: "600",
     color: "#555",
-    marginBottom: 10,
+    marginBottom: verticalScale(8),
   },
   pickerWrapper: {
     borderWidth: 1,
     borderColor: "#ddd",
-    borderRadius: 8,
+    borderRadius: moderateScale(6),
     backgroundColor: "#fff",
     overflow: "hidden",
+    width: "100%",
   },
   picker: {
-    width: 160,
-    height: Platform.OS === "ios" ? 200 : 30, // Adjusted height for iOS picker wheel
+    width: "100%",
+    height: Platform.OS === "ios" ? verticalScale(200) : verticalScale(50), // Increased height to prevent clipping
     color: "#333",
+  },
+  pickerItem: {
+    fontSize: moderateScale(16), // Increased font size for Picker.Item
+    height: Platform.OS === "ios" ? verticalScale(50) : undefined, // Set item height on iOS to prevent clipping
+    textAlign: "center",
   },
   playButton: {
     flexDirection: "row",
     backgroundColor: "#ff6600",
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 10,
+    paddingVertical: verticalScale(8),
+    paddingHorizontal: scale(20),
+    borderRadius: moderateScale(8),
     alignItems: "center",
+    justifyContent: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: moderateScale(2) },
     shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 5,
+    shadowRadius: moderateScale(3),
+    elevation: 3,
   },
   playButtonActive: {
     backgroundColor: "#cc6600",
   },
   playButtonText: {
     color: "#fff",
-    fontSize: 18,
+    fontSize: moderateScale(14),
     fontWeight: "bold",
-    marginLeft: 12,
+    marginLeft: scale(8),
   },
 });

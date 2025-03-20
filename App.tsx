@@ -9,8 +9,13 @@ import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
 import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
 import SavedListsScreen from "./app/screens/SavedListsScreen/SavedListsScreen";
 import { useEffect, useState } from "react";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// Define the types for the tab navigator
+export type TabParamList = {
+  Home: undefined;
+  Search: undefined;
+  Profile: undefined;
+};
 
 const Tab = createBottomTabNavigator();
 

@@ -1,13 +1,14 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import SearchScreen from "../screens/SearchScreen/SearchScreen";
-import SavedListsScreen from "../screens/SavedListsScreen/SavedListsScreen";
-import ListDetailsScreen from "../screens/ListDetailsScreen/ListDetailsScreen";
 import { Ionicons } from "@expo/vector-icons"; // icon library
 import { TouchableOpacity } from "react-native";
 
 import { SongDetailsScreen } from "../screens/SongDetailsScreen/SongDetailsScreen";
 import { ArtistDetailsScreen } from "../screens/ArtistDetailsScreen/ArtistDetailsScreen";
 import AddSongScreen from "../screens/AddSongScreen/AddSongScreen";
+import SearchScreen from "../screens/SearchScreen/SearchScreen";
+import SavedListsScreen from "../screens/SavedListsScreen/SavedListsScreen";
+import ListDetailsScreen from "../screens/ListDetailsScreen/ListDetailsScreen";
+import MetronomeScreen from "../screens/MetronomeScreen/MetronomeScreen";
 
 // Define the types for navigation parameters
 export type RootStackParamList = {
@@ -24,6 +25,7 @@ export type RootStackParamList = {
   SavedLists: undefined; // Route for displaying all saved lists
   ListDetails: { listName: string }; // Route for showing a specific list's details
   SongDetails: { name: string; artist: string; vocalRange: string };
+  Metronome: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -115,6 +117,15 @@ export function AppStack() {
             </TouchableOpacity>
           ),
         })}
+      />
+
+      {/* Metronome Screen */}
+      <Stack.Screen
+        name="Metronome"
+        component={MetronomeScreen}
+        options={{
+          title: "Metronome",
+        }}
       />
     </Stack.Navigator>
   );

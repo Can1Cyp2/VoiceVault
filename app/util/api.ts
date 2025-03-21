@@ -104,21 +104,36 @@ export const getArtists = async (query: string): Promise<any[]> => {
       .ilike("artist", `%${query}%`);
     if (error) {
       console.error("Error fetching artists:", error.message);
-      throw error;
+      throw new Error(`Failed to fetch artists: ${error.message}`);
     }
+
+    if (!data || data.length === 0) {
+      console.log(`No artists found for query: ${query}`);
+      return [];
+    }
+
     const artistMap = new Map<string, { name: string; songs: { vocalRange: string }[] }>();
-    data?.forEach((song) => {
-      if (song.artist && song.vocalRange) {
-        if (!artistMap.has(song.artist)) {
-          artistMap.set(song.artist, { name: song.artist, songs: [] });
-        }
-        artistMap.get(song.artist)!.songs.push({ vocalRange: song.vocalRange });
+    data.forEach((song) => {
+      if (!song.artist || !song.vocalRange) {
+        console.warn("Skipping song with missing artist or vocalRange:", song);
+        return;
       }
+      if (!artistMap.has(song.artist)) {
+        artistMap.set(song.artist, { name: song.artist, songs: [] });
+      }
+      artistMap.get(song.artist)!.songs.push({ vocalRange: song.vocalRange });
     });
-    return Array.from(artistMap.values());
+
+    const artists = Array.from(artistMap.values()).map((artist) => ({
+      name: artist.name,
+      songs: artist.songs,
+      vocalRange: calculateOverallRange(artist.songs), // Add overall vocal range
+    }));
+
+    return artists;
   } catch (error) {
     console.error("Error in getArtists:", error);
-    return [];
+    throw error; // Propagate the error to SearchScreen.tsx
   }
 };
 
@@ -178,18 +193,59 @@ export const getRandomSongs = async (limit: number = 50): Promise<any[]> => {
 };
 
 // Fetch 25 random artists based on random songs
-export async function getRandomArtists(limit: number): Promise<any[]> {
-  console.time("getRandomArtists");
-  const songs = await getRandomSongs(limit); // Fixed to 25 songs
-  const uniqueArtists = [...new Set(songs.map((song) => song.artist))];
-  const artistPromises = uniqueArtists.map(async (artist) => {
-    const allSongs = await searchSongsByQuery(artist);
-    return { name: artist, songs: allSongs, vocalRange: calculateOverallRange(allSongs) };
-  });
-  const artists = await Promise.all(artistPromises);
-  console.timeEnd("getRandomArtists");
-  return artists; // Return all derived artists, or slice if limit is needed
-}
+export const getRandomArtists = async (limit: number): Promise<any[]> => {
+  try {
+    console.time("getRandomArtists");
+
+    // Fetch random songs with their artists in a single query
+    const { data: songs, error } = await supabase
+      .from("songs")
+      .select("artist, vocalRange")
+      .order("RANDOM()")
+      .limit(limit * 2); // Fetch more songs to increase the chance of getting unique artists
+
+    if (error) {
+      console.error("Error fetching random songs for artists:", error.message);
+      throw new Error(`Failed to fetch random songs for artists: ${error.message}`);
+    }
+
+    if (!songs || songs.length === 0) {
+      console.log("No songs found for random artists");
+      return [];
+    }
+
+    // Group songs by artist
+    const artistMap = new Map<string, { name: string; songs: { vocalRange: string }[] }>();
+    songs.forEach((song) => {
+      if (!song.artist || !song.vocalRange) {
+        console.warn("Skipping song with missing artist or vocalRange:", song);
+        return;
+      }
+      if (!artistMap.has(song.artist)) {
+        artistMap.set(song.artist, { name: song.artist, songs: [] });
+      }
+      artistMap.get(song.artist)!.songs.push({ vocalRange: song.vocalRange });
+    });
+
+    // Convert to array and calculate vocal range
+    const artists = Array.from(artistMap.values()).map((artist) => ({
+      name: artist.name,
+      songs: artist.songs,
+      vocalRange: calculateOverallRange(artist.songs),
+    }));
+
+    // Sort by name and limit the number of artists
+    const limitedArtists = artists
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, limit);
+
+    console.timeEnd("getRandomArtists");
+    return limitedArtists;
+  } catch (error) {
+    console.error("Error in getRandomArtists:", error);
+    throw error; // Propagate the error to SearchScreen.tsx
+  }
+};
 
 // Report an issue about a song
 export const reportIssue = async (

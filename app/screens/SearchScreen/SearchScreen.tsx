@@ -52,8 +52,9 @@ export default function SearchScreen() {
   const [allSongs, setAllSongs] = useState<any[]>([]); // All loaded songs 
   const [allArtists, setAllArtists] = useState<any[]>([]); // All loaded artists
 
+  
+
   // Fetch Random Data on Mount
-  // In SearchScreen.tsx
   useEffect(() => {
     const fetchInitialData = async () => {
       const connected = await checkInternetConnection();
@@ -65,10 +66,11 @@ export default function SearchScreen() {
         setInitialFetchDone(true);
         return;
       }
-
+  
       setSongsLoading(true);
+      let songs: any[] = [];
       try {
-        const songs = await getRandomSongs(25);
+        songs = await getRandomSongs(25);
         setRandomSongs(songs);
         setAllSongs(songs);
         setResults(songs);
@@ -80,22 +82,25 @@ export default function SearchScreen() {
         setSongsLoading(false);
         setArtistsLoading(false);
         setInitialFetchDone(true);
-        return; // Exit early if songs fail to load
+        return;
       } finally {
         setSongsLoading(false);
       }
-
+  
       setArtistsLoading(true);
       try {
-        // Derive artists from the loaded songs
-        const artists = deriveArtistsFromSongs(randomSongs, 12);
+        let artists = deriveArtistsFromSongs(songs, 12);
+        if (artists.length === 0) {
+          console.log("No artists derived from songs, falling back to getRandomArtists");
+          artists = await getRandomArtists(12); // Fallback to fetching artists
+        }
         setRandomArtists(artists);
         setAllArtists(artists);
         setError(null);
-        console.log("Derived", artists.length, "artists from songs for initial load");
+        console.log("Derived", artists.length, "artists for initial load");
       } catch (err) {
-        console.error("Error deriving artists from songs:", err);
-        setError("Failed to derive artists: " + (err instanceof Error ? err.message : "Unknown error"));
+        console.error("Error deriving artists:", err);
+        setError("Failed to load artists: " + (err instanceof Error ? err.message : "Unknown error"));
       } finally {
         setArtistsLoading(false);
         setInitialFetchDone(true);
@@ -355,6 +360,8 @@ export default function SearchScreen() {
       });
     }
   };
+
+  
 
   const handleInRangePress = () => {
     if (!isLoggedIn) {

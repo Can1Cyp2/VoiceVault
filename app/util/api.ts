@@ -147,7 +147,7 @@ const generateRandomIds = (min: number, max: number, count: number): number[] =>
   return Array.from(ids);
 };
 
-// Fetch 50 random songs by selecting random IDs
+// Fetch 50 random songs by selecting random song IDs
 export const getRandomSongs = async (limit: number = 50): Promise<any[]> => {
   try {
     const MIN_ID = 2;
@@ -179,7 +179,7 @@ export const getRandomSongs = async (limit: number = 50): Promise<any[]> => {
       console.log(`Attempt ${attempts}: Fetched ${data?.length || 0} songs, total ${selectedSongs.length}/${limit}`);
     }
 
-    // If we couldn't get enough songs, log a warning
+    // If couldn't get enough songs, log a warning
     if (selectedSongs.length < limit) {
       console.warn(`Only found ${selectedSongs.length} songs out of requested ${limit}`);
     }

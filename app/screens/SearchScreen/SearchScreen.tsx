@@ -191,7 +191,7 @@ export default function SearchScreen() {
     return artistMinIndex >= userMinIndex && artistMaxIndex <= userMaxIndex;
   };
 
-  // In SearchScreen.tsx
+  // Derive artists from songs and set to calculate overall vocal range 
   const deriveArtistsFromSongs = (songs: any[], limit: number = 12): any[] => {
     if (!songs || songs.length === 0) {
       console.log("No songs provided to derive artists");

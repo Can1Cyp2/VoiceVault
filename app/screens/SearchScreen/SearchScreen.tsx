@@ -38,17 +38,21 @@ export default function SearchScreen() {
   const [vocalRange, setVocalRange] = useState<{ min_range: string; max_range: string } | null>(null);
   const [vocalRangeFilterActive, setVocalRangeFilterActive] = useState(false);
   const [endReachedLoading, setEndReachedLoading] = useState(false);
-  const [initialFetchDone, setInitialFetchDone] = useState(false);
-  const [songsPage, setSongsPage] = useState(1);
-  const [artistsPage, setArtistsPage] = useState(1);
-  const [hasMoreSongs, setHasMoreSongs] = useState(true);
-  const [hasMoreArtists, setHasMoreArtists] = useState(true);
+  const [initialFetchDone, setInitialFetchDone] = useState(false); // Track if initial fetch is done
+  const [songsPage, setSongsPage] = useState(1); // Track current page for songs pagination
+  const [artistsPage, setArtistsPage] = useState(1); // Track current page for artists pagination
+  const [hasMoreSongs, setHasMoreSongs] = useState(true); // Track if more songs are available
+  const [hasMoreArtists, setHasMoreArtists] = useState(true); // Track if more artists
 
-  const [randomSongs, setRandomSongs] = useState<any[]>([]);
-  const [randomArtists, setRandomArtists] = useState<any[]>([]);
-  const [allSongs, setAllSongs] = useState<any[]>([]);
-  const [allArtists, setAllArtists] = useState<any[]>([]);
+  // State vars for random data to display when no search query is entered
+  const [randomSongs, setRandomSongs] = useState<any[]>([]); // Initial random songs
+  const [randomArtists, setRandomArtists] = useState<any[]>([]); // Initial random artists
+  const [allSongs, setAllSongs] = useState<any[]>([]); // All loaded songs 
+  const [allArtists, setAllArtists] = useState<any[]>([]); // All loaded artists
 
+  
+
+  // Fetch Random Data on Mount
   useEffect(() => {
     const fetchInitialData = async () => {
       const connected = await checkInternetConnection();
@@ -60,7 +64,7 @@ export default function SearchScreen() {
         setInitialFetchDone(true);
         return;
       }
-
+  
       setSongsLoading(true);
       let songs: any[] = [];
       try {
@@ -80,14 +84,11 @@ export default function SearchScreen() {
       } finally {
         setSongsLoading(false);
       }
-
+  
       setArtistsLoading(true);
       try {
-        let artists = deriveArtistsFromSongs(songs, 12);
-        if (artists.length === 0) {
-          console.log("No artists derived from songs, falling back to getRandomArtists");
-          artists = await getRandomArtists(12);
-        }
+        // Derive artists from the loaded songs
+        const artists = deriveArtistsFromSongs(randomSongs, 12);
         setRandomArtists(artists);
         setAllArtists(artists);
         setError(null);
@@ -344,6 +345,8 @@ export default function SearchScreen() {
       });
     }
   };
+
+  
 
   const handleInRangePress = () => {
     if (!isLoggedIn) {

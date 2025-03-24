@@ -135,6 +135,7 @@ export const getArtists = async (query: string): Promise<any[]> => {
 // Helper function to fetch the min and max IDs from the songs table
 const getSongIdRange = async (): Promise<{ minId: number; maxId: number }> => {
   try {
+    console.log("Fetching min ID from songs table");
     const { data, error } = await supabase
       .from("songs")
       .select("id")
@@ -142,6 +143,7 @@ const getSongIdRange = async (): Promise<{ minId: number; maxId: number }> => {
       .limit(1)
       .single();
 
+    console.log("Fetching max ID from songs table");
     const { data: maxData, error: maxError } = await supabase
       .from("songs")
       .select("id")
@@ -150,13 +152,19 @@ const getSongIdRange = async (): Promise<{ minId: number; maxId: number }> => {
       .single();
 
     if (error || maxError || !data || !maxData) {
-      console.error("Error fetching song ID range:", error || maxError);
+      console.error("Error fetching song ID range:", {
+        minError: error?.message,
+        maxError: maxError?.message,
+        minData: data,
+        maxData: maxData,
+      });
       return { minId: 1, maxId: 1 }; // Fallback to safe values
     }
 
+    console.log(`Fetched song ID range: minId=${data.id}, maxId=${maxData.id}`);
     return { minId: data.id, maxId: maxData.id };
   } catch (err) {
-    console.error("Error in getSongIdRange:", err);
+    console.error("Unexpected error in getSongIdRange:", err);
     return { minId: 1, maxId: 1 }; // Fallback to safe values
   }
 };

@@ -90,48 +90,6 @@ export const fetchUserVocalRange = async () => {
   return data;
 };
 
-// Fetch artists based on a query with their associated songs and vocal ranges
-export const getArtists = async (query: string): Promise<any[]> => {
-  try {
-    const { data, error } = await supabase
-      .from("songs")
-      .select("artist, vocalRange")
-      .ilike("artist", `%${query}%`);
-    if (error) {
-      console.error("Error fetching artists:", error.message);
-      throw new Error(`Failed to fetch artists: ${error.message}`);
-    }
-
-    if (!data || data.length === 0) {
-      console.log(`No artists found for query: ${query}`);
-      return [];
-    }
-
-    const artistMap = new Map<string, { name: string; songs: { vocalRange: string }[] }>();
-    data.forEach((song) => {
-      if (!song.artist || !song.vocalRange) {
-        console.warn("Skipping song with missing artist or vocalRange:", song);
-        return;
-      }
-      if (!artistMap.has(song.artist)) {
-        artistMap.set(song.artist, { name: song.artist, songs: [] });
-      }
-      artistMap.get(song.artist)!.songs.push({ vocalRange: song.vocalRange });
-    });
-
-    const artists = Array.from(artistMap.values()).map((artist) => ({
-      name: artist.name,
-      songs: artist.songs,
-      vocalRange: calculateOverallRange(artist.songs),
-    }));
-
-    return artists;
-  } catch (error) {
-    console.error("Error in getArtists:", error);
-    throw error;
-  }
-};
-
 // Helper function to fetch the min and max IDs from the songs table
 const getSongIdRange = async (): Promise<{ minId: number; maxId: number }> => {
   try {
@@ -225,82 +183,6 @@ export const getRandomSongs = async (limit: number = 50): Promise<any[]> => {
   }
 };
 
-// Fetch 25 random artists based on random songs
-export const getRandomArtists = async (limit: number): Promise<any[]> => {
-  try {
-    console.time("getRandomArtists");
-
-    const { minId, maxId } = await getSongIdRange();
-    if (minId === maxId) {
-      console.warn("No valid ID range found for songs");
-      return [];
-    }
-
-    let selectedSongs: any[] = [];
-    let attempts = 0;
-    const maxAttempts = 3;
-    const songsLimit = limit * 2;
-
-    while (selectedSongs.length < songsLimit && attempts < maxAttempts) {
-      const remaining = songsLimit - selectedSongs.length;
-      const randomIds = generateRandomIds(minId, maxId, remaining);
-
-      const { data, error } = await supabase
-        .from("songs")
-        .select("artist, vocalRange")
-        .in("id", randomIds);
-
-      if (error) {
-        console.error("Error fetching random songs for artists:", error.message);
-        throw new Error(`Failed to fetch random songs for artists: ${error.message}`);
-      }
-
-      if (data && data.length > 0) {
-        selectedSongs.push(...data);
-      }
-
-      attempts++;
-      console.log(`Attempt ${attempts}: Fetched ${data?.length || 0} songs, total ${selectedSongs.length}/${songsLimit}`);
-    }
-
-    if (selectedSongs.length < songsLimit) {
-      console.warn(`Only found ${selectedSongs.length} songs out of requested ${songsLimit}`);
-    }
-
-    if (!selectedSongs || selectedSongs.length === 0) {
-      console.log("No songs found for random artists");
-      return [];
-    }
-
-    const artistMap = new Map<string, { name: string; songs: { vocalRange: string }[] }>();
-    selectedSongs.forEach((song) => {
-      if (!song.artist || !song.vocalRange) {
-        console.warn("Skipping song with missing artist or vocalRange:", song);
-        return;
-      }
-      if (!artistMap.has(song.artist)) {
-        artistMap.set(song.artist, { name: song.artist, songs: [] });
-      }
-      artistMap.get(song.artist)!.songs.push({ vocalRange: song.vocalRange });
-    });
-
-    const artists = Array.from(artistMap.values()).map((artist) => ({
-      name: artist.name,
-      songs: artist.songs,
-      vocalRange: calculateOverallRange(artist.songs),
-    }));
-
-    const limitedArtists = artists
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .slice(0, limit);
-
-    console.timeEnd("getRandomArtists");
-    return limitedArtists;
-  } catch (error) {
-    console.error("Error in getRandomArtists:", error);
-    throw error;
-  }
-};
 
 // Report an issue about a song
 export const reportIssue = async (

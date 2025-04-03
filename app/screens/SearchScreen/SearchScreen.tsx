@@ -66,7 +66,7 @@ export default function SearchScreen() {
         setError(null);
         console.log("Fetched", songs.length, "songs for initial load");
 
-        const artists = deriveArtistsFromSongs(songs, 12);
+        const artists = deriveArtistsFromSongs(songs, 20);
         setAllArtists(artists);
         console.log("Derived", artists.length, "artists for initial load");
       } catch (err) {
@@ -167,7 +167,7 @@ export default function SearchScreen() {
     return artistMinIndex >= userMinIndex && artistMaxIndex <= userMaxIndex;
   };
 
-  const deriveArtistsFromSongs = (songs: any[], limit: number = 12): any[] => {
+  const deriveArtistsFromSongs = (songs: any[], limit: number = 20): any[] => {
     if (!songs || songs.length === 0) {
       console.log("No songs provided to derive artists");
       return [];
@@ -241,11 +241,11 @@ export default function SearchScreen() {
           setResults(newSongs);
         }
 
-        const artists = deriveArtistsFromSongs(allSongs, 12);
+        const artists = deriveArtistsFromSongs(allSongs, 20);
         setAllArtists(artists);
         console.log("Derived", artists.length, "artists from songs");
       } else {
-        const artists = deriveArtistsFromSongs(allSongs, 12);
+        const artists = deriveArtistsFromSongs(allSongs, 20);
         setResults(artists);
         setAllArtists(artists);
         console.log("Derived", artists.length, "artists for display");
@@ -510,7 +510,7 @@ export default function SearchScreen() {
                       setSongsPage(1);
                       setHasMoreSongs(true);
 
-                      const artists = deriveArtistsFromSongs(newSongs, 12);
+                      const artists = deriveArtistsFromSongs(newSongs, 20);
                       setAllArtists(artists);
 
                       // Update results based on the current filter

@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { supabase } from "../../util/supabase";
-import { Ionicons } from "@expo/vector-icons";
 import { RootStackParamList } from "../../navigation/StackNavigator";
 import { noteToValue } from "../SongDetailsScreen/RangeBestFit";
 
@@ -71,6 +70,12 @@ export const ArtistDetailsScreen = ({ route }: any) => {
   }, []);
 
   useEffect(() => {
+  /**
+   * Fetches songs by the given artist name from the database.
+   * Updates the component state with the fetched songs and overall range.
+   * If there is an error, sets songs to an empty array and overall range to null.
+   * Sets loading to false when done.
+   */
     const fetchSongs = async () => {
       setLoading(true);
       const { data: artistSongs, error } = await supabase

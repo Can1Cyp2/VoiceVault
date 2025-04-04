@@ -1,5 +1,7 @@
 // File: app/util/vocalRange.ts
 
+import { supabase } from "./supabase";
+
 // Mapping notes to numerical values (including sharps)
 const scale: { [key: string]: number } = {
     C: 0, "C#": 1, D: 2, "D#": 3, E: 4,
@@ -43,3 +45,23 @@ export const calculateOverallRange = (songs: any[]) => {
         highestNote: valueToNote(maxValue),
     };
 };
+
+export const getSongsByArtist = async (artistName: string): Promise<any[]> => {
+    try {
+      const { data, error } = await supabase
+        .from("songs")
+        .select("vocalRange")
+        .eq("artist", artistName);
+  
+      if (error) {
+        console.error("Error fetching songs for artist:", artistName, error);
+        return [];
+      }
+  
+      // Filter out songs with missing or invalid vocalRange
+      return data.filter(song => song.vocalRange && typeof song.vocalRange === "string" && song.vocalRange.includes(" - "));
+    } catch (err) {
+      console.error("Unexpected error fetching songs for artist:", artistName, err);
+      return [];
+    }
+  };

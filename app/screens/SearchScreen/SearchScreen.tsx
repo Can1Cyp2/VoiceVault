@@ -17,7 +17,7 @@ import { SearchBar } from "../../components/SearchBar/SearchBar";
 import { searchSongsByQuery, getRandomSongs } from "../../util/api";
 import { checkInternetConnection } from "../../util/network";
 import { supabase } from "../../util/supabase";
-import { calculateOverallRange, noteToValue } from "../../util/vocalRange";
+import { calculateOverallRange, getSongsByArtist, noteToValue } from "../../util/vocalRange";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Search">;
 
@@ -56,7 +56,7 @@ export default function SearchScreen() {
         setInitialFetchDone(true);
         return;
       }
-
+  
       setSongsLoading(true);
       try {
         const songs = await getRandomSongs(25);
@@ -65,8 +65,8 @@ export default function SearchScreen() {
         setResults(songs);
         setError(null);
         console.log("Fetched", songs.length, "songs for initial load");
-
-        const artists = deriveArtistsFromSongs(songs, 20);
+  
+        const artists = await deriveArtistsFromSongs(songs, 20);
         setAllArtists(artists);
         console.log("Derived", artists.length, "artists for initial load");
       } catch (err) {
@@ -143,17 +143,18 @@ export default function SearchScreen() {
     return songMinIndex >= userMinIndex && songMaxIndex <= userMaxIndex;
   };
 
-  const isArtistInRange = (artist: { name: any; songs: { vocalRange: string }[] }) => {
+  const isArtistInRange = (artist: { name: string; songs: { vocalRange: string }[] }) => {
     if (!vocalRange || !artist.songs || artist.songs.length === 0) {
       console.log(`No vocal range or songs for artist: ${artist.name}`);
       return false;
     }
+  
     const { lowestNote, highestNote } = calculateOverallRange(artist.songs);
     const artistMinIndex = noteToValue(lowestNote);
     const artistMaxIndex = noteToValue(highestNote);
     const userMinIndex = noteToValue(vocalRange.min_range);
     const userMaxIndex = noteToValue(vocalRange.max_range);
-
+  
     if (isNaN(artistMinIndex) || isNaN(artistMaxIndex) || isNaN(userMinIndex) || isNaN(userMaxIndex)) {
       console.error("Invalid range calculation", {
         artist: artist.name,
@@ -164,34 +165,43 @@ export default function SearchScreen() {
       });
       return false;
     }
-    return artistMinIndex >= userMinIndex && artistMaxIndex <= userMaxIndex;
+  
+    const inRange = artistMinIndex >= userMinIndex && artistMaxIndex <= userMaxIndex;
+    console.log(`Artist: ${artist.name}, Range: ${lowestNote} - ${highestNote}, User: ${vocalRange.min_range} - ${vocalRange.max_range}, In Range: ${inRange}`);
+    return inRange;
   };
 
-  const deriveArtistsFromSongs = (songs: any[], limit: number = 20): any[] => {
+  const deriveArtistsFromSongs = async (songs: any[], limit: number = 20): Promise<any[]> => {
     if (!songs || songs.length === 0) {
       console.log("No songs provided to derive artists");
       return [];
     }
-
-    const artistMap = new Map<string, { name: string; songs: { vocalRange: string }[] }>();
+  
+    // Get unique artist names
+    const artistMap = new Map<string, { name: string }>();
     songs.forEach((song) => {
-      if (!song.artist || !song.vocalRange) {
-        console.warn("Skipping song with missing artist or vocalRange:", song);
+      if (!song.artist) {
+        console.warn("Skipping song with missing artist:", song);
         return;
       }
       if (!artistMap.has(song.artist)) {
-        artistMap.set(song.artist, { name: song.artist, songs: [] });
+        artistMap.set(song.artist, { name: song.artist });
       }
-      artistMap.get(song.artist)!.songs.push({ vocalRange: song.vocalRange });
     });
-
-    const artists = Array.from(artistMap.values()).map((artist) => ({
-      name: artist.name,
-      songs: artist.songs,
-      vocalRange: calculateOverallRange(artist.songs),
-    }));
-
-    return artists
+  
+    const artists = Array.from(artistMap.values());
+    const artistDetails = await Promise.all(
+      artists.map(async (artist) => {
+        const songs = await getSongsByArtist(artist.name);
+        return {
+          name: artist.name,
+          songs: songs.map(song => ({ vocalRange: song.vocalRange })),
+        };
+      })
+    );
+  
+    return artistDetails
+      .filter(artist => artist.songs.length > 0) // Only include artists with songs
       .sort((a, b) => a.name.localeCompare(b.name))
       .slice(0, limit);
   };
@@ -200,10 +210,10 @@ export default function SearchScreen() {
     if (songsLoading && pageNum === 1) return;
     if (endReachedLoading) return;
     setSongsLoading(pageNum === 1);
-    if (filter === "artists") setArtistsLoading(true); // Set artists loading
+    if (filter === "artists") setArtistsLoading(true);
     if (pageNum > 1) setEndReachedLoading(true);
     setError(null);
-
+  
     const connected = await checkInternetConnection();
     setIsConnected(connected ?? false);
     if (!connected) {
@@ -213,7 +223,7 @@ export default function SearchScreen() {
       if (pageNum > 1) setEndReachedLoading(false);
       return;
     }
-
+  
     try {
       if (filter === "songs") {
         let newSongs: any[] = [];
@@ -231,7 +241,7 @@ export default function SearchScreen() {
           console.log("Search results for songs query", query, ":", newSongs.length);
           setHasMoreSongs(false);
         }
-
+  
         if (append) {
           const uniqueSongs = newSongs.filter((song) => !allSongs.some((s) => s.id === song.id));
           setAllSongs((prev) => [...prev, ...uniqueSongs]);
@@ -240,12 +250,12 @@ export default function SearchScreen() {
           setAllSongs(newSongs);
           setResults(newSongs);
         }
-
-        const artists = deriveArtistsFromSongs(allSongs, 20);
+  
+        const artists = await deriveArtistsFromSongs(allSongs, 20);
         setAllArtists(artists);
         console.log("Derived", artists.length, "artists from songs");
       } else {
-        const artists = deriveArtistsFromSongs(allSongs, 20);
+        const artists = await deriveArtistsFromSongs(allSongs, 20);
         setResults(artists);
         setAllArtists(artists);
         console.log("Derived", artists.length, "artists for display");
@@ -411,7 +421,7 @@ export default function SearchScreen() {
           vocalRange.max_range !== "C0" && (
             <View style={styles.inRangeExplanationContainer}>
               <Text style={styles.inRangeExplanationText}>
-                Showing artists derived from the current songs list, filtered by your vocal range.
+                You may not have artists in your range. Keep refreshing to load more artists.
               </Text>
             </View>
           )}
@@ -509,11 +519,10 @@ export default function SearchScreen() {
                       setAllSongs(newSongs);
                       setSongsPage(1);
                       setHasMoreSongs(true);
-
-                      const artists = deriveArtistsFromSongs(newSongs, 20);
+            
+                      const artists = await deriveArtistsFromSongs(newSongs, 20);
                       setAllArtists(artists);
-
-                      // Update results based on the current filter
+            
                       if (filter === "songs") {
                         setResults(newSongs);
                       } else {

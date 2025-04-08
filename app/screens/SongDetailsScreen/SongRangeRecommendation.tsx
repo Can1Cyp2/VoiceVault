@@ -11,7 +11,6 @@ import {
   UIManager,
 } from "react-native";
 import { fetchUserVocalRange } from "../../util/api";
-import { Ionicons } from "@expo/vector-icons";
 
 // All musical notes in order from C0 to C7
 export const NOTES = [

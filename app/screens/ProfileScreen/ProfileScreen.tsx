@@ -13,11 +13,9 @@ import {
 import ProfileMenu from "./ProfileMenu";
 import { supabase } from "../../util/supabase";
 import { fetchUserVocalRange } from "../../util/api";
-import EditProfileModal from "./EditProfileModal";
 
 export default function ProfileScreen({ navigation }: any) {
   const [isMenuVisible, setMenuVisible] = useState(false);
-  const [isModalVisible, setModalVisible] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const [vocalRange, setVocalRange] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);

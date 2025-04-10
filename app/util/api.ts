@@ -1,6 +1,6 @@
 import { Alert } from "react-native";
 import { supabase } from "./supabase";
-import { calculateOverallRange, noteToValue } from "./vocalRange";
+import { calculateOverallRange, getSongsByArtist, noteToValue } from "./vocalRange";
 
 export let errorCount = 0;
 
@@ -18,6 +18,83 @@ export const searchSongsByQuery = async (query: string): Promise<any[]> => {
     return data || [];
   } catch (error) {
     console.error("Error in searchSongsByQuery:", error);
+    return [];
+  }
+};
+
+// Fetch artists based on a query
+export const searchArtistsByQuery = async (query: string, limit: number = 20): Promise<any[]> => {
+  try {
+    // Step 1: Find songs that match the query in either name or artist
+    const { data: matchingSongs, error: songError } = await supabase
+      .from("songs")
+      .select("artist, name")
+      .or(`name.ilike.%${query}%, artist.ilike.%${query}%`);
+
+    if (songError) {
+      console.error("Error searching songs for artists:", songError.message);
+      return [];
+    }
+
+    // Step 2: Aggregate artists and calculate relevance scores
+    const artistMap = new Map<string, { name: string; score: number; songCount: number }>();
+    matchingSongs.forEach((song) => {
+      if (!song.artist) return;
+      const current = artistMap.get(song.artist) || { name: song.artist, score: 0, songCount: 0 };
+
+      // Calculate relevance score
+      let score = current.score;
+      const queryLower = query.toLowerCase();
+      const artistLower = song.artist.toLowerCase();
+      const songNameLower = song.name.toLowerCase();
+
+      // Exact match on artist name: high score
+      if (artistLower === queryLower) {
+        score += 100;
+      }
+      // Partial match on artist name: medium score
+      else if (artistLower.includes(queryLower)) {
+        score += 50;
+      }
+      // Exact match on song name: medium score
+      if (songNameLower === queryLower) {
+        score += 30;
+      }
+      // Partial match on song name: low score
+      else if (songNameLower.includes(queryLower)) {
+        score += 10;
+      }
+
+      artistMap.set(song.artist, {
+        name: song.artist,
+        score: score,
+        songCount: current.songCount + 1,
+      });
+    });
+
+    // Step 3: Get unique artists and fetch their songs
+    const uniqueArtists = Array.from(artistMap.values())
+      .sort((a, b) => b.score - a.score || b.songCount - a.songCount || a.name.localeCompare(b.name));
+
+    // Step 4: Fetch songs for each artist
+    const artistDetails = await Promise.all(
+      uniqueArtists.map(async (artist) => {
+        const songs = await getSongsByArtist(artist.name);
+        return {
+          name: artist.name,
+          songs: songs.map(song => ({ vocalRange: song.vocalRange })),
+          score: artist.score,
+          songCount: artist.songCount,
+        };
+      })
+    );
+
+    // Step 5: Filter out artists with no songs and apply the limit
+    return artistDetails
+      .filter(artist => artist.songs.length > 0)
+      .slice(0, limit);
+  } catch (err) {
+    console.error("Unexpected error searching artists:", err);
     return [];
   }
 };

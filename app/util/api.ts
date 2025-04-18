@@ -22,14 +22,14 @@ export const searchSongsByQuery = async (query: string): Promise<any[]> => {
   }
 };
 
-// Fetch artists based on a query
+// Fetch artists based on a query, ensuring the artist's name contains the query
 export const searchArtistsByQuery = async (query: string, limit: number = 20): Promise<any[]> => {
   try {
-    // Step 1: Find songs that match the query in either name or artist
+    // Step 1: Find songs where the artist name matches the query
     const { data: matchingSongs, error: songError } = await supabase
       .from("songs")
       .select("artist, name")
-      .or(`name.ilike.%${query}%, artist.ilike.%${query}%`);
+      .ilike("artist", `%${query}%`); // Only match on artist name
 
     if (songError) {
       console.error("Error searching songs for artists:", songError.message);
@@ -40,29 +40,20 @@ export const searchArtistsByQuery = async (query: string, limit: number = 20): P
     const artistMap = new Map<string, { name: string; score: number; songCount: number }>();
     matchingSongs.forEach((song) => {
       if (!song.artist) return;
-      const current = artistMap.get(song.artist) || { name: song.artist, score: 0, songCount: 0 };
 
-      // Calculate relevance score
-      let score = current.score;
+      // Skip if the artist name doesn't contain the query (case-insensitive)
       const queryLower = query.toLowerCase();
       const artistLower = song.artist.toLowerCase();
-      const songNameLower = song.name.toLowerCase();
+      if (!artistLower.includes(queryLower)) return;
 
-      // Exact match on artist name: high score
+      const current = artistMap.get(song.artist) || { name: song.artist, score: 0, songCount: 0 };
+
+      // Calculate relevance score based on artist name match only
+      let score = current.score;
       if (artistLower === queryLower) {
-        score += 100;
-      }
-      // Partial match on artist name: medium score
-      else if (artistLower.includes(queryLower)) {
-        score += 50;
-      }
-      // Exact match on song name: medium score
-      if (songNameLower === queryLower) {
-        score += 30;
-      }
-      // Partial match on song name: low score
-      else if (songNameLower.includes(queryLower)) {
-        score += 10;
+        score += 100; // Exact match
+      } else if (artistLower.includes(queryLower)) {
+        score += 50; // Partial match
       }
 
       artistMap.set(song.artist, {
@@ -259,7 +250,6 @@ export const getRandomSongs = async (limit: number = 50): Promise<any[]> => {
     return [];
   }
 };
-
 
 // Report an issue about a song
 export const reportIssue = async (

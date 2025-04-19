@@ -12,6 +12,7 @@ import {
 import { supabase } from "../../util/supabase";
 import EditProfileModal from "./EditProfileModal";
 
+// This component renders a menu for the user profile with options to edit profile, reset password, delete account, and logout.
 export default function ProfileMenu({
   onClose,
   onLogout,

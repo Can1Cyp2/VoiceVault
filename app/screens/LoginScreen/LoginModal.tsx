@@ -15,6 +15,7 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  // Function to handle login
   const handleLogin = async () => {
     try {
       // Step 1: Attempt login

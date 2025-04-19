@@ -11,11 +11,15 @@ import {
 } from "react-native";
 import { supabase } from "../../util/supabase";
 
+// This component renders a modal for user signup with email and password fields:
+// handles user input, validates the password confirmation, and communicates with Supabase for account creation.
 export default function SignupModal({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  // Function to handle user signup:
+  // checks if the passwords match, then attempts to sign up the user using Supabase's auth API.
   const handleSignup = async () => {
     if (password !== confirmPassword) {
       Alert.alert("Error", "Passwords do not match.");

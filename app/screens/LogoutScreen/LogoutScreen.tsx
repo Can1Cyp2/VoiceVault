@@ -7,7 +7,7 @@ export default function LogoutScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>You are logged out!</Text>
-      {/* Add additional logout confirmation or options here */}
+      {/* Add additional logout confirmation or options here - TODO LATER */}
     </View>
   );
 }

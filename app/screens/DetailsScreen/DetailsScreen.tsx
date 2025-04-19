@@ -3,6 +3,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 
+// This screen displays the details of a selected item, such as a song or artist:
 export const DetailsScreen = ({ route }: any) => {
   const { name, vocalRange, type, artist } = route.params;
 

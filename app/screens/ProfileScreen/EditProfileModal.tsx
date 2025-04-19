@@ -94,6 +94,7 @@ export const NOTES = [
   "C7",
 ];
 
+// Edit profile modal
 export default function EditProfileModal({
   onClose,
   onSave,
@@ -107,6 +108,7 @@ export default function EditProfileModal({
   const [loading, setLoading] = useState(true);
   const [originalDisplayName, setOriginalDisplayName] = useState(""); // To track if user edits it
 
+  // Fetch user data and vocal range on component mount
   useEffect(() => {
     const loadUserData = async () => {
       setLoading(true);
@@ -136,6 +138,7 @@ export default function EditProfileModal({
     loadUserData();
   }, []);
 
+  // Function to handle vocal range submission
   const handleSave = async () => {
     if (!displayName.trim()) {
       Alert.alert("Error", "Display name cannot be empty.");

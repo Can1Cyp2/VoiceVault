@@ -15,9 +15,9 @@ import {
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { addSong } from "../../util/api";
-import { supabase } from "../../util/supabase"; // Add this line to import supabase
+import { supabase } from "../../util/supabase";
 
-// Define all notes on a piano
+// Define all notes on a piano (sharps, no flats):
 const NOTES = [
   "A0",
   "A#0",

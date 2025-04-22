@@ -22,6 +22,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [isSignupVisible, setSignupVisible] = useState(false);
   const [isLoggedIn, setLoggedIn] = useState(false);
 
+  // Check if user is logged in when the component mounts
   useEffect(() => {
     const checkSession = async () => {
       const {
@@ -41,6 +42,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     };
   }, []);
 
+  // Set the header options
   useEffect(() => {
     if (isLoggedIn) {
       navigation.setOptions({
@@ -61,6 +63,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     }
   }, [isLoggedIn, navigation]);
 
+  // Handle logout
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -70,6 +73,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     }
   };
 
+  // Handle login and signup button presses
   return (
     <View style={styles.container}>
       {/* Logo Section */}

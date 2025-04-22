@@ -20,6 +20,7 @@ import { useSearch } from "../../util/useSearch";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Search">;
 
+// This component renders a search screen with a search bar, filter buttons, and a list of results (songs or artists):
 export default function SearchScreen() {
   const navigation = useNavigation<NavigationProp>();
   const [query, setQuery] = useState("");
@@ -49,6 +50,7 @@ export default function SearchScreen() {
     setInitialFetchDone,
   });
 
+  // Fetch the user's vocal range when the component mounts
   React.useEffect(() => {
     const fetchUserVocalRange = async () => {
       try {
@@ -93,10 +95,13 @@ export default function SearchScreen() {
     };
   }, []);
 
+  // Function to handle adding a new song
   const handleAddPress = () => {
     navigation.navigate("AddSong");
   };
 
+  // Function to handle pressing on a song or artist:
+  // navigates to the details screen for the selected song or artist
   const handlePress = (item: any) => {
     if (filter === "songs") {
       navigation.navigate("Details", {
@@ -112,6 +117,7 @@ export default function SearchScreen() {
     }
   };
 
+  // Function to handle pressing the "In Range" button:
   const handleInRangePress = () => {
     if (!isLoggedIn) {
       Alert.alert(

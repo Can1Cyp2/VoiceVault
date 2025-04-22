@@ -15,6 +15,8 @@ type UserVocalRangeFilterProps = {
   isDisabled?: boolean;
 };
 
+// This component fetches the user's vocal range from the database and applies a filter based on that range.
+//  - If the user has not set their vocal range, it shows an alert when the filter is pressed
 const UserVocalRangeFilter = ({ onFilterApply }: UserVocalRangeFilterProps) => {
   const [vocalRange, setVocalRange] = useState<VocalRange | null>(null);
 

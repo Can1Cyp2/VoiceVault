@@ -10,11 +10,13 @@ import {
 import { supabase } from "../../util/supabase";
 import { Ionicons } from "@expo/vector-icons";
 
+
 export default function ListDetailsScreen({ route, navigation }: any) {
   const { listName } = route.params; // Passed from the previous screen
   const [songs, setSongs] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false); // Toggle edit mode
 
+  // Fetch songs from the database when the component mounts or when listName changes
   useEffect(() => {
     const fetchSongs = async () => {
       try {
@@ -70,6 +72,7 @@ export default function ListDetailsScreen({ route, navigation }: any) {
     }
   };
 
+  // Navigate to the song details screen when a song is pressed
   const handleSongPress = (song: any) => {
     navigation.navigate("Details", {
       name: song.name,

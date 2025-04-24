@@ -238,6 +238,7 @@ export default function SearchScreen() {
         )}
       {!songsLoading && !artistsLoading && results.length > 0 && (
         <FlatList
+          style={{ minHeight: '88%' }}
           data={
             vocalRangeFilterActive
               ? filter === "songs"
@@ -298,6 +299,12 @@ export default function SearchScreen() {
                 <ActivityIndicator size="small" color="tomato" />
                 <Text style={styles.loadingText}>Loading more...</Text>
               </View>
+            ) : filter === "artists" ? (
+              <View style={[styles.swipeMessageContainer, { paddingBottom: 20 }]}>
+                <Text style={styles.swipeMessageText}>
+                  Swipe down from top to cycle artists:
+                </Text>
+              </View>
             ) : null
           }
           onEndReached={filter === "songs" ? handleLoadMore : null} // Disable onEndReached for artists
@@ -309,6 +316,8 @@ export default function SearchScreen() {
               colors={["tomato"]}
             />
           }
+          overScrollMode="always" // Enable overscroll on Android
+          bounces={true} // overscroll on ios
         />
       )}
     </View>
@@ -435,5 +444,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  swipeMessageContainer: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "#f0f0f0",
+    marginBottom: 5,
+  },
+  swipeMessageText: {
+    fontSize: 14,
+    color: "#333",
+    textAlign: "center",
   },
 });

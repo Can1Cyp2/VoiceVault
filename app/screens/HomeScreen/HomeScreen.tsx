@@ -14,8 +14,15 @@ import { RootStackParamList } from "../../navigation/StackNavigator";
 import { Ionicons } from "@expo/vector-icons";
 import LoginModal from "../LoginScreen/LoginModal";
 import SignupModal from "../SignupScreen/SignupModal";
+import { CompositeScreenProps } from "@react-navigation/native";
+import { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
+import { TabParamList } from "../../../App";
 
-type HomeScreenProps = NativeStackScreenProps<RootStackParamList, "Search">;
+// Combine navigation props for tab and stack navigators
+type HomeScreenProps = CompositeScreenProps<
+  BottomTabScreenProps<TabParamList, "Home">,
+  NativeStackScreenProps<RootStackParamList>
+>;
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [isLoginVisible, setLoginVisible] = useState(false);
@@ -76,6 +83,15 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   // Handle login and signup button presses
   return (
     <View style={styles.container}>
+      {/* Tools Button in Top Left */}
+      <TouchableOpacity
+        style={styles.toolsButton}
+        onPress={() => navigation.navigate("Search", { screen: "Metronome" })}
+      >
+        <Ionicons name="cog-outline" size={30} color="#ff6600" />
+        <Text style={styles.toolsText}>Tools</Text>
+      </TouchableOpacity>
+
       {/* Logo Section */}
       <Image
         source={require("../../../assets/transparent-icon.png")}
@@ -167,5 +183,18 @@ const styles = StyleSheet.create({
     color: "#888",
     paddingTop: 0,
     opacity: 0.5,
+  },
+  toolsButton: {
+    position: "absolute",
+    top: 40, // Adjust based on your status bar height
+    left: 20,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  toolsText: {
+    fontSize: 16,
+    color: "#ff6600",
+    marginLeft: 5,
+    fontWeight: "bold",
   },
 });

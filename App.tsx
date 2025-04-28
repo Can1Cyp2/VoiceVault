@@ -9,6 +9,13 @@ import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
 import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
 import { useEffect, useState } from "react";
 
+// Define the types for the tab navigator
+export type TabParamList = {
+  Home: undefined;
+  Search: undefined;
+  Profile: undefined;
+};
+
 const Tab = createBottomTabNavigator();
 
 export default function App() {

@@ -29,6 +29,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [isSignupVisible, setSignupVisible] = useState(false);
   const [isLoggedIn, setLoggedIn] = useState(false);
 
+  // Check if user is logged in when the component mounts
   useEffect(() => {
     const checkSession = async () => {
       const {
@@ -48,6 +49,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     };
   }, []);
 
+  // Set the header options
   useEffect(() => {
     if (isLoggedIn) {
       navigation.setOptions({
@@ -68,6 +70,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     }
   }, [isLoggedIn, navigation]);
 
+  // Handle logout
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -77,6 +80,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     }
   };
 
+  // Handle login and signup button presses
   return (
     <View style={styles.container}>
       {/* Tools Button in Top Left */}
@@ -97,7 +101,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       <Text style={styles.title}>Welcome to VoiceVault!</Text>
       <Text style={styles.subtitle}>
         Explore the world of vocal ranges and discover music like never before,
-        with over 24,000 songs!
+        with over 25,000 songs!
       </Text>
       {isLoggedIn ? (
         <TouchableOpacity style={styles.button} onPress={handleLogout}>
@@ -125,7 +129,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       <Modal visible={isSignupVisible} transparent animationType="slide">
         <SignupModal onClose={() => setSignupVisible(false)} />
       </Modal>
-      <Text style={styles.versionText}>Version 1.1.7</Text>
+      <Text style={styles.versionText}>Version 1.2.0</Text>
     </View>
   );
 }

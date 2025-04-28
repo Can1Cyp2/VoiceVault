@@ -5,7 +5,7 @@ module.exports = () => {
   return {
     name: "VoiceVault",
     slug: "VoiceVault",
-    version: "1.1.7",
+    version: "1.2.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -18,7 +18,7 @@ module.exports = () => {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.can1cyp2.VoiceVault",
-      buildNumber: "1.1.7",
+      buildNumber: "1.2.0",
       infoPlist: {
         NSCameraUsageDescription: "This app uses the camera for user profile images. (Future updates may require this permission.)",
         NSPhotoLibraryUsageDescription: "This app accesses your photo library for profile picture uploads. (Future updates may require this permission.)",
@@ -27,7 +27,7 @@ module.exports = () => {
       }
     },
     android: {
-      versionCode: 10107,
+      versionCode: 10200,
       adaptiveIcon: {
         foregroundImage: "./assets/icon.png",
         backgroundColor: "#ffffff"

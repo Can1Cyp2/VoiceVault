@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { supabase } from "../../util/supabase";
-import { Ionicons } from "@expo/vector-icons";
 import { RootStackParamList } from "../../navigation/StackNavigator";
 import { noteToValue } from "../SongDetailsScreen/RangeBestFit";
 
@@ -27,6 +26,7 @@ export const ArtistDetailsScreen = ({ route }: any) => {
 
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
+  // Set the header options and check login status
   useEffect(() => {
     navigation.setOptions({
       headerRight: undefined,
@@ -43,6 +43,8 @@ export const ArtistDetailsScreen = ({ route }: any) => {
       });
     };
 
+    // Fetch user vocal range:
+    // This function fetches the user's vocal range from the database and updates the state
     const fetchUserVocalRange = async () => {
       try {
         const { data: user, error } = await supabase.auth.getUser();
@@ -71,6 +73,12 @@ export const ArtistDetailsScreen = ({ route }: any) => {
   }, []);
 
   useEffect(() => {
+  /**
+   * Fetches songs by the given artist name from the database.
+   * Updates the component state with the fetched songs and overall range.
+   * If there is an error, sets songs to an empty array and overall range to null.
+   * Sets loading to false when done.
+   */
     const fetchSongs = async () => {
       setLoading(true);
       const { data: artistSongs, error } = await supabase
@@ -92,11 +100,13 @@ export const ArtistDetailsScreen = ({ route }: any) => {
     fetchSongs();
   }, [name]);
 
+  // Function to calculate the overall vocal range of the artist based on their songs
   const calculateOverallRange = (songs: any[]) => {
     const scale: { [key: string]: number } = {
       C: 0, "C#": 1, D: 2, "D#": 3, E: 4, F: 5, "F#": 6, G: 7, "G#": 8, A: 9, "A#": 10, B: 11,
     };
 
+    // Function to convert note to its corresponding value
     const noteToValue = (note: string): number => {
       const match = note.match(/^([A-G]#?)(\d+)$/);
       if (!match) return NaN;
@@ -104,6 +114,8 @@ export const ArtistDetailsScreen = ({ route }: any) => {
       return scale[key] + (parseInt(octave, 10) + 1) * 12;
     };
 
+    // Function to convert value back to note:
+    // converts a value back to its corresponding note and octave
     const valueToNote = (value: number): string => {
       const scaleArray = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
       const note = scaleArray[value % 12];
@@ -127,6 +139,7 @@ export const ArtistDetailsScreen = ({ route }: any) => {
     return { lowestNote: valueToNote(minValue), highestNote: valueToNote(maxValue) };
   };
 
+  // Function to compare user range with overall range:
   const getRangeComparison = () => {
     if (!userRange || !overallRange || userRange.min_range === "C0" || userRange.max_range === "C0") {
       return { color: "gray", minDiff: 0, maxDiff: 0, reason: "No user range set" };
@@ -152,6 +165,8 @@ export const ArtistDetailsScreen = ({ route }: any) => {
     return { color: isClose ? "yellow" : "red", minDiff, maxDiff, reason: isClose ? " ~ Close to your range" : " ~ Outside your range" };
   };
 
+  // Function to render tooltip:
+  // displays the differences between the user's range and the artist's range
   const renderTooltip = () => {
     const { minDiff, maxDiff, reason } = getRangeComparison();
     if (!showTooltip) return null;
@@ -189,6 +204,8 @@ export const ArtistDetailsScreen = ({ route }: any) => {
   };
   
 
+  // Function to handle song press:
+  // navigates to the song details screen with the selected song's details
   const handleSongPress = (song: any) => {
     navigation.navigate("Details", {
       name: song.name,
@@ -197,6 +214,7 @@ export const ArtistDetailsScreen = ({ route }: any) => {
     });
   };
 
+  // render the header:
   const renderHeader = () => {
     const { color } = getRangeComparison();
 

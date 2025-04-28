@@ -1,6 +1,7 @@
 // app/util/auth.ts
 import { supabase } from './supabase';
 
+// Function to check if the user is logged in
 export const login = async (email: string, password: string) => {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,

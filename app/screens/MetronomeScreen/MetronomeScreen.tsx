@@ -502,12 +502,12 @@ const styles = StyleSheet.create({
   },
   picker: {
     width: "100%",
-    height: Platform.OS === "ios" ? verticalScale(200) : verticalScale(50), // Increased height to prevent clipping
+    height: Platform.OS === "ios" ? verticalScale(50) : verticalScale(50), // Increased height to prevent clipping
     color: "#333",
   },
   pickerItem: {
-    fontSize: moderateScale(16), // Increased font size for Picker.Item
-    height: Platform.OS === "ios" ? verticalScale(50) : undefined, // Set item height on iOS to prevent clipping
+    fontSize: Math.round(moderateScale(16)),
+    height: Platform.OS === "ios" ? Math.round(verticalScale(50)) : undefined,
     textAlign: "center",
   },
   playButton: {

@@ -11,7 +11,6 @@ import {
   UIManager,
 } from "react-native";
 import { fetchUserVocalRange } from "../../util/api";
-import { Ionicons } from "@expo/vector-icons";
 
 // All musical notes in order from C0 to C7
 export const NOTES = [
@@ -102,10 +101,12 @@ export const NOTES = [
   "C7",
 ];
 
+// Function to fetch user vocal range from the API
 interface SongRangeRecommendationProps {
   songVocalRange: string;
 }
 
+// Function to fetch user vocal range from the API
 const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
   songVocalRange,
 }) => {
@@ -156,6 +157,7 @@ const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
     fetchUserRange();
   }, [songVocalRange]);
 
+  // Function to calculate the range feedback based on user and song vocal ranges
   const calculateRangeFeedback = (
     minRange: string,
     maxRange: string,
@@ -202,7 +204,8 @@ const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
       });
     }
   };
-
+  
+  // Function to toggle the expanded state of the component
   const toggleExpand = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setIsExpanded(!isExpanded);

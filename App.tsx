@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Alert, Text, View } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, useNavigation } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { AppStack } from "./app/navigation/StackNavigator";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,7 +7,6 @@ import { getSession, supabase } from "./app/util/supabase";
 
 import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
 import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
-import SavedListsScreen from "./app/screens/SavedListsScreen/SavedListsScreen";
 import { useEffect, useState } from "react";
 
 // Define the types for the tab navigator
@@ -117,16 +116,27 @@ const CustomProfileButton = ({
   isLoggedIn,
 }: any) => {
   const isSelected = accessibilityState.selected;
+  const navigation = useNavigation(); // Use the useNavigation hook to access navigation
 
   return (
     <Pressable
       onPress={() => {
         if (isLoggedIn) {
-          onPress(); // Trigger the tab's built-in navigation
+          onPress(); // Trigger the tab's built-in navigation to Profile screen
         } else {
           Alert.alert(
-            "Access Denied",
-            "You must be logged in to access the Profile screen."
+            "Login Required",
+            "You need to log in to access the Profile screen. Would you like to log in now?",
+            [
+              {
+                text: "Yes",
+                onPress: () => {
+                  navigation.navigate("Home"); // Navigate to the Home screen
+                },
+              },
+              { text: "No", style: "cancel" },
+            ],
+            { cancelable: true }
           );
         }
       }}

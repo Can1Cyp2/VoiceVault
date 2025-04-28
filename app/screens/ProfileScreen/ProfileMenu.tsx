@@ -12,6 +12,7 @@ import {
 import { supabase } from "../../util/supabase";
 import EditProfileModal from "./EditProfileModal";
 
+// This component renders a menu for the user profile with options to edit profile, reset password, delete account, and logout.
 export default function ProfileMenu({
   onClose,
   onLogout,
@@ -83,7 +84,7 @@ export default function ProfileMenu({
               });
 
               if (updateError) {
-                Alert.alert("Error", "Failed to mark account as deleted.");
+                Alert.alert("Error", "Failed to mark account as deleted. Please try again shortly or contact support if the issue persists voicevaultcontact@gmail.com");
                 setIsDeleting(false);
                 return;
               }

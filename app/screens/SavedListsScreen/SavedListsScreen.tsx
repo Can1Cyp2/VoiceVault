@@ -19,6 +19,7 @@ export default function SavedListsScreen({ navigation }: any) {
   const [selectedList, setSelectedList] = useState<string | null>(null);
   const [newListName, setNewListName] = useState("");
 
+  // Fetch saved lists from Supabase on component mount
   useEffect(() => {
     const fetchSavedLists = async () => {
       try {
@@ -74,6 +75,7 @@ export default function SavedListsScreen({ navigation }: any) {
     }
   };
 
+  // Handle deleting a list
   const handleEditList = async () => {
     if (!newListName.trim()) {
       Alert.alert("Error", "List name cannot be empty.");

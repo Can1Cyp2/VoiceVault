@@ -27,6 +27,8 @@ import { supabase } from "../../util/supabase";
 import { findClosestVocalRangeFit } from "./RangeBestFit";
 import SongRangeRecommendation from "./SongRangeRecommendation";
 
+// SongDetailsScreen component:
+// Displays details of a song, including vocal range and options to save it to a list.
 export const SongDetailsScreen = ({ route, navigation }: any) => {
   const { name, artist, vocalRange } = route.params;
 

@@ -22,6 +22,7 @@
     "argparse": "^2.0.1",
     "eas-cli": "^14.7.1",
     "expo": "~52.0.38",
+    "expo-av": "~15.0.2",
     "expo-build-properties": "~0.13.2",
     "expo-constants": "~17.0.7",
     "expo-dev-client": "~5.0.14",

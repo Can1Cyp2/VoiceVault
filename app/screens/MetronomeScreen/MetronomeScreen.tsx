@@ -104,6 +104,19 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
     };
   }, []);
 
+  useEffect(() => {
+    navigation.setOptions({
+      headerLeft: () => (
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={{ paddingLeft: 10 }}
+        >
+          <Ionicons name="arrow-back" size={24} color="#ff6600" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
+
   const getBeatsPerMeasure = () => {
     switch (timeSignature) {
       case "3/4":
@@ -533,4 +546,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginLeft: scale(8),
   },
+  backButton: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 60 : 40, // iOS devices usually need a bit more padding
+    left: 20,
+    padding: 8,
+  },
+  
 });

@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   },
   toolsButton: {
     position: "absolute",
-    top: 40, // Adjust based on your status bar height
+    top: 60,
     left: 20,
     flexDirection: "row",
     alignItems: "center",

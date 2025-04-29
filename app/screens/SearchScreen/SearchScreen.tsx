@@ -11,6 +11,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useRoute } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/StackNavigator";
 import { Ionicons } from "@expo/vector-icons";
@@ -29,6 +30,7 @@ export default function SearchScreen() {
   const [vocalRange, setVocalRange] = useState<{ min_range: string; max_range: string } | null>(null);
   const [vocalRangeFilterActive, setVocalRangeFilterActive] = useState(false);
   const [initialFetchDone, setInitialFetchDone] = useState(false);
+
 
   const {
     results,
@@ -94,6 +96,17 @@ export default function SearchScreen() {
       authListener.subscription.unsubscribe();
     };
   }, []);
+
+  // Logic to Navigate to metronome screen
+  const route = useRoute();
+  useFocusEffect(
+    React.useCallback(() => {
+      if ((route as any)?.params?.screen === "Metronome") {
+        navigation.navigate("Metronome");
+        navigation.setParams(undefined);
+      }
+    }, [route, navigation])
+  );
 
   // Function to handle adding a new song
   const handleAddPress = () => {
@@ -179,8 +192,8 @@ export default function SearchScreen() {
                 !vocalRange || vocalRange.min_range === "C0" || vocalRange.max_range === "C0"
                   ? "gray"
                   : vocalRangeFilterActive
-                  ? "tomato"
-                  : "gray"
+                    ? "tomato"
+                    : "gray"
               }
               style={styles.filterIcon}
             />
@@ -194,8 +207,8 @@ export default function SearchScreen() {
                     !vocalRange || vocalRange.min_range === "C0" || vocalRange.max_range === "C0"
                       ? "gray"
                       : vocalRangeFilterActive
-                      ? "tomato"
-                      : "grey",
+                        ? "tomato"
+                        : "grey",
                 },
               ]}
             >
@@ -273,8 +286,8 @@ export default function SearchScreen() {
                             ? "checkmark-circle"
                             : "close-circle"
                           : isArtistInRange(item)
-                          ? "checkmark-circle"
-                          : "close-circle"
+                            ? "checkmark-circle"
+                            : "close-circle"
                       }
                       size={30}
                       color={
@@ -283,8 +296,8 @@ export default function SearchScreen() {
                             ? "tomato"
                             : "grey"
                           : isArtistInRange(item)
-                          ? "tomato"
-                          : "grey"
+                            ? "tomato"
+                            : "grey"
                       }
                       style={styles.inRangeIcon}
                     />

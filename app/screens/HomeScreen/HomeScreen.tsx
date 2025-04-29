@@ -129,7 +129,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       <Modal visible={isSignupVisible} transparent animationType="slide">
         <SignupModal onClose={() => setSignupVisible(false)} />
       </Modal>
-      <Text style={styles.versionText}>Version 1.2.0</Text>
+      <Text style={styles.versionText}>Version 1.2.1</Text>
     </View>
   );
 }

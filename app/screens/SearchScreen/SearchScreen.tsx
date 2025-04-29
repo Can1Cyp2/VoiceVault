@@ -312,7 +312,7 @@ export default function SearchScreen() {
                 <ActivityIndicator size="small" color="tomato" />
                 <Text style={styles.loadingText}>Loading more...</Text>
               </View>
-            ) : filter === "artists" ? (
+            ) : filter === "artists" && query.length === 0? (
               <View style={[styles.swipeMessageContainer, { paddingBottom: 20 }]}>
                 <Text style={styles.swipeMessageText}>
                   Swipe down from top to cycle artists:

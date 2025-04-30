@@ -252,6 +252,10 @@ export default function SearchScreen() {
       {!songsLoading && !artistsLoading && results.length > 0 && (
         <FlatList
           style={{ minHeight: '88%' }}
+          contentContainerStyle={{
+            paddingBottom: filter === "artists" && query.length > 0 ? 60 : 0
+          }}
+
           data={
             vocalRangeFilterActive
               ? filter === "songs"

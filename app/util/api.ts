@@ -11,16 +11,29 @@ export const searchSongsByQuery = async (query: string): Promise<any[]> => {
       .from("songs")
       .select("*")
       .or(`name.ilike.%${query}%, artist.ilike.%${query}%`);
-    if (error) {
-      console.error("Error fetching songs:", error.message);
-      throw error;
-    }
-    return data || [];
-  } catch (error) {
-    console.error("Error in searchSongsByQuery:", error);
+
+    if (error) throw error;
+
+    const lowerQuery = query.toLowerCase();
+    const scored = (data || []).map((song) => {
+      const name = song.name?.toLowerCase() || "";
+      const artist = song.artist?.toLowerCase() || "";
+
+      let score = 0;
+      if (name === lowerQuery || artist === lowerQuery) score += 100;
+      else if (name.startsWith(lowerQuery) || artist.startsWith(lowerQuery)) score += 75;
+      else if (name.includes(lowerQuery) || artist.includes(lowerQuery)) score += 50;
+
+      return { ...song, _score: score };
+    });
+
+    return scored.sort((a, b) => b._score - a._score);
+  } catch (err) {
+    console.error("searchSongsByQuery failed:", err);
     return [];
   }
 };
+
 
 // Fetch artists based on a query, ensuring the artist's name contains the query
 export const searchArtistsByQuery = async (query: string, limit: number = 20): Promise<any[]> => {

@@ -27,8 +27,8 @@ export const submitVocalRange = async (minRange: string, maxRange: string) => {
     return;
   }
 
-  const { data: user, error: authError } = await supabase.auth.getUser();
-  if (authError || !user?.user) {
+  const user = supabase.auth.user();
+  if (!user) {
     Alert.alert("Error", "You must be logged in to submit a vocal range.");
     return;
   }
@@ -37,7 +37,7 @@ export const submitVocalRange = async (minRange: string, maxRange: string) => {
   const { error } = await supabase.from("user_vocal_ranges").upsert(
     [
       {
-        user_id: user.user.id,
+        user_id: user.id,
         min_range: minRange,
         max_range: maxRange,
       },

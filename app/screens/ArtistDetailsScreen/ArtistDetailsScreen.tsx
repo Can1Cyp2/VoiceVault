@@ -33,9 +33,7 @@ export const ArtistDetailsScreen = ({ route }: any) => {
     });
 
     const checkLoginStatus = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const session = supabase.auth.session();
       setIsLoggedIn(!!session);
 
       supabase.auth.onAuthStateChange((_event, session) => {
@@ -47,15 +45,15 @@ export const ArtistDetailsScreen = ({ route }: any) => {
     // This function fetches the user's vocal range from the database and updates the state
     const fetchUserVocalRange = async () => {
       try {
-        const { data: user, error } = await supabase.auth.getUser();
-        if (error || !user || !user.user) {
+        const user = supabase.auth.user();
+        if (!user) {
           setUserRange(null);
           return;
         }
         const { data, error: rangeError } = await supabase
           .from("user_vocal_ranges")
           .select("min_range, max_range")
-          .eq("user_id", user.user.id)
+          .eq("user_id", user.id)
           .single();
         if (!rangeError && data) {
           setUserRange(data);
@@ -73,12 +71,12 @@ export const ArtistDetailsScreen = ({ route }: any) => {
   }, []);
 
   useEffect(() => {
-  /**
-   * Fetches songs by the given artist name from the database.
-   * Updates the component state with the fetched songs and overall range.
-   * If there is an error, sets songs to an empty array and overall range to null.
-   * Sets loading to false when done.
-   */
+    /**
+     * Fetches songs by the given artist name from the database.
+     * Updates the component state with the fetched songs and overall range.
+     * If there is an error, sets songs to an empty array and overall range to null.
+     * Sets loading to false when done.
+     */
     const fetchSongs = async () => {
       setLoading(true);
       const { data: artistSongs, error } = await supabase
@@ -170,29 +168,29 @@ export const ArtistDetailsScreen = ({ route }: any) => {
   const renderTooltip = () => {
     const { minDiff, maxDiff, reason } = getRangeComparison();
     if (!showTooltip) return null;
-  
+
     const userMin = noteToValue(userRange!.min_range);
     const userMax = noteToValue(userRange!.max_range);
     const [artistMinNote, artistMaxNote] = overallRange!.split(" - ");
     const artistMin = noteToValue(artistMinNote);
     const artistMax = noteToValue(artistMaxNote);
-  
+
     // Initialize tooltip text
     let lowText = "In range";
     let highText = "In range";
-  
+
     if (artistMin < userMin) {
       lowText = `${minDiff} notes lower than your range`;
     } else if (artistMin > userMax) {
       lowText = `+${minDiff} notes higher than your range`;
     }
-  
+
     if (artistMax > userMax) {
       highText = `+${maxDiff} notes higher than your range`;
     } else if (artistMax < userMin) {
       highText = `${maxDiff} notes lower than your range`;
     }
-  
+
     return (
       <View style={[styles.tooltip, { borderColor: "#ff5722" }]}>
         <Text style={styles.tooltipText}>Low: {lowText}</Text>
@@ -202,7 +200,7 @@ export const ArtistDetailsScreen = ({ route }: any) => {
       </View>
     );
   };
-  
+
 
   // Function to handle song press:
   // navigates to the song details screen with the selected song's details

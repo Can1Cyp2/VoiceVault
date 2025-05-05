@@ -27,7 +27,7 @@ export default function SignupModal({ onClose }: { onClose: () => void }) {
     }
 
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { user, session, error } = await supabase.auth.signUp({
         email,
         password,
       });

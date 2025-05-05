@@ -3,12 +3,12 @@ import { supabase } from './supabase';
 
 // Function to check if the user is logged in
 export const login = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { user, session, error } = await supabase.auth.signIn({
     email,
     password,
   });
   if (error) throw new Error(error.message);
-  return data.session; // Session is persisted by SecureStore automatically
+  return session; // Session is persisted by SecureStore automatically
 };
 
 export const logout = async () => {

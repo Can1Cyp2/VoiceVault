@@ -23,8 +23,8 @@ export default function SavedListsScreen({ navigation }: any) {
   useEffect(() => {
     const fetchSavedLists = async () => {
       try {
-        const user = await supabase.auth.getUser();
-        if (!user.data.user) {
+        const session = supabase.auth.session();
+        if (!session?.user) {
           Alert.alert("Error", "Please log in to view your saved lists.");
           return;
         }
@@ -32,7 +32,7 @@ export default function SavedListsScreen({ navigation }: any) {
         const { data, error } = await supabase
           .from("saved_lists")
           .select("name")
-          .eq("user_id", user.data.user.id);
+          .eq("user_id", session.user.id);
 
         if (error) {
           Alert.alert("Error", error.message);
@@ -83,8 +83,8 @@ export default function SavedListsScreen({ navigation }: any) {
     }
 
     try {
-      const user = await supabase.auth.getUser();
-      if (!user.data.user) {
+      const session = supabase.auth.session();
+      if (!session?.user) {
         Alert.alert("Error", "Please log in to edit a list.");
         return;
       }
@@ -93,7 +93,7 @@ export default function SavedListsScreen({ navigation }: any) {
         .from("saved_lists")
         .update({ name: newListName.trim() })
         .eq("name", selectedList)
-        .eq("user_id", user.data.user.id);
+        .eq("user_id", session.user.id);
 
       if (error) {
         Alert.alert("Error", error.message);

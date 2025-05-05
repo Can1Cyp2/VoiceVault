@@ -49,9 +49,13 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 
-// Optional: Helper to get the current session
 export const getSession = async () => {
-  const { data, error } = await supabase.auth.getSession();
-  if (error) console.error('Error getting session:', error.message);
-  return data?.session;
+  try {
+    const session = supabase.auth.session();
+    if (!session) throw new Error('No session found.');
+    return { session, error: null };
+  } catch (error: any) {
+    console.error('Error getting session:', error.message || error);
+    return { session: null, error };
+  }
 };

@@ -21,8 +21,8 @@ export default function ListDetailsScreen({ route, navigation }: any) {
     const fetchSongs = async () => {
       try {
         // Get the logged-in user
-        const { data: user, error: userError } = await supabase.auth.getUser();
-        if (userError || !user?.user?.id) {
+        const user = supabase.auth.user();
+        if (!user) {
           Alert.alert("Error", "Please log in to view this list.");
           return;
         }
@@ -30,7 +30,7 @@ export default function ListDetailsScreen({ route, navigation }: any) {
         let query = supabase
           .from("saved_songs")
           .select("*")
-          .eq("user_id", user.user.id); // ✅ Ensuring only user's saved songs are fetched
+          .eq("user_id", user.id); // ensuring only user's saved songs are fetched
 
         if (listName !== "All Saved Songs") {
           query = query.eq("list_name", listName); // Filter specific lists

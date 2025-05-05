@@ -115,9 +115,9 @@ export default function EditProfileModal({
 
       try {
         // Fetch user data
-        const { data: user, error } = await supabase.auth.getUser();
-        if (user?.user) {
-          const username = user.user.user_metadata?.display_name || "";
+        const user = supabase.auth.user();
+        if (user) {
+          const username = user.user_metadata?.display_name || "";
           setDisplayName(username); // Autofill input
           setOriginalDisplayName(username); // Store for comparison
         }
@@ -161,15 +161,15 @@ export default function EditProfileModal({
     }
 
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user?.user) {
+      const user = supabase.auth.user();
+      if (!user) {
         Alert.alert("Error", "You must be logged in to update your profile.");
         return;
       }
 
       // Only update username if it was changed
       if (displayName !== originalDisplayName) {
-        const { error } = await supabase.auth.updateUser({
+        const { error } = await supabase.auth.update({
           data: { display_name: displayName.trim() },
         });
 

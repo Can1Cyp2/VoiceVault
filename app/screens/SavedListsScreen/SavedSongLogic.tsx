@@ -12,13 +12,13 @@ export const saveToList = async (
 ) => {
   try {
     // Get the current authenticated user
-    const user = await supabase.auth.getUser();
-    if (!user.data.user) {
+    const session = supabase.auth.session();
+    if (!session?.user) {
       Alert.alert("Error", "Please log in to save songs to a list.");
       return;
     }
 
-    const userId = user.data.user.id;
+    const userId = session.user.id;
 
     // Ensure "All Saved Songs" is not reinserted manually
     if (listName === "All Saved Songs") {
@@ -98,8 +98,8 @@ export const saveToList = async (
 export const fetchUserSongs = async () => {
   try {
     // Get the current authenticated user
-    const user = await supabase.auth.getUser();
-    if (!user.data.user) {
+    const session = supabase.auth.session();
+    if (!session?.user) {
       Alert.alert("Error", "Please log in to view your saved songs.");
       return [];
     }
@@ -108,7 +108,7 @@ export const fetchUserSongs = async () => {
     const { data, error } = await supabase
       .from("saved_songs")
       .select("*")
-      .eq("user_id", user.data.user.id); // Filter by user_id
+      .eq("user_id", session.user.id); // Filter by user_id
 
     if (error) throw error;
 
@@ -123,8 +123,8 @@ export const fetchUserSongs = async () => {
 export const fetchSongsInList = async (listName: string) => {
   try {
     // Get the current authenticated user
-    const user = await supabase.auth.getUser();
-    if (!user.data.user) {
+    const session = supabase.auth.session();
+    if (!session?.user) {
       Alert.alert("Error", "Please log in to view songs in this list.");
       return [];
     }
@@ -133,7 +133,7 @@ export const fetchSongsInList = async (listName: string) => {
     const { data, error } = await supabase
       .from("saved_songs")
       .select("*")
-      .eq("user_id", user.data.user.id)
+      .eq("user_id", session.user.id)
       .eq("list_name", listName);
 
     if (error) throw error;

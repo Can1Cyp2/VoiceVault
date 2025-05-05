@@ -27,12 +27,9 @@ export default function ProfileScreen({ navigation }: any) {
     try {
       setIsLoading(true);
 
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
+      const user = supabase.auth.user();
 
-      if (error || !user) {
+      if (!user) {
         setUsername("Edit your profile to add a username.");
         setVocalRange("Edit your profile to set a vocal range.");
       } else {
@@ -66,16 +63,16 @@ export default function ProfileScreen({ navigation }: any) {
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (session) {
-          fetchUserData(); // Re-fetch user data on login/logout
+          fetchUserData();
         } else {
           setUsername("Edit your profile to add a username.");
           setVocalRange("Edit your profile to set a vocal range.");
         }
       }
     );
-
+    
     return () => {
-      subscription?.subscription?.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, [updateTrigger]); // Refresh on updates
 

@@ -45,9 +45,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   // Check if the user is logged in and set header options
   useEffect(() => {
     const checkLoginStatus = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const session = supabase.auth.session();
       setIsLoggedIn(!!session);
 
       supabase.auth.onAuthStateChange(
@@ -159,9 +157,8 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
 
     try {
       // Check if the user is logged in
-      const { data: sessionData } = await supabase.auth.getSession();
-
-      if (!sessionData?.session) {
+      const session = supabase.auth.session();
+      if (!session) {
         Alert.alert(
           "Sign In Required",
           "You must be signed in to report an issue."
@@ -169,9 +166,9 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
         return;
       }
 
-      const { data: user } = await supabase.auth.getUser();
+      const user = supabase.auth.user();
 
-      if (!user?.user) {
+      if (!user) {
         Alert.alert(
           "Sign In Required",
           "You must be signed in to report an issue."
@@ -182,7 +179,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       console.log("User data from Supabase:", user);
 
       // Fetch username the same way as ProfileScreen
-      let username = user.user.user_metadata?.display_name;
+      let username = user.user_metadata?.display_name;
 
       console.log("Extracted username:", username);
 
@@ -199,9 +196,9 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
         song_id: route.params.song_id || null,
         song_name: name,
         vocal_range: vocalRange,
-        user_id: user.user.id,
+        user_id: user.id,
         username: username,
-        user_email: user.user.email || "No email",
+        user_email: user.email || "No email",
         issue_text: issueText,
         status: "pending",
       };

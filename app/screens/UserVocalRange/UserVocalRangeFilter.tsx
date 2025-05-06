@@ -23,15 +23,15 @@ const UserVocalRangeFilter = ({ onFilterApply }: UserVocalRangeFilterProps) => {
   useEffect(() => {
     const fetchUserVocalRange = async () => {
       try {
-        const { data: user, error } = await supabase.auth.getUser();
-        if (error || !user?.user) {
+        const user = supabase.auth.user();
+        if (!user) {
           return;
         }
 
         const { data, error: rangeError } = await supabase
           .from("user_vocal_ranges")
           .select("min_range, max_range")
-          .eq("user_id", user.user.id)
+          .eq("user_id", user.id)
           .single();
 
         if (rangeError) {

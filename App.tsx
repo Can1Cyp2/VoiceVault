@@ -8,6 +8,7 @@ import { getSession, supabase } from "./app/util/supabase";
 import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
 import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
 import { useEffect, useState } from "react";
+import React from "react";
 
 // Define the types for the tab navigator
 export type TabParamList = {
@@ -29,15 +30,15 @@ export default function App() {
     };
     checkSession();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
+    const { data: subscription } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         console.log("Auth State Changed in App:", session);
         setIsLoggedIn(!!session);
       }
     );
-
+    
     return () => {
-      authListener.subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, []);
 
@@ -84,7 +85,7 @@ export default function App() {
 
 // Custom Tab Button for Home and other tabs
 const CustomTabButton = ({ onPress, accessibilityState, label, icon }: any) => {
-  const isSelected = accessibilityState.selected;
+  const isSelected = accessibilityState?.selected ?? false;
   
   return (
     <Pressable onPress={onPress} style={styles.tabButtonContainer}>
@@ -115,7 +116,7 @@ const CustomProfileButton = ({
   accessibilityState,
   isLoggedIn,
 }: any) => {
-  const isSelected = accessibilityState.selected;
+  const isSelected = accessibilityState?.selected ?? false;
   const navigation = useNavigation(); // Use the useNavigation hook to access navigation
 
   return (
@@ -167,7 +168,7 @@ const CustomProfileButton = ({
 // Custom Search Button
 const CustomSearchButton = ({ onPress, accessibilityState }: any) => {
   const [isPressed, setIsPressed] = useState(false);
-  const isSelected = accessibilityState.selected;
+  const isSelected = accessibilityState?.selected ?? false;
 
   const backgroundColor = isPressed
     ? "#cc6600" // Darker orange when pressed

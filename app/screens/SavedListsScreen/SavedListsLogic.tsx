@@ -3,21 +3,20 @@
 import { supabase } from "../../util/supabase";
 import { Alert } from "react-native";
 
+
 // Function to save a new list
 export const saveNewList = async (listName: string) => {
   try {
-    // Fetch the current authenticated user
-    const user = await supabase.auth.getUser();
-    if (!user.data.user) {
+    const session = supabase.auth.session();
+    if (!session?.user) {
       Alert.alert("Error", "Please log in to create a new list.");
       return;
     }
 
-    // Insert the new list into the database
     const { error } = await supabase.from("saved_lists").insert([
       {
         name: listName,
-        user_id: user.data.user.id,
+        user_id: session.user.id,
       },
     ]);
 
@@ -32,27 +31,29 @@ export const saveNewList = async (listName: string) => {
 // Function to delete a list
 export const deleteList = async (listName: string) => {
   try {
-    const user = await supabase.auth.getUser();
-    if (!user.data.user) {
+    const session = supabase.auth.session();
+    if (!session?.user) {
       Alert.alert("Error", "Please log in to delete a list.");
       return;
     }
 
-    // Ensure the default list "All Saved Songs" cannot be deleted
+    const userId = session.user.id;
+
     if (listName === "All Saved Songs") {
       Alert.alert("Error", "The default list cannot be deleted.");
       return;
     }
+    // Ensure the default list "All Saved Songs" cannot be deleted^
 
     // Delete all songs in the list
-    await deleteSongsInList(listName, user.data.user.id);
+    await deleteSongsInList(listName, userId);
 
     // Delete the list itself
     const { error } = await supabase
       .from("saved_lists")
       .delete()
       .eq("name", listName)
-      .eq("user_id", user.data.user.id);
+      .eq("user_id", userId);
 
     if (error) throw error;
 
@@ -80,8 +81,8 @@ const deleteSongsInList = async (listName: string, userId: string) => {
 export const fetchUserLists = async () => {
   try {
     // Fetch the current authenticated user
-    const user = await supabase.auth.getUser();
-    if (!user.data.user) {
+    const session = supabase.auth.session();
+    if (!session?.user) {
       Alert.alert("Error", "Please log in to view your lists.");
       return [];
     }
@@ -90,7 +91,7 @@ export const fetchUserLists = async () => {
     const { data, error } = await supabase
       .from("saved_lists")
       .select("*")
-      .eq("user_id", user.data.user.id);
+      .eq("user_id", session.user.id);
 
     if (error) throw error;
 

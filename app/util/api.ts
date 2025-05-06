@@ -1,6 +1,10 @@
 import { Alert } from "react-native";
 import { supabase } from "./supabase";
-import { calculateOverallRange, getSongsByArtist, noteToValue } from "./vocalRange";
+import {
+  calculateOverallRange,
+  getSongsByArtist,
+  noteToValue,
+} from "./vocalRange";
 
 export let errorCount = 0;
 
@@ -11,19 +15,36 @@ export const searchSongsByQuery = async (query: string): Promise<any[]> => {
       .from("songs")
       .select("*")
       .or(`name.ilike.%${query}%, artist.ilike.%${query}%`);
-    if (error) {
-      console.error("Error fetching songs:", error.message);
-      throw error;
-    }
-    return data || [];
-  } catch (error) {
-    console.error("Error in searchSongsByQuery:", error);
+
+    if (error) throw error;
+
+    const lowerQuery = query.toLowerCase();
+    const scored = (data || []).map((song) => {
+      const name = song.name?.toLowerCase() || "";
+      const artist = song.artist?.toLowerCase() || "";
+
+      let score = 0;
+      if (name === lowerQuery || artist === lowerQuery) score += 100;
+      else if (name.startsWith(lowerQuery) || artist.startsWith(lowerQuery))
+        score += 75;
+      else if (name.includes(lowerQuery) || artist.includes(lowerQuery))
+        score += 50;
+
+      return { ...song, _score: score };
+    });
+
+    return scored.sort((a, b) => b._score - a._score);
+  } catch (err) {
+    console.error("searchSongsByQuery failed:", err);
     return [];
   }
 };
 
 // Fetch artists based on a query, ensuring the artist's name contains the query
-export const searchArtistsByQuery = async (query: string, limit: number = 20): Promise<any[]> => {
+export const searchArtistsByQuery = async (
+  query: string,
+  limit: number = 20
+): Promise<any[]> => {
   try {
     // Step 1: Find songs where the artist name matches the query
     const { data: matchingSongs, error: songError } = await supabase
@@ -37,7 +58,10 @@ export const searchArtistsByQuery = async (query: string, limit: number = 20): P
     }
 
     // Step 2: Aggregate artists and calculate relevance scores
-    const artistMap = new Map<string, { name: string; score: number; songCount: number }>();
+    const artistMap = new Map<
+      string,
+      { name: string; score: number; songCount: number }
+    >();
     matchingSongs.forEach((song) => {
       if (!song.artist) return;
 
@@ -46,7 +70,11 @@ export const searchArtistsByQuery = async (query: string, limit: number = 20): P
       const artistLower = song.artist.toLowerCase();
       if (!artistLower.includes(queryLower)) return;
 
-      const current = artistMap.get(song.artist) || { name: song.artist, score: 0, songCount: 0 };
+      const current = artistMap.get(song.artist) || {
+        name: song.artist,
+        score: 0,
+        songCount: 0,
+      };
 
       // Calculate relevance score based on artist name match only
       let score = current.score;
@@ -64,8 +92,12 @@ export const searchArtistsByQuery = async (query: string, limit: number = 20): P
     });
 
     // Step 3: Get unique artists and fetch their songs
-    const uniqueArtists = Array.from(artistMap.values())
-      .sort((a, b) => b.score - a.score || b.songCount - a.songCount || a.name.localeCompare(b.name));
+    const uniqueArtists = Array.from(artistMap.values()).sort(
+      (a, b) =>
+        b.score - a.score ||
+        b.songCount - a.songCount ||
+        a.name.localeCompare(b.name)
+    );
 
     // Step 4: Fetch songs for each artist
     const artistDetails = await Promise.all(
@@ -73,7 +105,7 @@ export const searchArtistsByQuery = async (query: string, limit: number = 20): P
         const songs = await getSongsByArtist(artist.name);
         return {
           name: artist.name,
-          songs: songs.map(song => ({ vocalRange: song.vocalRange })),
+          songs: songs.map((song) => ({ vocalRange: song.vocalRange })),
           score: artist.score,
           songCount: artist.songCount,
         };
@@ -82,7 +114,7 @@ export const searchArtistsByQuery = async (query: string, limit: number = 20): P
 
     // Step 5: Filter out artists with no songs and apply the limit
     return artistDetails
-      .filter(artist => artist.songs.length > 0)
+      .filter((artist) => artist.songs.length > 0)
       .slice(0, limit);
   } catch (err) {
     console.error("Unexpected error searching artists:", err);
@@ -98,16 +130,8 @@ export const addSong = async (song: {
   username?: string;
 }): Promise<void> => {
   try {
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
 
-    if (authError) {
-      console.error("Error fetching user:", authError.message);
-      throw new Error("Failed to fetch user. Please log in.");
-    }
-
+    const user = supabase.auth.user();
     if (!user) {
       throw new Error("You must be logged in to add a song.");
     }
@@ -136,10 +160,13 @@ export const addSong = async (song: {
 
 // Gets a users vocal ranges
 export const fetchUserVocalRange = async () => {
-  const user = await supabase.auth.getUser();
-  if (!user.data.user) {
+  const user = supabase.auth.user();
+  if (!user) {
     if (errorCount < 1) {
-      Alert.alert("One Time Message:", "Log in for a personalized view based on your vocal range.");
+      Alert.alert(
+        "One Time Message:",
+        "Log in for a personalized view based on your vocal range."
+      );
       errorCount++;
     }
     return null;
@@ -148,7 +175,7 @@ export const fetchUserVocalRange = async () => {
   const { data, error } = await supabase
     .from("user_vocal_ranges")
     .select("min_range, max_range")
-    .eq("user_id", user.data.user.id)
+    .eq("user_id", user.id)
     .single();
 
   if (error && error.code !== "PGRST116") {
@@ -196,7 +223,11 @@ const getSongIdRange = async (): Promise<{ minId: number; maxId: number }> => {
 };
 
 // Helper function to generate unique random IDs
-const generateRandomIds = (min: number, max: number, count: number): number[] => {
+const generateRandomIds = (
+  min: number,
+  max: number,
+  count: number
+): number[] => {
   const ids = new Set<number>();
   while (ids.size < count) {
     const randomId = Math.floor(Math.random() * (max - min + 1)) + min;
@@ -237,11 +268,17 @@ export const getRandomSongs = async (limit: number = 50): Promise<any[]> => {
       }
 
       attempts++;
-      console.log(`Attempt ${attempts}: Fetched ${data?.length || 0} songs, total ${selectedSongs.length}/${limit}`);
+      console.log(
+        `Attempt ${attempts}: Fetched ${data?.length || 0} songs, total ${
+          selectedSongs.length
+        }/${limit}`
+      );
     }
 
     if (selectedSongs.length < limit) {
-      console.warn(`Only found ${selectedSongs.length} songs out of requested ${limit}`);
+      console.warn(
+        `Only found ${selectedSongs.length} songs out of requested ${limit}`
+      );
     }
 
     return selectedSongs.sort(() => 0.5 - Math.random()).slice(0, limit);
@@ -259,9 +296,9 @@ export const reportIssue = async (
   issueText: string
 ): Promise<void> => {
   try {
-    const { data: user } = await supabase.auth.getUser();
+    const user = supabase.auth.user();
 
-    if (!user?.user) {
+    if (!user) {
       throw new Error("You must be logged in to report an issue.");
     }
 
@@ -269,9 +306,9 @@ export const reportIssue = async (
       song_id: songId,
       song_name: songName,
       vocal_range: vocalRange,
-      user_id: user.user.id,
-      username: user.user.user_metadata?.username || "Anonymous",
-      user_email: user.user.email || "No email",
+      user_id: user.id,
+      username: user.user_metadata?.username || "Anonymous",
+      user_email: user.email || "No email",
       issue_text: issueText,
       status: "pending",
     };

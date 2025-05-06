@@ -2,13 +2,24 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import debounce from "lodash.debounce";
 import Fuse from "fuse.js";
-import { searchSongsByQuery, searchArtistsByQuery, getRandomSongs } from "../util/api";
+import {
+  searchSongsByQuery,
+  searchArtistsByQuery,
+  getRandomSongs,
+} from "../util/api";
 import { checkInternetConnection } from "../util/network";
-import { getSongsByArtist, calculateOverallRange, noteToValue } from "../util/vocalRange";
+import {
+  getSongsByArtist,
+  calculateOverallRange,
+  noteToValue,
+} from "../util/vocalRange";
 
 // Cache for search results and artist data
 const searchCache = new Map<string, any[]>();
-const artistCache = new Map<string, { name: string; songs: { vocalRange: any }[]; songCount: number }>();
+const artistCache = new Map<
+  string,
+  { name: string; songs: { vocalRange: any }[]; songCount: number }
+>();
 
 interface SearchState {
   results: any[];
@@ -56,29 +67,52 @@ export const useSearch = ({
   const isSongInRange = useCallback(
     (songRange: string) => {
       if (!vocalRange || typeof songRange !== "string") return false;
-      const [songMin, songMax] = songRange.split(" - ").map((note) => note.trim());
+      const [songMin, songMax] = songRange
+        .split(" - ")
+        .map((note) => note.trim());
       if (!songMin || !songMax) return false;
-      const songMinIndex = noteToValue(songMin);
-      const songMaxIndex = noteToValue(songMax);
-      const userMinIndex = noteToValue(vocalRange.min_range);
-      const userMaxIndex = noteToValue(vocalRange.max_range);
-      if (isNaN(songMinIndex) || isNaN(songMaxIndex) || isNaN(userMinIndex) || isNaN(userMaxIndex)) {
-        return false;
-      }
-      return songMinIndex >= userMinIndex && songMaxIndex <= userMaxIndex;
+
+      const songMinVal = noteToValue(songMin);
+      const songMaxVal = noteToValue(songMax);
+      const userMinVal = noteToValue(vocalRange.min_range);
+      const userMaxVal = noteToValue(vocalRange.max_range);
+
+      const overlap = getRangeOverlapScore(
+        userMinVal,
+        userMaxVal,
+        songMinVal,
+        songMaxVal
+      );
+      return overlap >= 0;
     },
     [vocalRange]
   );
 
+  const getRangeOverlapScore = (
+    userMin: number,
+    userMax: number,
+    songMin: number,
+    songMax: number
+  ) => {
+    const overlap = Math.min(userMax, songMax) - Math.max(userMin, songMin);
+    return overlap >= 0 ? overlap : -1;
+  };
+
   const isArtistInRange = useCallback(
     (artist: { name: string; songs: { vocalRange: string }[] }) => {
-      if (!vocalRange || !artist.songs || artist.songs.length === 0) return false;
+      if (!vocalRange || !artist.songs || artist.songs.length === 0)
+        return false;
       const { lowestNote, highestNote } = calculateOverallRange(artist.songs);
       const artistMinIndex = noteToValue(lowestNote);
       const artistMaxIndex = noteToValue(highestNote);
       const userMinIndex = noteToValue(vocalRange.min_range);
       const userMaxIndex = noteToValue(vocalRange.max_range);
-      if (isNaN(artistMinIndex) || isNaN(artistMaxIndex) || isNaN(userMinIndex) || isNaN(userMaxIndex)) {
+      if (
+        isNaN(artistMinIndex) ||
+        isNaN(artistMaxIndex) ||
+        isNaN(userMinIndex) ||
+        isNaN(userMaxIndex)
+      ) {
         return false;
       }
       return artistMinIndex >= userMinIndex && artistMaxIndex <= userMaxIndex;
@@ -87,14 +121,24 @@ export const useSearch = ({
   );
 
   // Optimize artist derivation with batch fetching and caching
-  const deriveArtistsFromSongs = async (songs: any[], limit: number = 20, query: string = ""): Promise<any[]> => {
+  const deriveArtistsFromSongs = async (
+    songs: any[],
+    limit: number = 20,
+    query: string = ""
+  ): Promise<any[]> => {
     if (!songs || songs.length === 0) return [];
 
     const artistMap = new Map<string, { name: string; songCount: number }>();
     songs.forEach((song) => {
       if (!song.artist) return;
-      const current = artistMap.get(song.artist) || { name: song.artist, songCount: 0 };
-      artistMap.set(song.artist, { ...current, songCount: current.songCount + 1 });
+      const current = artistMap.get(song.artist) || {
+        name: song.artist,
+        songCount: 0,
+      };
+      artistMap.set(song.artist, {
+        ...current,
+        songCount: current.songCount + 1,
+      });
     });
 
     const artistNames = Array.from(artistMap.keys());
@@ -117,15 +161,23 @@ export const useSearch = ({
     }
 
     // Fuzzy search for query matching
-    let filteredArtists = artistDetails.filter((artist) => artist.songs.length > 0);
+    let filteredArtists = artistDetails.filter(
+      (artist) => artist.songs.length > 0
+    );
     if (query) {
       const fuse = new Fuse(filteredArtists, {
         keys: ["name"],
-        threshold: 0.3, // Allow for typo tolerance
+        threshold: 0.3,
+        includeScore: true,
       });
-      filteredArtists = fuse.search(query).map((result) => result.item);
+      filteredArtists = fuse
+        .search(query)
+        .sort((a, b) => (a.score ?? Infinity) - (b.score ?? Infinity))
+        .map((result) => result.item);
     } else {
-      filteredArtists.sort((a, b) => b.songCount - a.songCount || a.name.localeCompare(b.name));
+      filteredArtists.sort(
+        (a, b) => b.songCount - a.songCount || a.name.localeCompare(b.name)
+      );
     }
 
     return filteredArtists.slice(0, limit);
@@ -133,6 +185,9 @@ export const useSearch = ({
 
   const fetchResults = async (pageNum = 1, append = false) => {
     if (endReachedLoading) return;
+    if (query.trim() === "" && filter === "songs" && !append && pageNum > 1) {
+      return;
+    }
 
     setState((prev) => ({
       ...prev,
@@ -146,7 +201,8 @@ export const useSearch = ({
     if (!connected) {
       setState((prev) => ({
         ...prev,
-        error: "No internet connection. Please check your network and try again.",
+        error:
+          "No internet connection. Please check your network and try again.",
         songsLoading: false,
         artistsLoading: false,
       }));
@@ -181,14 +237,19 @@ export const useSearch = ({
             return;
           }
           newSongs = await getRandomSongs(25);
-          setState((prev) => ({ ...prev, hasMoreSongs: newSongs.length >= 25 }));
+          setState((prev) => ({
+            ...prev,
+            hasMoreSongs: newSongs.length >= 25,
+          }));
         } else {
           newSongs = await searchSongsByQuery(query);
           setState((prev) => ({ ...prev, hasMoreSongs: false }));
         }
 
         if (append) {
-          const uniqueSongs = newSongs.filter((song: any) => !state.allSongs.some((s) => s.id === song.id));
+          const uniqueSongs = newSongs.filter(
+            (song: any) => !state.allSongs.some((s) => s.id === song.id)
+          );
           setState((prev) => ({
             ...prev,
             allSongs: [...prev.allSongs, ...uniqueSongs],
@@ -208,11 +269,20 @@ export const useSearch = ({
       } else {
         let artists: any[] = [];
         if (query.trim() === "") {
-          artists = await deriveArtistsFromSongs(state.randomSongs, 20 * pageNum);
-          setState((prev) => ({ ...prev, hasMoreArtists: artists.length >= 20 * pageNum }));
+          artists = await deriveArtistsFromSongs(
+            state.randomSongs,
+            20 * pageNum
+          );
+          setState((prev) => ({
+            ...prev,
+            hasMoreArtists: artists.length >= 20 * pageNum,
+          }));
         } else {
           artists = await searchArtistsByQuery(query, 20 * pageNum);
-          setState((prev) => ({ ...prev, hasMoreArtists: artists.length >= 20 * pageNum }));
+          setState((prev) => ({
+            ...prev,
+            hasMoreArtists: artists.length >= 20 * pageNum,
+          }));
         }
         setState((prev) => ({
           ...prev,
@@ -247,11 +317,14 @@ export const useSearch = ({
 
   useEffect(() => {
     const fetchInitialData = async () => {
+      if (state.randomSongs.length > 0) return;
+
       const connected = await checkInternetConnection();
       if (!connected) {
         setState((prev) => ({
           ...prev,
-          error: "No internet connection. Please check your network and try again.",
+          error:
+            "No internet connection. Please check your network and try again.",
           songsLoading: false,
         }));
         setInitialFetchDone(true);
@@ -273,7 +346,9 @@ export const useSearch = ({
       } catch (err) {
         setState((prev) => ({
           ...prev,
-          error: "Failed to load songs: " + (err instanceof Error ? err.message : "Unknown error"),
+          error:
+            "Failed to load songs: " +
+            (err instanceof Error ? err.message : "Unknown error"),
         }));
       } finally {
         setState((prev) => ({ ...prev, songsLoading: false }));
@@ -347,7 +422,9 @@ export const useSearch = ({
     } catch (err) {
       setState((prev) => ({
         ...prev,
-        error: "An error occurred while loading new content: " + (err instanceof Error ? err.message : "Unknown error"),
+        error:
+          "An error occurred while loading new content: " +
+          (err instanceof Error ? err.message : "Unknown error"),
       }));
     } finally {
       setState((prev) => ({
@@ -388,7 +465,11 @@ export const useSearch = ({
       setState((prev) => ({ ...prev, error: null, results: [] }));
       setSongsPage(1);
       setArtistsPage(1);
-      setState((prev) => ({ ...prev, hasMoreSongs: true, hasMoreArtists: true }));
+      setState((prev) => ({
+        ...prev,
+        hasMoreSongs: true,
+        hasMoreArtists: true,
+      }));
       fetchResults(1, false);
     },
   };

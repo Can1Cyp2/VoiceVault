@@ -56,8 +56,8 @@ export default function SearchScreen() {
   React.useEffect(() => {
     const fetchUserVocalRange = async () => {
       try {
-        const { data: user, error } = await supabase.auth.getUser();
-        if (error || !user?.user) {
+        const user = supabase.auth.user();
+        if (!user) {
           setIsLoggedIn(false);
           setVocalRange(null);
           return;
@@ -66,7 +66,7 @@ export default function SearchScreen() {
         const { data, error: rangeError } = await supabase
           .from("user_vocal_ranges")
           .select("min_range, max_range")
-          .eq("user_id", user.user.id)
+          .eq("user_id", user.id) 
           .single();
         if (!rangeError) {
           setVocalRange(data);
@@ -81,7 +81,7 @@ export default function SearchScreen() {
 
     fetchUserVocalRange();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN") {
         setIsLoggedIn(true);
         fetchUserVocalRange();
@@ -91,9 +91,9 @@ export default function SearchScreen() {
         setVocalRangeFilterActive(false);
       }
     });
-
+    
     return () => {
-      authListener.subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, []);
 
@@ -316,7 +316,7 @@ export default function SearchScreen() {
                 <ActivityIndicator size="small" color="tomato" />
                 <Text style={styles.loadingText}>Loading more...</Text>
               </View>
-            ) : filter === "artists" && query.length === 0? (
+            ) : filter === "artists" && query.length === 0 ? (
               <View style={[styles.swipeMessageContainer, { paddingBottom: 20 }]}>
                 <Text style={styles.swipeMessageText}>
                   Swipe down from top to cycle artists:

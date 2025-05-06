@@ -32,20 +32,18 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   // Check if user is logged in when the component mounts
   useEffect(() => {
     const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const session = supabase.auth.session();
       setLoggedIn(!!session);
     };
     checkSession();
 
-    const { data } = supabase.auth.onAuthStateChange(
-      async (event: string, session: { access_token: string } | null) => {
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      (event, session) => {
         setLoggedIn(!!session);
       }
     );
     return () => {
-      data.subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, []);
 

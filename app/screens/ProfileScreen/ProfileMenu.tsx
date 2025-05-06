@@ -26,16 +26,14 @@ export default function ProfileMenu({
   // Function to reset the user's password
   const handleResetPassword = async () => {
     try {
-      const { data: user, error: userError } = await supabase.auth.getUser();
+      const user = supabase.auth.user();
 
-      if (userError || !user?.user?.email) {
+      if (!user?.email) {
         Alert.alert("Error", "No email found for the user.");
         return;
       }
 
-      const { error } = await supabase.auth.resetPasswordForEmail(
-        user.user.email
-      );
+      const { error } = await supabase.auth.api.resetPasswordForEmail(user.email);
 
       if (error) {
         Alert.alert("Error", error.message);
@@ -65,12 +63,9 @@ export default function ProfileMenu({
               setIsDeleting(true);
 
               // Get current user
-              const {
-                data: { user },
-                error,
-              } = await supabase.auth.getUser();
+              const user = supabase.auth.user();
 
-              if (error || !user) {
+              if (!user) {
                 setIsDeleting(false);
                 Alert.alert("Error", "Could not fetch user details.");
                 return;
@@ -79,8 +74,8 @@ export default function ProfileMenu({
               const userId = user.id;
 
               // Step 1: Update user metadata to mark as deleted
-              const { error: updateError } = await supabase.auth.updateUser({
-                data: { deleted: true }, // Add a "deleted" flag
+              const { error: updateError } = await supabase.auth.update({
+                data: { deleted: true },
               });
 
               if (updateError) {

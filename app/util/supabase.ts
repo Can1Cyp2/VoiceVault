@@ -1,7 +1,8 @@
 // app/util/supabase.ts
+import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
-import Constants from 'expo-constants'; // Ensure this is imported
+import Constants from 'expo-constants';
 
 // Load environment variables
 const SUPABASE_URL = process.env.SUPABASE_URL || Constants.expoConfig?.extra?.SUPABASE_URL || '';
@@ -41,28 +42,20 @@ const secureStorage = {
 };
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    storage: secureStorage,
-    autoRefreshToken: true, // Automatically refresh tokens
-    persistSession: true, // Persist session across app restarts
-    detectSessionInUrl: false, // Disable for native apps (adjust if using web auth)
-  },
+  localStorage: secureStorage, // had to downgrade: In v1, use `localStorage` instead of `auth.storage`
+  autoRefreshToken: true,
+  persistSession: true,
+  detectSessionInUrl: false,
 });
 
-// Optional: Helper to get the current session
-export const getSession = async () => {
-  const { data, error } = await supabase.auth.getSession();
-  if (error) console.error('Error getting session:', error.message);
-  return data?.session;
-};
 
-// Keep the connection test
-async function testSupabaseConnection() {
+export const getSession = async () => {
   try {
-    const { data, error } = await supabase.from('users').select('id').limit(1);
-    console.log('Supabase Connection Test:', data, error);
-  } catch (err) {
-    console.error('Supabase Connection Error:', err);
+    const session = supabase.auth.session();
+    if (!session) throw new Error('No session found.');
+    return { session, error: null };
+  } catch (error: any) {
+    console.error('Error getting session:', error.message || error);
+    return { session: null, error };
   }
-}
-testSupabaseConnection();
+};

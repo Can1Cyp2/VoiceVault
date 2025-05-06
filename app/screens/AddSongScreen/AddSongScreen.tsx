@@ -168,8 +168,8 @@ export default function AddSongScreen({ navigation }: any) {
       }
 
       // Fetch the current user and username
-      const user = await supabase.auth.getUser();
-      const username = user.data.user?.user_metadata?.display_name;
+      const user = supabase.auth.user();
+      const username = user?.user_metadata?.display_name;
 
       if (!username) {
         setError(

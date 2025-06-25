@@ -50,6 +50,7 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
   const [tapTimes, setTapTimes] = useState<number[]>([]);
   const flashAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const [uniformSound, setUniformSound] = useState(false); // state for uniform click sound
 
   // Request audio permissions on mount
   useEffect(() => {
@@ -76,8 +77,8 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
         const accentSoundObj = new Audio.Sound();
 
         try {
-          await clickSoundObj.loadAsync(require("../../../assets/click.mp3"));
-          await accentSoundObj.loadAsync(require("../../../assets/accent.mp3"));
+          await clickSoundObj.loadAsync(require("../../../assets/accent.mp3"));
+          await accentSoundObj.loadAsync(require("../../../assets/click.mp3"));
           setSound(clickSoundObj);
           setAccentSound(accentSoundObj);
         } catch (error) {
@@ -148,10 +149,14 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
             }
           };
 
-          if (newBeat === 1) {
-            playSound(accentSound);
+          if (uniformSound) {
+            playSound(accentSound); // Always play the regular sound
           } else {
-            playSound(sound);
+            if (newBeat === 1) {
+              playSound(accentSound);
+            } else {
+              playSound(sound);
+            }
           }
 
           Animated.parallel([
@@ -192,7 +197,7 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isPlaying, bpm, timeSignature, sound, accentSound, flashAnim, scaleAnim]);
+  }, [isPlaying, bpm, timeSignature, sound, accentSound, flashAnim, scaleAnim, uniformSound]);
 
   // Reset tap times if the user stops tapping for 2 seconds
   useEffect(() => {
@@ -377,8 +382,34 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
             />
           </TouchableOpacity>
         </View>
+        <TouchableOpacity
+          onPress={() => {
+            setUniformSound((prev) => !prev);
+            if (isPlaying) {
+              setBeatCount(0);
+              setTapTimes([]);
+            }
+          }}
+
+          style={[
+            styles.playButton,
+            { backgroundColor: uniformSound ? "#ff6600" : "#808080", marginBottom: 20 },
+          ]}
+        >
+          <Ionicons
+            name={uniformSound ? "checkmark-done" : "musical-notes"}
+            size={moderateScale(20)}
+            color="#fff"
+          />
+          <Text style={styles.playButtonText}>
+            {uniformSound ? "Uniform Sound: On" : "Uniform Sound: Off"}
+          </Text>
+        </TouchableOpacity>
         <View style={styles.pickerContainer}>
           <Text style={styles.label}>Time Signature:</Text>
+          <Text style={{ fontSize: moderateScale(12), color: "#999", marginBottom: 4 }}>
+            Scroll to choose time signature
+          </Text>
           <View style={styles.pickerWrapper}>
             <Picker
               selectedValue={timeSignature}
@@ -387,7 +418,7 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
                 setTimeSignature(itemValue);
                 setBeatCount(0);
               }}
-              itemStyle={styles.pickerItem} // Add itemStyle to control Picker.Item text
+              itemStyle={styles.pickerItem} // 
               accessible={true}
               accessibilityLabel="Time Signature Picker"
             >
@@ -421,7 +452,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   scrollContent: {
-    flexGrow: 1,
+    flexGrow: 1.5,
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: verticalScale(20),
@@ -552,5 +583,5 @@ const styles = StyleSheet.create({
     left: 20,
     padding: 8,
   },
-  
+
 });

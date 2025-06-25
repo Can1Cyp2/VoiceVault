@@ -21,29 +21,53 @@ const Tab = createBottomTabNavigator();
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentScreen, setCurrentScreen] = useState("Home"); // Track current screen
 
   useEffect(() => {
     const checkSession = async () => {
-      const session = await getSession();
-      console.log("Session from Supabase in App:", session);
-      setIsLoggedIn(!!session);
+      try {
+        const sessionResult = await getSession();
+        console.log("Session from Supabase in App:", sessionResult);
+        
+        // Check if sessionResult has a session property, otherwise treat as direct session
+        const actualSession = sessionResult?.session !== undefined 
+          ? sessionResult.session 
+          : sessionResult;
+          
+        setIsLoggedIn(!!actualSession);
+      } catch (error) {
+        console.error("Error checking session:", error);
+        setIsLoggedIn(false);
+      }
     };
+    
     checkSession();
 
-    const { data: subscription } = supabase.auth.onAuthStateChange(
+    const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         console.log("Auth State Changed in App:", session);
         setIsLoggedIn(!!session);
       }
     );
-    
+
     return () => {
-      subscription?.unsubscribe();
+      // authListener.data is the subscription object
+      if (authListener) {
+        authListener.unsubscribe();
+      }
     };
   }, []);
 
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      onStateChange={(state) => {
+        // Track current screen for tab indication:
+        const currentRoute = state?.routes[state.index];
+        if (currentRoute) {
+          setCurrentScreen(currentRoute.name);
+        }
+      }}
+    >
       <Tab.Navigator
         screenOptions={{
           headerShown: false,
@@ -58,7 +82,12 @@ export default function App() {
           component={HomeScreen}
           options={{
             tabBarButton: (props) => (
-              <CustomTabButton {...props} label="Home" icon="home" />
+              <CustomTabButton 
+                {...props} 
+                label="Home" 
+                icon="home" 
+                isCurrentScreen={currentScreen === "Home"}
+              />
             ),
           }}
         />
@@ -66,7 +95,12 @@ export default function App() {
           name="Search"
           component={AppStack}
           options={{
-            tabBarButton: (props) => <CustomSearchButton {...props} />,
+            tabBarButton: (props) => (
+              <CustomSearchButton 
+                {...props} 
+                isCurrentScreen={currentScreen === "Search"}
+              />
+            ),
           }}
         />
         <Tab.Screen
@@ -74,7 +108,11 @@ export default function App() {
           component={ProfileScreen}
           options={{
             tabBarButton: (props) => (
-              <CustomProfileButton {...props} isLoggedIn={isLoggedIn} />
+              <CustomProfileButton 
+                {...props} 
+                isLoggedIn={isLoggedIn} 
+                isCurrentScreen={currentScreen === "Profile"}
+              />
             ),
           }}
         />
@@ -84,11 +122,18 @@ export default function App() {
 }
 
 // Custom Tab Button for Home and other tabs
-const CustomTabButton = ({ onPress, accessibilityState, label, icon }: any) => {
-  const isSelected = accessibilityState?.selected ?? false;
+const CustomTabButton = ({ onPress, accessibilityState, label, icon, isCurrentScreen }: any) => {
+  // Use isCurrentScreen prop instead of accessibilityState for more reliable indication
+  const isSelected = isCurrentScreen ?? (accessibilityState?.selected ?? false);
   
   return (
-    <Pressable onPress={onPress} style={styles.tabButtonContainer}>
+    <Pressable 
+      onPress={onPress} 
+      style={[
+        styles.tabButtonContainer,
+        isSelected && styles.selectedTabContainer // Add selected style
+      ]}
+    >
       <Ionicons
         name={
           isSelected
@@ -112,12 +157,14 @@ const CustomTabButton = ({ onPress, accessibilityState, label, icon }: any) => {
 
 // Custom Profile Button
 const CustomProfileButton = ({
-  onPress, // Use the onPress from tabBarButton props
+  onPress,
   accessibilityState,
   isLoggedIn,
+  isCurrentScreen,
 }: any) => {
-  const isSelected = accessibilityState?.selected ?? false;
-  const navigation = useNavigation(); // Use the useNavigation hook to access navigation
+  // Use isCurrentScreen prop for more reliable indication
+  const isSelected = isCurrentScreen ?? (accessibilityState?.selected ?? false);
+  const navigation = useNavigation();
 
   return (
     <Pressable
@@ -144,6 +191,8 @@ const CustomProfileButton = ({
       style={[
         styles.tabButtonContainer,
         { backgroundColor: !isLoggedIn ? "gray" : "white" },
+        isSelected && !isLoggedIn && styles.selectedDisabledTab, // Special style for selected disabled tab
+        isSelected && isLoggedIn && styles.selectedTabContainer, // Selected enabled tab
       ]}
     >
       <Ionicons
@@ -159,29 +208,34 @@ const CustomProfileButton = ({
           },
         ]}
       >
-        {isLoggedIn ? "Profile" : "Profile"}
+        Profile
       </Text>
     </Pressable>
   );
 };
 
 // Custom Search Button
-const CustomSearchButton = ({ onPress, accessibilityState }: any) => {
+const CustomSearchButton = ({ onPress, accessibilityState, isCurrentScreen }: any) => {
   const [isPressed, setIsPressed] = useState(false);
-  const isSelected = accessibilityState?.selected ?? false;
+  // Use isCurrentScreen prop for more reliable indication
+  const isSelected = isCurrentScreen ?? (accessibilityState?.selected ?? false);
 
   const backgroundColor = isPressed
     ? "#cc6600" // Darker orange when pressed
     : isSelected
-    ? "#ff6600"
-    : "#ff9933";
+    ? "#ff6600" // Bright orange when selected
+    : "#ff9933"; // Default orange
 
   return (
     <Pressable
       onPressIn={() => setIsPressed(true)}
       onPressOut={() => setIsPressed(false)}
       onPress={onPress}
-      style={[styles.searchButton, { backgroundColor }]}
+      style={[
+        styles.searchButton, 
+        { backgroundColor },
+        isSelected && styles.selectedSearchButton // Add selected search button style
+      ]}
     >
       <Ionicons
         name="search"
@@ -210,6 +264,16 @@ const styles = StyleSheet.create({
     paddingTop: -5,
     backgroundColor: "white", // Default background for all tabs
   },
+  selectedTabContainer: {
+    backgroundColor: "#fff5f5", // Light red/pink background for selected tabs
+    borderTopWidth: 3,
+    borderTopColor: "tomato",
+  },
+  selectedDisabledTab: {
+    backgroundColor: "#555", // Darker gray for selected disabled tab
+    borderTopWidth: 3,
+    borderTopColor: "#777",
+  },
   tabButtonText: {
     fontSize: 12,
     marginTop: 4,
@@ -231,5 +295,12 @@ const styles = StyleSheet.create({
     elevation: 10,
     borderWidth: 2,
     borderColor: "rgba(255, 255, 255, 0.6)", // Soft white border
+  },
+  selectedSearchButton: {
+    shadowOpacity: 0.5, // Stronger shadow when selected
+    shadowRadius: 8,
+    elevation: 15,
+    borderWidth: 3,
+    borderColor: "rgba(255, 255, 255, 0.9)", // Brighter border when selected
   },
 });

@@ -150,7 +150,7 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
           };
 
           if (uniformSound) {
-            playSound(accentSound); // Always play the regular sound
+            playSound(accentSound); // Always play the sharp sound
           } else {
             if (newBeat === 1) {
               playSound(accentSound);

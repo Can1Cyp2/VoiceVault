@@ -186,42 +186,6 @@ export const searchArtistsByQuery = async (
   }
 };
 
-// Add a new song to the database
-export const addSong = async (song: {
-  name: string;
-  vocalRange: string;
-  artist: string;
-  username?: string;
-}): Promise<void> => {
-  try {
-
-    const user = supabase.auth.user();
-    if (!user) {
-      throw new Error("You must be logged in to add a song.");
-    }
-
-    const { data, error } = await supabase.from("songs").insert([
-      {
-        name: song.name,
-        vocalRange: song.vocalRange,
-        artist: song.artist,
-        user_id: user.id,
-        username: song.username || null,
-      },
-    ]);
-
-    if (error) {
-      console.error("Error adding song:", error.message);
-      throw error;
-    }
-
-    console.log("Song added successfully:", data);
-  } catch (error) {
-    console.error("Error in addSong:", (error as any).message);
-    throw error;
-  }
-};
-
 // Gets a users vocal ranges
 export const fetchUserVocalRange = async () => {
   const user = supabase.auth.user();
@@ -430,6 +394,209 @@ export const updateIssueStatus = async (
     console.log(`Issue ${issueId} status updated to ${newStatus}`);
   } catch (error) {
     console.error("Error in updateIssueStatus:", error);
+    throw error;
+  }
+};
+
+// ********* ADD SONG SECTION:  **********
+
+// Add a new song to the pending_songs table for admin review
+export const addSong = async (song: {
+  name: string;
+  vocalRange: string;
+  artist: string;
+  username?: string;
+}): Promise<void> => {
+  try {
+    const user = supabase.auth.user();
+    if (!user) {
+      throw new Error("You must be logged in to submit a song.");
+    }
+
+    console.log("Submitting song to pending_songs:", {
+      name: song.name,
+      vocal_range: song.vocalRange,
+      artist: song.artist,
+      user_id: user.id,
+      username: song.username || null,
+      status: 'pending',
+    });
+
+    const { data, error } = await supabase.from("pending_songs").insert([
+      {
+        name: song.name,
+        vocal_range: song.vocalRange, // Make sure this matches your pending_songs table column
+        artist: song.artist,
+        user_id: user.id,
+        username: song.username || null,
+        status: 'pending',
+      },
+    ]);
+
+    if (error) {
+      console.error("Error submitting song for review:", error.message);
+      console.error("Full error object:", error);
+      throw error;
+    }
+
+    console.log("Song submitted for review successfully:", data);
+  } catch (error) {
+    console.error("Error in addSong:", (error as any).message);
+    throw error;
+  }
+};
+
+// Check for similar songs in BOTH songs and pending_songs tables
+export const checkForSimilarSong = async (songName: string, artistName: string) => {
+  try {
+    // Check in main songs table (assuming it uses 'vocalRange' column)
+    const { data: existingSongs, error: songsError } = await supabase
+      .from("songs")
+      .select("name, artist")
+      .ilike("artist", `%${artistName}%`)
+      .ilike("name", `%${songName}%`);
+
+    if (songsError) {
+      console.error("Error checking existing songs:", songsError);
+    }
+
+    // Check in pending songs table (assuming it uses 'vocal_range' column)
+    const { data: pendingSongs, error: pendingError } = await supabase
+      .from("pending_songs")
+      .select("name, artist, status")
+      .ilike("artist", `%${artistName}%`)
+      .ilike("name", `%${songName}%`)
+      .in("status", ["pending", "approved"]); // Don't warn about rejected songs
+
+    if (pendingError) {
+      console.error("Error checking pending songs:", pendingError);
+    }
+
+    // Return the first match found (prioritize existing songs over pending)
+    if (existingSongs && existingSongs.length > 0) {
+      return { ...existingSongs[0], source: "existing" };
+    }
+    
+    if (pendingSongs && pendingSongs.length > 0) {
+      return { ...pendingSongs[0], source: "pending" };
+    }
+
+    return null;
+  } catch (err) {
+    console.error("Unexpected error checking for similar songs:", err);
+    return null;
+  }
+};
+
+// Fetch user's pending song submissions
+export const fetchUserPendingSongs = async (): Promise<any[]> => {
+  try {
+    const user = supabase.auth.user();
+    if (!user) {
+      throw new Error("You must be logged in to view your submissions.");
+    }
+
+    const { data, error } = await supabase
+      .from("pending_songs")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching user's pending songs:", error.message);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("Error in fetchUserPendingSongs:", error);
+    return [];
+  }
+};
+
+// Admin function to approve a pending song (moves it to main songs table)
+export const approvePendingSong = async (pendingSongId: number): Promise<void> => {
+  try {
+    const user = supabase.auth.user();
+    if (!user) {
+      throw new Error("You must be logged in to perform this action.");
+    }
+
+    // First, get the pending song data
+    const { data: pendingSong, error: fetchError } = await supabase
+      .from("pending_songs")
+      .select("*")
+      .eq("id", pendingSongId)
+      .single();
+
+    if (fetchError || !pendingSong) {
+      throw new Error("Pending song not found.");
+    }
+
+    // Insert into main songs table - adjust column names based on your actual table structure
+    const { error: insertError } = await supabase.from("songs").insert([
+      {
+        name: pendingSong.name,
+        vocalRange: pendingSong.vocal_range, // Convert from pending_songs column name to songs column name
+        artist: pendingSong.artist,
+        user_id: pendingSong.user_id,
+        username: pendingSong.username,
+      },
+    ]);
+
+    if (insertError) {
+      throw new Error(`Error adding song to main database: ${insertError.message}`);
+    }
+
+    // Update pending song status to approved
+    const { error: updateError } = await supabase
+      .from("pending_songs")
+      .update({
+        status: "approved",
+        reviewed_by: user.id,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("id", pendingSongId);
+
+    if (updateError) {
+      throw new Error(`Error updating pending song status: ${updateError.message}`);
+    }
+
+    console.log("Song approved and added to main database successfully");
+  } catch (error) {
+    console.error("Error in approvePendingSong:", error);
+    throw error;
+  }
+};
+
+// Admin function to reject a pending song
+export const rejectPendingSong = async (
+  pendingSongId: number,
+  adminNotes?: string
+): Promise<void> => {
+  try {
+    const user = supabase.auth.user();
+    if (!user) {
+      throw new Error("You must be logged in to perform this action.");
+    }
+
+    const { error } = await supabase
+      .from("pending_songs")
+      .update({
+        status: "rejected",
+        reviewed_by: user.id,
+        reviewed_at: new Date().toISOString(),
+        admin_notes: adminNotes || null,
+      })
+      .eq("id", pendingSongId);
+
+    if (error) {
+      throw new Error(`Error rejecting song: ${error.message}`);
+    }
+
+    console.log("Song rejected successfully");
+  } catch (error) {
+    console.error("Error in rejectPendingSong:", error);
     throw error;
   }
 };

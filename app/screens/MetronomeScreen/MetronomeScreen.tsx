@@ -407,7 +407,7 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
         </TouchableOpacity>
         <View style={styles.pickerContainer}>
           <Text style={styles.label}>Time Signature:</Text>
-          <Text style={{ fontSize: moderateScale(12), color: "#999", marginBottom: 4 }}>
+          <Text style={{ fontSize: moderateScale(11), color: "#999", marginBottom: 4 }}>
             Scroll to choose time signature
           </Text>
           <View style={styles.pickerWrapper}>

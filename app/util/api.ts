@@ -11,27 +11,91 @@ export let errorCount = 0;
 // Fetch songs based on a query
 export const searchSongsByQuery = async (query: string): Promise<any[]> => {
   try {
+    const queryWords = query
+      .trim()
+      .toLowerCase()
+      .split(" ")
+      .filter((word) => word.length > 0);
+
+    if (queryWords.length === 0) {
+      return [];
+    }
+
+    // Create an OR filter for each word to match in either name or artist.
+    // This fetches all songs that contain at least one of the search terms.
+    const orFilter = queryWords
+      .map((word) => `name.ilike.%${word}%,artist.ilike.%${word}%`)
+      .join(",");
+
     const { data, error } = await supabase
       .from("songs")
       .select("*")
-      .or(`name.ilike.%${query}%, artist.ilike.%${query}%`);
+      .or(orFilter);
 
     if (error) throw error;
 
     const lowerQuery = query.toLowerCase();
-    const scored = (data || []).map((song) => {
-      const name = song.name?.toLowerCase() || "";
-      const artist = song.artist?.toLowerCase() || "";
 
-      let score = 0;
-      if (name === lowerQuery || artist === lowerQuery) score += 100;
-      else if (name.startsWith(lowerQuery) || artist.startsWith(lowerQuery))
-        score += 75;
-      else if (name.includes(lowerQuery) || artist.includes(lowerQuery))
-        score += 50;
+    // Client-side filtering and scoring
+    const scored = (data || [])
+      .map((song) => {
+        const name = song.name?.toLowerCase() || "";
+        const artist = song.artist?.toLowerCase() || "";
 
-      return { ...song, _score: score };
-    });
+        // This ensures the song matches ALL search words.
+        const allWordsMatch = queryWords.every(
+          (word) => name.includes(word) || artist.includes(word)
+        );
+
+        if (!allWordsMatch) {
+          return { ...song, _score: 0 };
+        }
+
+        let score = 0;
+        // Score for full query match (higher weight)
+        if (name.includes(lowerQuery) || artist.includes(lowerQuery)) {
+          if (name === lowerQuery || artist === lowerQuery) {
+            score += 100; // Exact match
+          } else if (
+            name.startsWith(lowerQuery) ||
+            artist.startsWith(lowerQuery)
+          ) {
+            score += 75; // Starts with match
+          } else {
+            score += 50; // Partial match
+          }
+        }
+
+        // Score for individual words
+        let wordsInName = 0;
+        let wordsInArtist = 0;
+        queryWords.forEach((word) => {
+          if (name.includes(word)) {
+            score += 10;
+            wordsInName++;
+          }
+          if (artist.includes(word)) {
+            score += 10;
+            wordsInArtist++;
+          }
+        });
+
+        // Bonus if all words are in the name or artist
+        if (
+          wordsInName === queryWords.length ||
+          wordsInArtist === queryWords.length
+        ) {
+          score += 20;
+        }
+
+        // Bonus if words are in both name and artist (likely a very good match)
+        if (wordsInName > 0 && wordsInArtist > 0) {
+          score += 30;
+        }
+
+        return { ...song, _score: score };
+      })
+      .filter((song) => song._score > 0); // Filter out songs that didn't match all words
 
     return scored.sort((a, b) => b._score - a._score);
   } catch (err) {

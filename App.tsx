@@ -7,8 +7,10 @@ import { getSession, supabase } from "./app/util/supabase";
 
 import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
 import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
+import AdminProfileScreen from "./app/screens/ProfileScreen/AdminProfileScreen";
 import { useEffect, useState } from "react";
 import React from "react";
+import { useAdminStatus } from "./app/util/adminUtils";
 
 // Define the types for the tab navigator
 export type TabParamList = {
@@ -18,6 +20,18 @@ export type TabParamList = {
 };
 
 const Tab = createBottomTabNavigator();
+
+// Create a wrapper component that decides which profile screen to show
+const ProfileScreenWrapper = () => {
+  const { isAdmin, loading } = useAdminStatus();
+  
+  if (loading) {
+
+    return <ProfileScreen />;
+  }
+  
+  return isAdmin ? <AdminProfileScreen navigation={undefined} /> : <ProfileScreen />;
+};
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);

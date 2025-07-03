@@ -1,3 +1,4 @@
+import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons"; // icon library
 import { TouchableOpacity } from "react-native";
@@ -9,6 +10,7 @@ import SearchScreen from "../screens/SearchScreen/SearchScreen";
 import SavedListsScreen from "../screens/SavedListsScreen/SavedListsScreen";
 import ListDetailsScreen from "../screens/ListDetailsScreen/ListDetailsScreen";
 import MetronomeScreen from "../screens/MetronomeScreen/MetronomeScreen";
+import AdminProfileScreen from "../screens/ProfileScreen/AdminProfileScreen";
 
 // Define the types for navigation parameters
 export type RootStackParamList = {
@@ -26,6 +28,7 @@ export type RootStackParamList = {
   ListDetails: { listName: string }; // Route for showing a specific list's details
   SongDetails: { name: string; artist: string; vocalRange: string };
   Metronome: undefined;
+  AdminProfileScreen: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -127,6 +130,19 @@ export function AppStack() {
           title: "Metronome",
         }}
       />
+      <Stack.Screen
+      name="AdminProfileScreen"
+      component={AdminProfileScreen}
+      options={{
+        title: "Admin Profile",
+        headerShown: true,
+        headerStyle: { backgroundColor: "#f8f8f8" },
+        headerTintColor: "#333",
+        headerTitleStyle: { fontWeight: "bold" },
+      }}
+    />
     </Stack.Navigator>
+
+    
   );
 }

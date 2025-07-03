@@ -39,7 +39,10 @@ module.exports = () => {
         "CHANGE_NETWORK_STATE",
         "ACCESS_WIFI_STATE",
         "CHANGE_WIFI_STATE"
-      ]
+      ],
+      compileSdkVersion: 35,
+      targetSdkVersion: 35,
+      buildToolsVersion: "35.0.0"
     },
     web: {
       favicon: "./assets/favicon.png"
@@ -61,7 +64,10 @@ module.exports = () => {
           },
           android: {
             kotlinVersion: "1.9.25",
-            minSdkVersion: 24
+            minSdkVersion: 24,
+            compileSdkVersion: 35,
+            targetSdkVersion: 35,
+            buildToolsVersion: "35.0.0"
           }
         }
       ],

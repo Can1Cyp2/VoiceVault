@@ -9,10 +9,12 @@ import {
   StyleSheet,
   Modal,
   ActivityIndicator,
+  GestureResponderEvent,
 } from "react-native";
 import ProfileMenu from "./ProfileMenu";
 import { supabase } from "../../util/supabase";
 import { fetchUserVocalRange } from "../../util/api";
+import { useAdminStatus } from "../../util/adminUtils";
 
 export default function ProfileScreen({ navigation }: any) {
   const [isMenuVisible, setMenuVisible] = useState(false);
@@ -21,6 +23,9 @@ export default function ProfileScreen({ navigation }: any) {
   const [isLoading, setIsLoading] = useState(true);
   const [isHelpVisible, setHelpVisible] = useState(false);
   const [updateTrigger, setUpdateTrigger] = useState(0); // Triggers refresh
+
+  // Admin status hook
+  const { isAdmin, loading: adminLoading, adminDetails } = useAdminStatus();
 
   // Fetch user data (display name + vocal range)
   const fetchUserData = async () => {
@@ -70,7 +75,7 @@ export default function ProfileScreen({ navigation }: any) {
         }
       }
     );
-    
+
     return () => {
       subscription?.unsubscribe();
     };
@@ -82,6 +87,7 @@ export default function ProfileScreen({ navigation }: any) {
     if (error) {
       Alert.alert("Logout Failed", error.message);
     } else {
+      navigation.navigate("Home"),
       setUsername("Edit your profile to add a username.");
       setVocalRange("Edit your profile to set a vocal range.");
       Alert.alert("Logged Out", "You have successfully logged out.");
@@ -96,6 +102,10 @@ export default function ProfileScreen({ navigation }: any) {
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
+  }
+
+  function handleAdminAccess(event: GestureResponderEvent): void {
+    navigation.navigate("Search", { screen: "AdminProfileScreen" });
   }
 
   return (
@@ -131,6 +141,24 @@ export default function ProfileScreen({ navigation }: any) {
           }}
           onLogout={handleLogout}
         />
+      )}
+
+      {/* Admin Access Button - Only visible to admins */}
+      {!adminLoading && isAdmin && (
+        <View style={styles.adminSection}>
+          <Text style={styles.adminLabel}>🔒 Admin Access</Text>
+          <TouchableOpacity
+            style={styles.adminButton}
+            onPress={handleAdminAccess}
+          >
+            <Text style={styles.adminButtonText}>Open Admin Panel</Text>
+          </TouchableOpacity>
+          {adminDetails && typeof adminDetails === 'object' && 'role' in adminDetails && (
+            <Text style={styles.adminRole}>
+              Role: {(adminDetails as any).role.replace("_", " ").toUpperCase()}
+            </Text>
+          )}
+        </View>
       )}
 
       {/* Help Modal */}
@@ -216,6 +244,48 @@ const styles = StyleSheet.create({
   menuButtonText: {
     color: "#fff",
     fontSize: 16,
+  },
+  // Admin Section Styles
+  adminSection: {
+    marginTop: 20,
+    padding: 20,
+    backgroundColor: "#fff5f5",
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: "#ff4757",
+    width: "80%",
+    alignItems: "center",
+    shadowColor: "#ff4757",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  adminLabel: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#ff4757",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  adminButton: {
+    backgroundColor: "#ff4757",
+    padding: 15,
+    borderRadius: 8,
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  adminButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  adminRole: {
+    fontSize: 12,
+    color: "#666",
+    fontStyle: "italic",
+    textAlign: "center",
   },
   helpButton: {
     position: "absolute",

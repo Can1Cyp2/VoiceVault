@@ -14,8 +14,8 @@ import {
   Modal,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
-import { addSong } from "../../util/api";
 import { supabase } from "../../util/supabase";
+import { addSong, checkForSimilarSong } from "../../util/api";
 
 // Define all notes on a piano (sharps, no flats):
 const NOTES = [
@@ -115,8 +115,10 @@ export default function AddSongScreen({ navigation }: any) {
   const [startNote, setStartNote] = useState<string>("C4");
   const [endNote, setEndNote] = useState<string>("C5");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showWarning, setShowWarning] = useState(false); // State for showing the warning modal
-  const [similarSong, setSimilarSong] = useState<{ name: string; artist: string } | null>(null); // Store the similar song found
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [similarSong, setSimilarSong] = useState<{ name: string; artist: string; source?: string } | null>(null); // Store the similar song found
 
   // Function to check for similar songs in the database
   const checkForSimilarSong = async (songName: string, artistName: string) => {
@@ -146,8 +148,8 @@ export default function AddSongScreen({ navigation }: any) {
 
   const handleAddSong = async (bypassWarning = false) => {
     try {
-      // Clear any previous errors
       setError("");
+      setIsSubmitting(true);
 
       // Validate required fields
       if (!name || !artist) {
@@ -173,27 +175,38 @@ export default function AddSongScreen({ navigation }: any) {
 
       if (!username) {
         setError(
-          "Please ensure you are logged in and update your profile to add a username before adding songs."
+          "Please ensure you are logged in and update your profile to add a username before submitting songs."
         );
         return;
       }
 
       // Check for similar songs unless bypassing the warning
       if (!bypassWarning) {
-        const similar = await checkForSimilarSong(name, artist);
+        const similar = await checkForSimilarSong(name, artist); // This now uses the API function
         if (similar) {
           setSimilarSong(similar);
-          setShowWarning(true); // Show the warning modal
+          setShowWarning(true);
           return;
         }
       }
 
-      // If no similar song or user chose to add anyway, proceed to add the song
+      // Submit the song to pending_songs table
       await addSong({ name, vocalRange, artist, username });
-      navigation.goBack(); // Navigate back to the previous screen
+
+      // Show success modal
+      setShowSuccess(true);
+
+      // Clear form
+      setName("");
+      setArtist("");
+      setStartNote("C4");
+      setEndNote("C5");
+
     } catch (error) {
       console.error(error);
-      setError("Failed to add song. Please try again later.");
+      setError("Failed to submit song. Please try again later.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -211,6 +224,21 @@ export default function AddSongScreen({ navigation }: any) {
     // User stays on the AddSongScreen to edit the form
   };
 
+  const handleSuccessClose = () => {
+    setShowSuccess(false);
+    navigation.goBack();
+  };
+
+  const getSimilarSongMessage = () => {
+    if (!similarSong) return "";
+
+    const sourceText = similarSong.source === "existing"
+      ? "already exists in the database"
+      : "is currently pending review";
+
+    return `A song with a similar title and artist ${sourceText}:`;
+  };
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -220,19 +248,26 @@ export default function AddSongScreen({ navigation }: any) {
         contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Add New Song</Text>
+        <Text style={styles.title}>Submit New Song</Text>
+        <Text style={styles.subtitle}>
+          Songs will be reviewed before being added to the database
+        </Text>
+
         {error && <Text style={styles.errorText}>{error}</Text>}
+
         <TextInput
           style={styles.input}
           placeholder="Song Name"
           value={name}
           onChangeText={setName}
+          editable={!isSubmitting}
         />
         <TextInput
           style={styles.input}
           placeholder="Artist Name"
           value={artist}
           onChangeText={setArtist}
+          editable={!isSubmitting}
         />
         <View style={styles.rangeContainer}>
           <Text style={styles.rangeLabel}>Low Note:</Text>
@@ -240,6 +275,7 @@ export default function AddSongScreen({ navigation }: any) {
             selectedValue={startNote}
             style={styles.picker}
             onValueChange={(value) => setStartNote(value)}
+            enabled={!isSubmitting}
           >
             {NOTES.map((note) => (
               <Picker.Item key={note} label={note} value={note} />
@@ -252,24 +288,24 @@ export default function AddSongScreen({ navigation }: any) {
             selectedValue={endNote}
             style={styles.picker}
             onValueChange={(value) => setEndNote(value)}
+            enabled={!isSubmitting}
           >
             {NOTES.map((note) => (
               <Picker.Item key={note} label={note} value={note} />
             ))}
           </Picker>
         </View>
+
         <TouchableOpacity
-          style={{
-            backgroundColor: "tomato",
-            padding: 15,
-            borderRadius: 10,
-            alignItems: "center",
-            marginVertical: 20,
-          }}
+          style={[
+            styles.submitButton,
+            { opacity: isSubmitting ? 0.6 : 1 }
+          ]}
           onPress={() => handleAddSong()}
+          disabled={isSubmitting}
         >
-          <Text style={{ color: "white", fontWeight: "bold", fontSize: 16 }}>
-            Add Song
+          <Text style={styles.submitButtonText}>
+            {isSubmitting ? "Submitting..." : "Submit Song for Review"}
           </Text>
         </TouchableOpacity>
 
@@ -284,20 +320,20 @@ export default function AddSongScreen({ navigation }: any) {
             <View style={styles.modalContainer}>
               <Text style={styles.modalTitle}>Warning: Similar Song Found</Text>
               <Text style={styles.modalText}>
-                A song with a similar title and artist already exists:
+                {getSimilarSongMessage()}
               </Text>
               <Text style={styles.modalText}>
                 "{similarSong?.name}" by {similarSong?.artist}
               </Text>
               <Text style={styles.modalText}>
-                Do you want to add this song anyway?
+                Do you want to submit this song anyway?
               </Text>
               <View style={styles.modalButtonContainer}>
                 <TouchableOpacity
                   style={[styles.modalButton, { backgroundColor: "tomato" }]}
                   onPress={handleAddAnyway}
                 >
-                  <Text style={styles.modalButtonText}>Add Anyway</Text>
+                  <Text style={styles.modalButtonText}>Submit Anyway</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.modalButton, { backgroundColor: "#ccc" }]}
@@ -306,6 +342,35 @@ export default function AddSongScreen({ navigation }: any) {
                   <Text style={styles.modalButtonText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Success Modal */}
+        <Modal
+          visible={showSuccess}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={handleSuccessClose}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <Text style={styles.modalTitle}>Song Submitted Successfully!</Text>
+              <Text style={styles.modalText}>
+                Your song "{name}" by {artist} has been submitted for review.
+              </Text>
+              <Text style={styles.modalText}>
+                You'll be notified once it's been reviewed and added to the database.
+              </Text>
+              <Text style={styles.modalText}>
+                Thank you for contributing to our song collection!
+              </Text>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: "green", marginTop: 20 }]}
+                onPress={handleSuccessClose}
+              >
+                <Text style={styles.modalButtonText}>OK</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
@@ -318,10 +383,24 @@ const styles = StyleSheet.create({
   scrollContainer: {
     padding: 20,
     backgroundColor: "#fff",
-    paddingBottom: 100, // Extra padding at the bottom to allow scrolling past the screen
+    paddingBottom: 100,
   },
-  container: { flex: 1, padding: 20, backgroundColor: "#fff" },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20 },
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: "#fff"
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 10
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 20,
+    fontStyle: "italic",
+  },
   input: {
     borderWidth: 1,
     borderColor: "#ccc",
@@ -329,7 +408,10 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     borderRadius: 5,
   },
-  errorText: { color: "red", marginBottom: 10 },
+  errorText: {
+    color: "red",
+    marginBottom: 10
+  },
   rangeContainer: {
     marginVertical: 10,
   },
@@ -342,6 +424,18 @@ const styles = StyleSheet.create({
     borderColor: "#ccc",
     borderRadius: 5,
     backgroundColor: "#f9f9f9",
+  },
+  submitButton: {
+    backgroundColor: "tomato",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginVertical: 20,
+  },
+  submitButtonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
   },
   // Modal styles
   modalOverlay: {
@@ -361,6 +455,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     marginBottom: 10,
+    textAlign: "center",
   },
   modalText: {
     fontSize: 16,

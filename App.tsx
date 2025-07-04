@@ -24,12 +24,12 @@ const Tab = createBottomTabNavigator();
 // Create a wrapper component that decides which profile screen to show
 const ProfileScreenWrapper = () => {
   const { isAdmin, loading } = useAdminStatus();
-  
+
   if (loading) {
 
     return <ProfileScreen />;
   }
-  
+
   return isAdmin ? <AdminProfileScreen navigation={undefined} /> : <ProfileScreen />;
 };
 
@@ -42,19 +42,19 @@ export default function App() {
       try {
         const sessionResult = await getSession();
         console.log("Session from Supabase in App:", sessionResult);
-        
+
         // Check if sessionResult has a session property, otherwise treat as direct session
-        const actualSession = sessionResult?.session !== undefined 
-          ? sessionResult.session 
+        const actualSession = sessionResult?.session !== undefined
+          ? sessionResult.session
           : sessionResult;
-          
+
         setIsLoggedIn(!!actualSession);
       } catch (error) {
         console.error("Error checking session:", error);
         setIsLoggedIn(false);
       }
     };
-    
+
     checkSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
@@ -74,6 +74,8 @@ export default function App() {
 
   return (
     <NavigationContainer
+      linking={linking}
+      fallback={<Text>Loading...</Text>}
       onStateChange={(state) => {
         // Track current screen for tab indication:
         const currentRoute = state?.routes[state.index];
@@ -96,10 +98,10 @@ export default function App() {
           component={HomeScreen}
           options={{
             tabBarButton: (props) => (
-              <CustomTabButton 
-                {...props} 
-                label="Home" 
-                icon="home" 
+              <CustomTabButton
+                {...props}
+                label="Home"
+                icon="home"
                 isCurrentScreen={currentScreen === "Home"}
               />
             ),
@@ -110,8 +112,8 @@ export default function App() {
           component={AppStack}
           options={{
             tabBarButton: (props) => (
-              <CustomSearchButton 
-                {...props} 
+              <CustomSearchButton
+                {...props}
                 isCurrentScreen={currentScreen === "Search"}
               />
             ),
@@ -122,9 +124,9 @@ export default function App() {
           component={ProfileScreen}
           options={{
             tabBarButton: (props) => (
-              <CustomProfileButton 
-                {...props} 
-                isLoggedIn={isLoggedIn} 
+              <CustomProfileButton
+                {...props}
+                isLoggedIn={isLoggedIn}
                 isCurrentScreen={currentScreen === "Profile"}
               />
             ),

@@ -40,7 +40,8 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
         return;
       }
 
-      Alert.alert("Success", "Logged in successfully!");
+      // if login is successful and user is not deleted:
+      console.log("Login successful for user:", user?.email);
       onClose(); // Close the modal after successful login
     } catch (err) {
       console.error("Login Error:", err);
@@ -159,3 +160,5 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
 });
+
+

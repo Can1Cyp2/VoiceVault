@@ -11,6 +11,8 @@ import SavedListsScreen from "../screens/SavedListsScreen/SavedListsScreen";
 import ListDetailsScreen from "../screens/ListDetailsScreen/ListDetailsScreen";
 import MetronomeScreen from "../screens/MetronomeScreen/MetronomeScreen";
 import AdminProfileScreen from "../screens/ProfileScreen/AdminProfileScreen";
+import ForgotPasswordScreen from "../screens/ForgotPasswordScreen/ForgotPasswordScreen";
+import ResetPasswordScreen from "../screens/ResetPasswordScreen/ResetPasswordScreen";
 
 // Define the types for navigation parameters
 export type RootStackParamList = {
@@ -29,6 +31,7 @@ export type RootStackParamList = {
   SongDetails: { name: string; artist: string; vocalRange: string };
   Metronome: undefined;
   AdminProfileScreen: undefined;
+  ForgotPassword: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -141,8 +144,15 @@ export function AppStack() {
         headerTitleStyle: { fontWeight: "bold" },
       }}
     />
+     <Stack.Screen
+        name="ForgotPassword"
+        component={ForgotPasswordScreen}
+        options={{
+          title: "Forgot Password",
+        }}
+      />
     </Stack.Navigator>
 
-    
+
   );
 }

@@ -47,6 +47,7 @@ module.exports = () => {
     web: {
       favicon: "./assets/favicon.png"
     },
+    scheme: "voicevault",
     extra: {
       eas: {
         projectId: "33c93c1e-6118-430e-a6d8-ff2e05458e48"

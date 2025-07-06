@@ -40,11 +40,36 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
         return;
       }
 
-      Alert.alert("Success", "Logged in successfully!");
+      // if login is successful and user is not deleted:
+      console.log("Login successful for user:", user?.email);
       onClose(); // Close the modal after successful login
     } catch (err) {
       console.error("Login Error:", err);
       Alert.alert("An error occurred. Please try again.");
+    }
+  };
+
+  // Function to handle forgot password
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      Alert.alert("Email Required", "Please enter your email address first.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.api.resetPasswordForEmail(email);
+
+      if (error) {
+        Alert.alert("Error", error.message);
+      } else {
+        Alert.alert(
+          "Password Reset Email Sent",
+          "Please check your inbox for password reset instructions."
+        );
+      }
+    } catch (err) {
+      console.error("Password Reset Error:", err);
+      Alert.alert("Error", "An unexpected error occurred. Please try again.");
     }
   };
 
@@ -70,6 +95,10 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
         />
         <TouchableOpacity style={styles.button} onPress={handleLogin}>
           <Text style={styles.buttonText}>Login</Text>
+        </TouchableOpacity>
+        {/* Forgot Password */}
+        <TouchableOpacity onPress={handleForgotPassword}>
+          <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onClose}>
           <Text style={styles.cancelText}>Cancel</Text>
@@ -119,9 +148,17 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 16,
   },
+  forgotPasswordText: {
+    color: "#007bff",
+    fontSize: 14,
+    marginBottom: 10,
+    textDecorationLine: "underline",
+  },
   cancelText: {
     color: "#007bff",
     fontSize: 16,
     marginTop: 10,
   },
 });
+
+

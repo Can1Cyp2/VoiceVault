@@ -26,7 +26,7 @@ import {
 } from "../SavedListsScreen/SavedListsLogic";
 import { saveToList } from "../SavedListsScreen/SavedSongLogic";
 import { supabase } from "../../util/supabase";
-import { findClosestVocalRangeFit } from "./RangeBestFit";
+import { findClosestVocalRangeFit, noteToValue } from "./RangeBestFit";
 import SongRangeRecommendation from "./SongRangeRecommendation";
 import Piano from '../../components/Piano/Piano';
 
@@ -50,13 +50,23 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   // Parse vocal range to extract lowest and highest notes
   const parseVocalRange = (range: string) => {
     if (!range) return { lowest: '', highest: '', octaveRange: '' };
-    
-    const parts = range.split(' – ') || range.split('-');
+
+    const parts = range.split(/ - | – /);
     if (parts.length === 2) {
       const lowest = parts[0].trim();
       const highest = parts[1].trim();
-      const octaveRange = "2,5"; // placeholder - you can implement proper calculation
-      return { lowest, highest, octaveRange };
+      
+      const lowValue = noteToValue(lowest);
+      const highValue = noteToValue(highest);
+
+      if (!isNaN(lowValue) && !isNaN(highValue)) {
+        const octaveDiff = Math.floor(Math.abs(highValue - lowValue) / 12);
+        const noteDiff = Math.abs(highValue - lowValue) % 12;
+        const octaveRange = `${octaveDiff} octave${octaveDiff !== 1 ? 's' : ''}, ${noteDiff} note${noteDiff !== 1 ? 's' : ''}`;
+        return { lowest, highest, octaveRange };
+      }
+
+      return { lowest, highest, octaveRange: "Invalid range" };
     }
     return { lowest: range, highest: range, octaveRange: "1,0" };
   };
@@ -312,7 +322,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
         {/* <TouchableOpacity style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>COMPARE RANGE</Text>
+          <Text style={styles.primaryButtonText}>COMPARE RANGE</Text> // MIGHT ADD THIS LATER
         </TouchableOpacity> */}
         {isLoggedIn && (
           <TouchableOpacity 

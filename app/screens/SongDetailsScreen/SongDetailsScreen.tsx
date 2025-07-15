@@ -15,8 +15,10 @@ import {
   Keyboard,
   Platform,
   ScrollView,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { COLORS, FONTS } from "../../styles/theme";
 
 import {
   fetchUserLists,
@@ -26,6 +28,9 @@ import { saveToList } from "../SavedListsScreen/SavedSongLogic";
 import { supabase } from "../../util/supabase";
 import { findClosestVocalRangeFit } from "./RangeBestFit";
 import SongRangeRecommendation from "./SongRangeRecommendation";
+import Piano from '../../components/Piano/Piano';
+
+const { width } = Dimensions.get('window');
 
 // SongDetailsScreen component:
 // Displays details of a song, including vocal range and options to save it to a list.
@@ -35,12 +40,28 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   const { male, female, maleOutOfRange, femaleOutOfRange } =
     findClosestVocalRangeFit(vocalRange);
 
-  const [isModalVisible, setModalVisible] = useState(false); // Modal visibility
-  const [customListName, setCustomListName] = useState(""); // Custom list name
-  const [existingLists, setExistingLists] = useState<any[]>([]); // Holds user's saved lists
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // Tracks user's login status
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [customListName, setCustomListName] = useState("");
+  const [existingLists, setExistingLists] = useState<any[]>([]);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isIssueModalVisible, setIssueModalVisible] = useState(false);
   const [issueText, setIssueText] = useState("");
+
+  // Parse vocal range to extract lowest and highest notes
+  const parseVocalRange = (range: string) => {
+    if (!range) return { lowest: '', highest: '', octaveRange: '' };
+    
+    const parts = range.split(' – ') || range.split('-');
+    if (parts.length === 2) {
+      const lowest = parts[0].trim();
+      const highest = parts[1].trim();
+      const octaveRange = "2,5"; // placeholder - you can implement proper calculation
+      return { lowest, highest, octaveRange };
+    }
+    return { lowest: range, highest: range, octaveRange: "1,0" };
+  };
+
+  const { lowest, highest, octaveRange } = parseVocalRange(vocalRange);
 
   // Check if the user is logged in and set header options
   useEffect(() => {
@@ -67,11 +88,11 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
             <Ionicons
               name="add-circle-outline"
               size={30}
-              color="#32CD32" // Green color for the button
+              color={COLORS.primary}
               style={{ marginRight: 15 }}
             />
           </TouchableOpacity>
-        ) : null, // Do not show the button if the user is not logged in
+        ) : null,
     });
   }, [isLoggedIn, navigation]);
 
@@ -91,7 +112,6 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   useEffect(() => {
     if (route.params?.showAddToListModal) {
       setModalVisible(true);
-      // Reset the param to avoid reopening the modal unintentionally
       navigation.setParams({ showAddToListModal: false });
     }
   }, [route.params?.showAddToListModal]);
@@ -115,20 +135,12 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
     }
 
     try {
-      // Create the new list
       await saveNewList(customListName);
-
-      // Save the song to the newly created list
       await saveToList(name, artist, vocalRange, customListName);
-
-      // Clear the input field and close the modal
       setCustomListName("");
       setModalVisible(false);
-
-      // Refresh the list after adding
       const updatedLists = await fetchUserLists();
       setExistingLists(updatedLists || []);
-
       Alert.alert("Success", `Added "${name}" to "${customListName}"`);
     } catch (error) {
       console.error("Error saving to custom list:", error);
@@ -156,7 +168,6 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
     }
 
     try {
-      // Check if the user is logged in
       const session = supabase.auth.session();
       if (!session) {
         Alert.alert(
@@ -176,14 +187,8 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
         return;
       }
 
-      console.log("User data from Supabase:", user);
-
-      // Fetch username the same way as ProfileScreen
       let username = user.user_metadata?.display_name;
 
-      console.log("Extracted username:", username);
-
-      // If username is missing, show alert and ask user to set it
       if (!username || username.trim() === "") {
         Alert.alert(
           "Set Username",
@@ -203,9 +208,6 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
         status: "pending",
       };
 
-      console.log("Submitting issue with payload:", issuePayload);
-
-      // Try inserting into Supabase
       const { error } = await supabase.from("issues").insert([issuePayload]);
 
       if (error) {
@@ -224,12 +226,119 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   };
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      bounces={true}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Modal adding custom or selecting existing list */}
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      {/* Album Art Placeholder */}
+      <View style={styles.albumArtContainer}>
+        <View style={styles.albumArt}>
+          <Text style={styles.albumArtText}>🎵</Text>
+          <Text style={styles.albumTitle}>{name}</Text>
+          <Text style={styles.albumArtist}>{artist?.toUpperCase() || 'UNKNOWN'}</Text>
+        </View>
+      </View>
+
+      {/* Song Title */}
+      <Text style={styles.songTitle}>{name}</Text>
+      
+      {/* Artist Name */}
+      {artist && (
+        <TouchableOpacity onPress={handleArtistPress}>
+          <Text style={styles.artistName}>{artist}</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Status Badge */}
+      <View style={styles.statusBadge}>
+        {route.params.username ? (
+          <Text style={styles.statusText}>Uploaded by: {route.params.username}</Text>
+        ) : (
+          <Text style={styles.statusTextVerified}>✅ Verified Vocal Range</Text>
+        )}
+      </View>
+
+      {/* Vocal Range Header */}
+      {vocalRange && (
+        <>
+          <View style={styles.vocalRangeHeader}>
+            <Text style={styles.vocalRangeIcon}>🎤</Text>
+            <Text style={styles.vocalRangeTitle}>Vocal Range: {vocalRange}</Text>
+          </View>
+
+          <Piano vocalRange={vocalRange} />
+
+          {/* Range Details */}
+          <View style={styles.rangeDetails}>
+            <View style={styles.rangeItem}>
+              <Text style={styles.rangeLabel}>Lowest Note:</Text>
+              <Text style={styles.rangeValue}>{lowest}</Text>
+            </View>
+            <View style={styles.rangeItem}>
+              <Text style={styles.rangeLabel}>Highest Note:</Text>
+              <Text style={styles.rangeValue}>{highest}</Text>
+            </View>
+            <View style={styles.rangeItem}>
+              <Text style={styles.rangeLabel}>Octave Range:</Text>
+              <Text style={styles.rangeValue}>{octaveRange}</Text>
+            </View>
+          </View>
+
+          {/* Best Fit Section */}
+          <View style={styles.bestFitSection}>
+            <Text style={styles.bestFitTitle}>Best Fit Analysis</Text>
+            <View style={styles.bestFitCard}>
+              <Text style={styles.bestFitLabel}>Male Voice:</Text>
+              <Text style={styles.bestFitValue}>{male}</Text>
+              {maleOutOfRange && (
+                <Text style={styles.outOfRangeText}>
+                  {getOutOfRangeMessage(maleOutOfRange)}
+                </Text>
+              )}
+            </View>
+            <View style={styles.bestFitCard}>
+              <Text style={styles.bestFitLabel}>Female Voice:</Text>
+              <Text style={styles.bestFitValue}>{female}</Text>
+              {femaleOutOfRange && (
+                <Text style={styles.outOfRangeText}>
+                  {getOutOfRangeMessage(femaleOutOfRange)}
+                </Text>
+              )}
+            </View>
+          </View>
+        </>
+      )}
+
+      {/* Personalized Recommendation Component */}
+      <SongRangeRecommendation songVocalRange={vocalRange} />
+
+      {/* Action Buttons */}
+      <View style={styles.actionButtons}>
+        {/* <TouchableOpacity style={styles.primaryButton}>
+          <Text style={styles.primaryButtonText}>COMPARE RANGE</Text>
+        </TouchableOpacity> */}
+        {isLoggedIn && (
+          <TouchableOpacity 
+            style={styles.primaryButton}
+            onPress={() => setModalVisible(true)}
+          >
+            <Text style={styles.primaryButtonText}>ADD TO LIST</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Share Button */}
+      <TouchableOpacity style={styles.shareButton}>
+        <Text style={styles.shareButtonText}>SHARE</Text>
+      </TouchableOpacity>
+
+      {/* Report Issue Button */}
+      <TouchableOpacity
+        style={styles.reportButton}
+        onPress={() => setIssueModalVisible(true)}
+      >
+        <Ionicons name="alert-circle-outline" size={24} color={COLORS.primary} />
+        <Text style={styles.reportButtonText}>Report Issue</Text>
+      </TouchableOpacity>
+
+      {/* Modal for adding to list */}
       <Modal visible={isModalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -237,336 +346,427 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
         >
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <View style={styles.modalContainer}>
-              <Text style={styles.modalTitle}>Add to List</Text>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Add to List</Text>
 
-              {/* "All Saved Songs" Option */}
-              <TouchableOpacity
-                style={styles.listOptionAlwaysSaved}
-                onPress={() => handleSaveToExistingList("All Saved Songs")}
-              >
-                <Text style={styles.listOptionTextAlwaysSaved}>
-                  📌 All Saved Songs (Auto-added)
-                </Text>
-              </TouchableOpacity>
-              <FlatList
-                data={existingLists.filter(
-                  (list) => list.name !== "All Saved Songs"
-                )}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.listOption}
-                    onPress={() => handleSaveToExistingList(item.name)}
-                  >
-                    <Text style={styles.listOptionText}>{item.name}</Text>
-                  </TouchableOpacity>
-                )}
-                ListEmptyComponent={
-                  <Text style={styles.noListText}>No saved lists found.</Text>
-                }
-                keyboardShouldPersistTaps="handled" // Allows taps to dismiss keyboard
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Custom List Name"
-                value={customListName}
-                onChangeText={setCustomListName}
-              />
-              <TouchableOpacity
-                style={styles.modalOption}
-                onPress={handleSaveToCustomList}
-              >
-                <Text style={styles.modalOptionText}>Add to New List</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Text style={styles.modalCancel}>Cancel</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.listOptionAlwaysSaved}
+                  onPress={() => handleSaveToExistingList("All Saved Songs")}
+                >
+                  <Text style={styles.listOptionTextAlwaysSaved}>
+                    📌 All Saved Songs (Auto-added)
+                  </Text>
+                </TouchableOpacity>
+
+                <FlatList
+                  data={existingLists.filter(
+                    (list) => list.name !== "All Saved Songs"
+                  )}
+                  keyExtractor={(item) => item.id.toString()}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.listOption}
+                      onPress={() => handleSaveToExistingList(item.name)}
+                    >
+                      <Text style={styles.listOptionText}>{item.name}</Text>
+                    </TouchableOpacity>
+                  )}
+                  ListEmptyComponent={
+                    <Text style={styles.noListText}>No saved lists found.</Text>
+                  }
+                  keyboardShouldPersistTaps="handled"
+                />
+
+                <TextInput
+                  style={styles.input}
+                  placeholder="Custom List Name"
+                  value={customListName}
+                  onChangeText={setCustomListName}
+                  placeholderTextColor={COLORS.textLight}
+                />
+
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={handleSaveToCustomList}
+                >
+                  <Text style={styles.modalButtonText}>Add to New List</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.modalCancelButton}
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
       </Modal>
-      {/* Song details */}
-      <Text style={styles.title}>{name}</Text>
-      <Text style={styles.artist}>
-        By{" "}
-        <Text onPress={handleArtistPress} style={styles.artistLink}>
-          {artist}
-        </Text>
-      </Text>
-      <Text style={styles.vocalRange}>Vocal Range: {vocalRange}</Text>
-      <View style={styles.details}>
-        {route.params.username ? (
-          <Text style={styles.uploadedBy}>
-            Uploaded by: {route.params.username}
-          </Text>
-        ) : (
-          <Text style={styles.verifiedCheck}>✅ Verified Vocal Range</Text>
-        )}
-      </View>
-      <View style={styles.rangeContainer}>
-        <Text style={styles.rangeText}>Best fit for male: {male}</Text>
-        {maleOutOfRange && (
-          <Text style={styles.noteText}>
-            {getOutOfRangeMessage(maleOutOfRange)}
-          </Text>
-        )}
-        <Text style={styles.divider}>- - -</Text>
-        <Text style={styles.rangeText}>Best fit for female: {female}</Text>
-        {femaleOutOfRange && (
-          <Text style={styles.noteText}>
-            {getOutOfRangeMessage(femaleOutOfRange)}
-          </Text>
-        )}
-      </View>
-
-      {/* Personalized Recommendation Component */}
-      <SongRangeRecommendation songVocalRange={vocalRange} />
-
-      {/* Report Issue Button */}
-      <TouchableOpacity
-        style={styles.reportButton}
-        onPress={() => setIssueModalVisible(true)}
-      >
-        <Ionicons name="alert-circle-outline" size={28} color="red" />
-      </TouchableOpacity>
 
       {/* Issue Report Modal */}
       <Modal visible={isIssueModalVisible} animationType="slide" transparent>
         <View style={styles.modalContainer}>
-          <Text style={styles.modalTitle}>Report an Issue</Text>
-          <TextInput
-            style={styles.issueText}
-            placeholder="Describe the issue..."
-            value={issueText}
-            onChangeText={setIssueText}
-            multiline
-          />
-          <TouchableOpacity onPress={handleSubmitIssue}>
-            <Text style={styles.buttonText}>Submit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setIssueModalVisible(false)}>
-            <Text style={styles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Report an Issue</Text>
+            <TextInput
+              style={styles.issueInput}
+              placeholder="Describe the issue..."
+              value={issueText}
+              onChangeText={setIssueText}
+              multiline
+              placeholderTextColor={COLORS.textLight}
+            />
+            <TouchableOpacity 
+              style={styles.modalButton}
+              onPress={handleSubmitIssue}
+            >
+              <Text style={styles.modalButtonText}>Submit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.modalCancelButton}
+              onPress={() => setIssueModalVisible(false)}
+            >
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
-      <View style={{ height: 100 }} />
     </ScrollView>
   );
 };
 
-// Styles
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  contentContainer: {
     flexGrow: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-    backgroundColor: "#fff",
-    paddingBottom: 50,
-    paddingTop: 50,
-  },
-  divider: {
-    fontSize: 16,
-    textAlign: "center",
-    color: "gray",
-    margin: 5,
-  },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 10 },
-  artist: { fontSize: 18, color: "gray", marginBottom: 10 },
-  artistLink: {
-    color: "#007bff", // Makes it look like a link
-    textDecorationLine: "underline",
+    paddingBottom: 40,
   },
 
-  vocalRange: { fontSize: 20, color: "tomato", marginVertical: 10 },
-  rangeContainer: {
+  // Album Art
+  albumArtContainer: {
+    alignItems: 'center',
     marginTop: 30,
-    padding: 30,
-    borderWidth: 1,
-    borderRadius: 10,
-    borderColor: "gray",
+    marginBottom: 30,
   },
-  rangeText: { fontSize: 16, textAlign: "center", marginVertical: 0 },
-  noteText: {
-    fontSize: 12,
-    textAlign: "center",
-    color: "gray",
-  },
-  buttonText: {
-    color: "#fff",
-    backgroundColor: "#32CD32",
-    padding: 10,
-    borderRadius: 5,
-    marginVertical: 10,
-    textAlign: "center",
-  },
-  modalContainer: {
-    marginTop: "auto",
-    marginBottom: "auto",
-    marginRight: 20,
-    marginLeft: 20,
-    flex: 0.7,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.8)", // Darker overlay
-    padding: 20,
-    borderRadius: 10,
-  },
-  modalContent: {
-    width: "85%",
-    backgroundColor: "rgba(255, 255, 255, 0.3)", // Soft glass effect
+  albumArt: {
+    width: 280,
+    height: 280,
+    backgroundColor: COLORS.textDark,
     borderRadius: 20,
-    padding: 25,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 15 },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
-    elevation: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  modalTitle: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#fff",
-    textAlign: "center",
-    textShadowColor: "rgba(0, 0, 0, 0.7)", // Shadow for contrast
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 4,
-    paddingBottom: 15,
+  albumArtText: {
+    fontSize: 60,
+    marginBottom: 20,
   },
-  modalOption: {
-    width: "100%",
-    backgroundColor: "tomato",
+  albumTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    fontFamily: FONTS.primary,
+    textAlign: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 20,
+  },
+  albumArtist: {
+    fontSize: 16,
+    color: '#ccc',
+    fontFamily: FONTS.primary,
+    textAlign: 'center',
+    letterSpacing: 2,
+  },
+
+  // Song Info
+  songTitle: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
+    textAlign: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 20,
+  },
+  artistName: {
+    fontSize: 24,
+    color: COLORS.textLight,
+    fontFamily: FONTS.primary,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+
+  // Status Badge
+  statusBadge: {
+    alignSelf: 'center',
+    backgroundColor: COLORS.background,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 30,
+  },
+  statusText: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    fontFamily: FONTS.primary,
+    fontWeight: 'bold',
+  },
+  statusTextVerified: {
+    fontSize: 12,
+    color: COLORS.primary,
+    fontFamily: FONTS.primary,
+    fontWeight: 'bold',
+  },
+
+  // Vocal Range
+  vocalRangeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 30,
+  },
+  vocalRangeIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  vocalRangeTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
+  },
+
+  
+
+  // Range Details
+  rangeDetails: {
+    paddingHorizontal: 20,
+    marginBottom: 30,
+  },
+  rangeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
-  modalOptionText: {
+  rangeLabel: {
     fontSize: 18,
-    color: "#fff",
-    fontWeight: "bold",
-    textTransform: "uppercase",
+    color: COLORS.textLight,
+    fontFamily: FONTS.primary,
+    flex: 1,
+  },
+  rangeValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
+  },
+
+  // Best Fit Section
+  bestFitSection: {
+    paddingHorizontal: 20,
+    marginBottom: 30,
+  },
+  bestFitTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
+    marginBottom: 15,
+  },
+  bestFitCard: {
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  bestFitLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
+    marginBottom: 4,
+  },
+  bestFitValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    fontFamily: FONTS.primary,
+  },
+  outOfRangeText: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    fontFamily: FONTS.primary,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+
+  // Action Buttons
+  actionButtons: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 15,
+    marginBottom: 20,
+  },
+  primaryButton: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+    fontFamily: FONTS.primary,
     letterSpacing: 1,
   },
-  modalButton: {
-    color: "#fff",
-    backgroundColor: "#007bff",
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 10,
-  },
-  modalCancelButton: {
-    width: "100%",
-    backgroundColor: "#ff4d4d",
-    paddingVertical: 12,
+
+  // Share Button
+  shareButton: {
+    marginHorizontal: 20,
+    backgroundColor: 'transparent',
+    paddingVertical: 16,
     borderRadius: 8,
-    alignItems: "center",
-    marginTop: 10,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.textLight,
+    marginBottom: 20,
   },
-  input: {
-    width: "100%",
-    padding: 14,
-    borderWidth: 2, // Make border more visible
-    borderColor: "rgba(255, 255, 255, 0.8)",
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.5)", // Lightened for better visibility
-    fontSize: 18,
-    color: "#fff",
-    marginBottom: 15,
-    textAlign: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  modalCancel: {
+  shareButtonText: {
+    color: COLORS.textLight,
     fontSize: 16,
-    color: "#fff",
-    backgroundColor: "#ff0000",
-    padding: 8,
-    borderRadius: 5,
-    marginTop: 20,
+    fontWeight: 'bold',
+    fontFamily: FONTS.primary,
+    letterSpacing: 1,
+  },
+
+  // Report Button
+  reportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 20,
+    paddingVertical: 12,
+  },
+  reportButtonText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontFamily: FONTS.primary,
+    marginLeft: 8,
+  },
+
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 25,
+    width: '90%',
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.textDark,
+    textAlign: 'center',
+    marginBottom: 20,
+    fontFamily: FONTS.primary,
+  },
+  listOptionAlwaysSaved: {
+    backgroundColor: COLORS.secondary,
+    padding: 14,
+    borderRadius: 8,
+    marginVertical: 4,
+    alignItems: 'center',
+  },
+  listOptionTextAlwaysSaved: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: 'bold',
+    fontFamily: FONTS.primary,
   },
   listOption: {
-    backgroundColor: "#e0e0e0", // Light gray background
-    padding: 12,
+    backgroundColor: COLORS.background,
+    padding: 14,
     borderRadius: 8,
-    marginVertical: 5,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000", // Shadow for depth
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2, // Elevation for Android shadow
+    marginVertical: 4,
+    alignItems: 'center',
   },
   listOptionText: {
     fontSize: 16,
-    color: "#333", // Dark text color for readability
-    fontWeight: "500", // Medium weight for emphasis
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
   },
   noListText: {
     fontSize: 14,
-    color: "#999", // Subtle gray color for "no lists found"
-    textAlign: "center",
-    marginVertical: 20, // Space around the message
+    color: COLORS.textLight,
+    textAlign: 'center',
+    marginVertical: 20,
+    fontFamily: FONTS.primary,
   },
-  // uploaded by user styles:
-  details: {
-    marginTop: 3,
-    padding: 1,
-    paddingRight: 5,
-    paddingLeft: 5,
+  input: {
     borderWidth: 1,
-    borderRadius: 50,
-    borderColor: "gray",
-    opacity: 0.8, // opacity of the content in border
-  },
-  uploadedBy: {
-    fontSize: 10,
-    color: "gray",
-    marginTop: 5,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  verifiedCheck: {
-    fontSize: 10,
-    color: "tomato",
-    marginTop: 5,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  reportButton: { marginTop: 50, marginLeft: "auto" },
-  cancelText: { fontSize: 16, color: "#fff", marginTop: 10 },
-  issueText: {
-    width: "80%",
-    height: "40%",
-    padding: 10,
-    backgroundColor: "#fff",
-    borderRadius: 5,
-    marginBottom: 20,
-    textAlignVertical: "top",
-  },
-  listOptionAlwaysSaved: {
-    backgroundColor: "#ff9933",
-    padding: 14,
+    borderColor: COLORS.border,
     borderRadius: 8,
-    marginVertical: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-
-  listOptionTextAlwaysSaved: {
+    padding: 12,
+    marginVertical: 10,
     fontSize: 16,
-    color: "#000", // Black text for contrast
-    fontWeight: "bold",
-    textAlign: "center",
+    fontFamily: FONTS.primary,
+  },
+  modalButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: FONTS.primary,
+  },
+  modalCancelButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  modalCancelText: {
+    color: COLORS.textLight,
+    fontSize: 16,
+    fontFamily: FONTS.primary,
+  },
+  issueInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    padding: 12,
+    height: 120,
+    textAlignVertical: 'top',
+    marginVertical: 10,
+    fontSize: 16,
+    fontFamily: FONTS.primary,
   },
 });

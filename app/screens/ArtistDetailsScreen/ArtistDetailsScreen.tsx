@@ -11,8 +11,9 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { supabase } from "../../util/supabase";
-import { RootStackParamList } from "../../navigation/StackNavigator";
+import { COLORS, FONTS } from "../../styles/theme";
 import { noteToValue } from "../SongDetailsScreen/RangeBestFit";
+import { RootStackParamList } from "../../navigation/StackNavigator";
 
 export const ArtistDetailsScreen = ({ route }: any) => {
   const { name } = route.params;
@@ -24,7 +25,7 @@ export const ArtistDetailsScreen = ({ route }: any) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const indicatorRef = useRef<View>(null);
 
-  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+    const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
   // Set the header options and check login status
   useEffect(() => {
@@ -165,7 +166,7 @@ export const ArtistDetailsScreen = ({ route }: any) => {
 
   // Function to render tooltip:
   // displays the differences between the user's range and the artist's range
-  const renderTooltip = () => {
+  const renderTooltip = (color: string) => {
     const { minDiff, maxDiff, reason } = getRangeComparison();
     if (!showTooltip) return null;
 
@@ -192,11 +193,11 @@ export const ArtistDetailsScreen = ({ route }: any) => {
     }
 
     return (
-      <View style={[styles.tooltip, { borderColor: "#ff5722" }]}>
+      <View style={[styles.tooltip, { borderColor: color }]}>
         <Text style={styles.tooltipText}>Low: {lowText}</Text>
         <Text style={styles.tooltipText}>High: {highText}</Text>
         <Text style={styles.tooltipText}>{reason}</Text>
-        <View style={[styles.tooltipArrow, { borderTopColor: "#ff5722" }]} />
+        <View style={[styles.tooltipArrow, { borderBottomColor: color }]} />
       </View>
     );
   };
@@ -232,7 +233,7 @@ export const ArtistDetailsScreen = ({ route }: any) => {
                   style={[styles.rangeIndicator, { backgroundColor: color }]}
                   onPress={() => setShowTooltip((prev) => !prev)}
                 />
-                {renderTooltip()}
+                {renderTooltip(color)}
               </View>
             )}
           </View>
@@ -266,24 +267,54 @@ export const ArtistDetailsScreen = ({ route }: any) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#ffffff", padding: 10 },
-  headerContainer: { paddingBottom: 20 },
-  title: { fontSize: 32, fontWeight: "bold", color: "#ff5722", marginBottom: 10 },
-  subtitle: { fontSize: 24, color: "#000000", marginVertical: 10 },
-  card: {
-    backgroundColor: "#f5f5f5",
-    padding: 20,
-    borderRadius: 10,
-    marginBottom: 20,
-    borderColor: "#ff5722",
-    borderWidth: 1,
+  container: {
+    flex: 1,
+    backgroundColor: 'white',
   },
-  overallRange: { fontSize: 20, color: "#000000", marginBottom: 10 },
-  personalRange: { fontSize: 18, color: "#ff5722", fontWeight: "600" },
+  headerContainer: {
+    paddingBottom: 20,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    marginBottom: 10,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    fontFamily: FONTS.primary,
+  },
+  subtitle: {
+    fontSize: 24,
+    color: COLORS.textDark,
+    marginVertical: 10,
+    paddingHorizontal: 20,
+    fontFamily: FONTS.primary,
+  },
+  card: {
+    backgroundColor: COLORS.background,
+    padding: 20,
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  overallRange: {
+    fontSize: 20,
+    color: COLORS.textDark,
+    marginBottom: 10,
+    fontFamily: FONTS.primary,
+  },
+  personalRange: {
+    fontSize: 18,
+    color: COLORS.primary,
+    fontWeight: '600',
+    fontFamily: FONTS.primary,
+  },
   rangeContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    position: "relative",
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
   },
   rangeIndicator: {
     width: 15,
@@ -292,14 +323,15 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   tooltip: {
-    position: "absolute",
-    top: 20,
-    right: -10,
-    backgroundColor: "#fff",
+    position: 'absolute',
+    top: 25,
+    left: -10,
+    backgroundColor: 'white',
     padding: 10,
     borderRadius: 5,
     borderWidth: 1,
-    shadowColor: "#000",
+    borderColor: COLORS.border,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -308,34 +340,43 @@ const styles = StyleSheet.create({
   },
   tooltipText: {
     fontSize: 14,
-    color: "#333",
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
   },
   tooltipArrow: {
-    position: "absolute",
+    position: 'absolute',
     top: -6,
-    right: 150,
+    right: 10,
     width: 0,
     height: 0,
     borderLeftWidth: 6,
     borderRightWidth: 6,
     borderBottomWidth: 6,
-    borderStyle: "solid",
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
-    borderBottomColor: "#ff5722",
+    borderStyle: 'solid',
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: COLORS.primary,
   },
   songCard: {
-    backgroundColor: "#ffffff",
-    padding: 15,
-    borderRadius: 8,
-    marginVertical: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    borderColor: "#ff5722",
+    backgroundColor: 'white',
+    padding: 20,
+    marginHorizontal: 20,
+    marginBottom: 15,
+    borderRadius: 12,
     borderWidth: 1,
+    borderColor: COLORS.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  songTitle: { fontSize: 18, color: "#000000" },
-  songRange: { fontSize: 16, color: "#555555" },
+  songTitle: {
+    fontSize: 18,
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
+  },
+  songRange: {
+    fontSize: 16,
+    color: COLORS.primary,
+    fontFamily: FONTS.primary,
+  },
 });

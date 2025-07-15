@@ -14,7 +14,7 @@
 ### 2. Vocal Range Comparison
 - **Personalized Range**: Logged-in users can set their vocal range (lowest and highest notes).
 - **Real-Time Comparison**: Automatically compare your range to an artist’s or song’s range.
-- **Color-Coded Indicator**:
+- **Colour-Coded Indicator**:
   - 🟢 **Green**: Comfortably within your range.
   - 🟡 **Yellow**: Slightly outside but singable (within 3 semitones).
   - 🔴 **Red**: Significantly out of range.
@@ -44,7 +44,7 @@
 - **Backend**: Supabase (PostgreSQL database, authentication, real-time updates)
 - **Navigation**: React Navigation (Native Stack Navigator)
 - **Styling**: React Native Stylesheets with a modern, minimalist UI
-- **Color Scheme**: Dark gray/black backgrounds, vibrant orange accents (`#ff5722`), clean white text
+- **Colour Scheme**: Dark gray/black backgrounds, vibrant orange accents (`#ff5722`), clean white text
 
 ---
 
@@ -53,7 +53,7 @@
 1. **Login or Guest Mode**: Log in to unlock personalized features, or continue as a guest with limited access.
 2. **Search Songs/Artists**: Use the search bar to find songs or artists.
 3. **View Vocal Ranges**: See the lowest and highest notes for each song or artist.
-4. **Compare Ranges**: If logged in, your range is compared to the artist’s or song’s range with a color-coded indicator.
+4. **Compare Ranges**: If logged in, your range is compared to the artist’s or song’s range with a colour-coded indicator.
 5. **Save to Lists**: Add songs to custom playlists for practice or performance.
 6. **Explore Details**: Tap on a song or artist for in-depth vocal insights.
 

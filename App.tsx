@@ -74,8 +74,6 @@ export default function App() {
 
   return (
     <NavigationContainer
-      linking={linking}
-      fallback={<Text>Loading...</Text>}
       onStateChange={(state) => {
         // Track current screen for tab indication:
         const currentRoute = state?.routes[state.index];

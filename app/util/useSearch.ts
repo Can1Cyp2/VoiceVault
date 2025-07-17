@@ -8,11 +8,7 @@ import {
   getRandomSongs,
 } from "../util/api";
 import { checkInternetConnection } from "../util/network";
-import {
-  getSongsByArtist,
-  calculateOverallRange,
-  noteToValue,
-} from "../util/vocalRange";
+import { getSongsByArtist, calculateOverallRange, noteToValue } from "./vocalRange";
 
 // Cache for search results and artist data
 const searchCache = new Map<string, any[]>();
@@ -77,13 +73,9 @@ export const useSearch = ({
       const userMinVal = noteToValue(vocalRange.min_range);
       const userMaxVal = noteToValue(vocalRange.max_range);
 
-      const overlap = getRangeOverlapScore(
-        userMinVal,
-        userMaxVal,
-        songMinVal,
-        songMaxVal
-      );
-      return overlap >= 0;
+      if (songMinVal === -1 || songMaxVal === -1) return false;
+
+      return songMinVal >= userMinVal && songMaxVal <= userMaxVal;
     },
     [vocalRange]
   );
@@ -223,6 +215,7 @@ export const useSearch = ({
     }
 
     try {
+      setState((prev) => ({ ...prev, error: null }));
       if (filter === "songs") {
         let newSongs: any[] = [];
         if (query.trim() === "") {
@@ -362,15 +355,23 @@ export const useSearch = ({
   }, [initialFetchDone, setInitialFetchDone]);
 
   useEffect(() => {
-    setSongsPage(1);
-    setArtistsPage(1);
-    setState((prev) => ({
-      ...prev,
-      results: [],
-      hasMoreSongs: true,
-      hasMoreArtists: true,
-    }));
-    debouncedFetchResults(1, false);
+    if (query.trim() === "") {
+      if (filter === "songs") {
+        setState((prev) => ({ ...prev, results: prev.allSongs }));
+      } else {
+        setState((prev) => ({ ...prev, results: prev.allArtists }));
+      }
+    } else {
+      setSongsPage(1);
+      setArtistsPage(1);
+      setState((prev) => ({
+        ...prev,
+        results: [],
+        hasMoreSongs: true,
+        hasMoreArtists: true,
+      }));
+      debouncedFetchResults(1, false);
+    }
     return () => debouncedFetchResults.cancel();
   }, [query, filter, debouncedFetchResults]);
 
@@ -386,38 +387,45 @@ export const useSearch = ({
         let newSongs: any[] = [];
         if (query.trim() === "") {
           newSongs = await getRandomSongs(25);
+          const artists = await deriveArtistsFromSongs(newSongs, 20, query);
           setState((prev) => ({
             ...prev,
             hasMoreSongs: newSongs.length >= 25,
             randomSongs: newSongs,
             allSongs: newSongs,
             results: newSongs,
+            allArtists: artists,
           }));
         } else {
           newSongs = await searchSongsByQuery(query);
+          const artists = await deriveArtistsFromSongs(newSongs, 20, query);
           setState((prev) => ({
             ...prev,
             hasMoreSongs: false,
             allSongs: newSongs,
             results: newSongs,
+            allArtists: artists,
           }));
         }
-        const artists = await deriveArtistsFromSongs(newSongs, 20, query);
-        setState((prev) => ({ ...prev, allArtists: artists }));
       } else {
         let artists: any[] = [];
         if (query.trim() === "") {
           const newRandomSongs = await getRandomSongs(25);
-          setState((prev) => ({ ...prev, randomSongs: newRandomSongs }));
           artists = await deriveArtistsFromSongs(newRandomSongs, 20);
+          setState((prev) => ({
+            ...prev,
+            randomSongs: newRandomSongs,
+            allArtists: artists,
+            results: artists,
+          }));
         } else {
           artists = await searchArtistsByQuery(query, 20);
+          setState((prev) => ({
+            ...prev,
+            results: artists,
+            allArtists: artists,
+          }));
         }
-        setState((prev) => ({
-          ...prev,
-          results: artists,
-          allArtists: artists,
-        }));
       }
     } catch (err) {
       setState((prev) => ({

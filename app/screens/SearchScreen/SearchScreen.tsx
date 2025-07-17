@@ -282,7 +282,7 @@ export default function SearchScreen() {
                       </Text>
                     )}
                   </View>
-                  {vocalRange && (
+                  {isLoggedIn && vocalRange && (
                     <Ionicons
                       name={
                         filter === "songs"

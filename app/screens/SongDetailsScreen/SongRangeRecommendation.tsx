@@ -10,7 +10,9 @@ import {
   Platform,
   UIManager,
 } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import { fetchUserVocalRange } from "../../util/api";
+import { COLORS, FONTS } from "../../styles/theme";
 
 // All musical notes in order from C0 to C7
 export const NOTES = [
@@ -110,6 +112,7 @@ interface SongRangeRecommendationProps {
 const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
   songVocalRange,
 }) => {
+  const navigation = useNavigation();
   const [userMinRange, setUserMinRange] = useState<string | null>(null);
   const [userMaxRange, setUserMaxRange] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -180,12 +183,12 @@ const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
       } else {
         const lowFeedback =
           songMinIndex < userMinIndex
-            ? `Out of range by -${userMinIndex - songMinIndex} notes`
+            ? `Too low by ${userMinIndex - songMinIndex} notes`
             : "In range! ✅";
 
         const highFeedback =
           songMaxIndex > userMaxIndex
-            ? `Out of range by +${songMaxIndex - userMaxIndex} notes`
+            ? `Too high by ${songMaxIndex - userMaxIndex} notes`
             : "In range! ✅";
 
         setRangeFeedback({
@@ -211,6 +214,11 @@ const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
     setIsExpanded(!isExpanded);
   };
 
+  const handleSetupPress = () => {
+    // @ts-ignore
+    navigation.navigate("Profile");
+  };
+
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={toggleExpand} style={styles.header}>
@@ -220,22 +228,30 @@ const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
       {isExpanded && rangeFeedback && (
         <View style={styles.content}>
           {rangeFeedback.showSetupMessage ? (
-            <Text style={styles.setupMessage}>
-              Set your vocal range in the profile for personalized
-              recommendations.
-            </Text>
+            <>
+              <Text style={styles.setupMessage}>
+                Set your vocal range for a personalized recommendation.
+              </Text>
+              <TouchableOpacity style={styles.setupButton} onPress={handleSetupPress}>
+                <Text style={styles.setupButtonText}>Set Your Range</Text>
+              </TouchableOpacity>
+            </>
           ) : (
             <>
               <Text style={styles.userRangeText}>
                 Your Vocal Range: {userMinRange} - {userMaxRange}
               </Text>
               <View style={styles.feedbackItem}>
-                <Text style={styles.feedbackLabel}>Low: </Text>
-                <Text style={styles.feedbackText}>{rangeFeedback.low}</Text>
+                <Text style={styles.feedbackLabel}>Low:</Text>
+                <Text style={[styles.feedbackText, rangeFeedback.low.includes('In range') ? styles.inRange : styles.outOfRange]}>
+                  {rangeFeedback.low}
+                </Text>
               </View>
               <View style={styles.feedbackItem}>
-                <Text style={styles.feedbackLabel}>High: </Text>
-                <Text style={styles.feedbackText}>{rangeFeedback.high}</Text>
+                <Text style={styles.feedbackLabel}>High:</Text>
+                <Text style={[styles.feedbackText, rangeFeedback.high.includes('In range') ? styles.inRange : styles.outOfRange]}>
+                  {rangeFeedback.high}
+                </Text>
               </View>
             </>
           )}
@@ -247,69 +263,85 @@ const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
 
 const styles = StyleSheet.create({
   container: {
+    marginHorizontal: 20,
     marginTop: 20,
-    padding: 10,
-    borderRadius: 10,
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "lightgray",
-    backgroundColor: "#f9f9f9",
-    width: "100%",
+    borderColor: COLORS.border,
+    overflow: 'hidden',
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
   },
   title: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: 'bold',
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
   },
   expandText: {
-    fontSize: 18,
-    color: "gray",
+    fontSize: 20,
+    color: COLORS.textLight,
+    fontFamily: FONTS.primary,
   },
   content: {
-    marginTop: 10,
-    padding: 10,
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ddd",
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   userRangeText: {
     fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 10,
-    color: "#555",
-  },
-  inRangeContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  inRangeText: {
-    fontSize: 16,
-    color: "green",
-    marginLeft: 10,
+    fontWeight: '600',
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   feedbackItem: {
-    flexDirection: "row",
-    marginVertical: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 6,
   },
   feedbackLabel: {
     fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
+    color: COLORS.textLight,
+    fontFamily: FONTS.primary,
+    width: 60,
   },
   feedbackText: {
     fontSize: 16,
-    color: "#555",
+    fontWeight: 'bold',
+    fontFamily: FONTS.primary,
+    flex: 1,
+  },
+  inRange: {
+    color: COLORS.primary,
+  },
+  outOfRange: {
+    color: COLORS.danger,
   },
   setupMessage: {
     fontSize: 16,
-    color: "#555",
-    textAlign: "center",
+    color: COLORS.textLight,
+    fontFamily: FONTS.primary,
+    textAlign: 'center',
     marginVertical: 10,
+  },
+  setupButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  setupButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: FONTS.primary,
   },
 });
 

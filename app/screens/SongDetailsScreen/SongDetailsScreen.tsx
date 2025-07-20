@@ -317,7 +317,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       )}
 
       {/* Personalized Recommendation Component */}
-      <SongRangeRecommendation songVocalRange={vocalRange} />
+      <SongRangeRecommendation songVocalRange={vocalRange} isLoggedIn={isLoggedIn} />
 
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
@@ -335,9 +335,9 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       </View>
 
       {/* Share Button */}
-      <TouchableOpacity style={styles.shareButton}>
-        <Text style={styles.shareButtonText}>SHARE</Text>
-      </TouchableOpacity>
+      {/* <TouchableOpacity style={styles.shareButton}>
+        <Text style={styles.shareButtonText}>SHARE</Text> // MIGHT ADD THIS LATER
+      </TouchableOpacity> */}
 
       {/* Report Issue Button */}
       <TouchableOpacity
@@ -630,6 +630,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     gap: 15,
     marginBottom: 20,
+    marginTop: 20, // Add this line
   },
   primaryButton: {
     flex: 1,

@@ -6,6 +6,7 @@ import {
   searchSongsByQuery,
   searchArtistsByQuery,
   getRandomSongs,
+  smartSearchSongs,
 } from "../util/api";
 import { checkInternetConnection } from "../util/network";
 import { getSongsByArtist, calculateOverallRange, noteToValue } from "./vocalRange";
@@ -235,7 +236,7 @@ export const useSearch = ({
             hasMoreSongs: newSongs.length >= 25,
           }));
         } else {
-          newSongs = await searchSongsByQuery(query);
+          newSongs = await smartSearchSongs(query);
           setState((prev) => ({ ...prev, hasMoreSongs: false }));
         }
 
@@ -397,7 +398,7 @@ export const useSearch = ({
             allArtists: artists,
           }));
         } else {
-          newSongs = await searchSongsByQuery(query);
+          newSongs = await smartSearchSongs(query);
           const artists = await deriveArtistsFromSongs(newSongs, 20, query);
           setState((prev) => ({
             ...prev,
@@ -482,3 +483,5 @@ export const useSearch = ({
     },
   };
 };
+
+

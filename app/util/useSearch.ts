@@ -397,6 +397,7 @@ export const useSearch = ({
             allArtists: artists,
           }));
         } else {
+
           newSongs = await smartSearchSongs(query);
           const artists = await deriveArtistsFromSongs(newSongs, 20, query);
           setState((prev) => ({

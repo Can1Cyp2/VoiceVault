@@ -373,6 +373,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: COLORS.textDark,
     fontFamily: FONTS.primary,
+    flexShrink: 1,
+    marginRight: 10,
   },
   songRange: {
     fontSize: 16,

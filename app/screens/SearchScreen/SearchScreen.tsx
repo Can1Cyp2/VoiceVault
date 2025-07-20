@@ -253,7 +253,7 @@ export default function SearchScreen() {
         <FlatList
           style={{ minHeight: '88%' }}
           contentContainerStyle={{
-            paddingBottom: filter === "artists" && query.length > 0 ? 60 : 0
+            paddingBottom: 90
           }}
 
           data={
@@ -317,7 +317,7 @@ export default function SearchScreen() {
                 <Text style={styles.loadingText}>Loading more...</Text>
               </View>
             ) : filter === "artists" && query.length === 0 ? (
-              <View style={[styles.swipeMessageContainer, { paddingBottom: 20 }]}>
+              <View style={styles.swipeMessageContainer}>
                 <Text style={styles.swipeMessageText}>
                   Swipe down from top to cycle artists:
                 </Text>

@@ -106,11 +106,13 @@ export const NOTES = [
 // Function to fetch user vocal range from the API
 interface SongRangeRecommendationProps {
   songVocalRange: string;
+  isLoggedIn: boolean;
 }
 
 // Function to fetch user vocal range from the API
 const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
   songVocalRange,
+  isLoggedIn,
 }) => {
   const navigation = useNavigation();
   const [userMinRange, setUserMinRange] = useState<string | null>(null);
@@ -215,8 +217,13 @@ const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
   };
 
   const handleSetupPress = () => {
-    // @ts-ignore
-    navigation.navigate("Profile");
+    if (isLoggedIn) {
+      // @ts-ignore
+      navigation.navigate("Profile");
+    } else {
+      // @ts-ignore
+      navigation.navigate("Home");
+    }
   };
 
   return (

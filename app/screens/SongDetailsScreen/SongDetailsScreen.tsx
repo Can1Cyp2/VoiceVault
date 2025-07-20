@@ -317,7 +317,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       )}
 
       {/* Personalized Recommendation Component */}
-      <SongRangeRecommendation songVocalRange={vocalRange} />
+      <SongRangeRecommendation songVocalRange={vocalRange} isLoggedIn={isLoggedIn} />
 
       {/* Action Buttons */}
       <View style={styles.actionButtons}>

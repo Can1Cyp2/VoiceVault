@@ -809,7 +809,7 @@ export const addSong = async (song: {
     const { data, error } = await supabase.from("pending_songs").insert([
       {
         name: song.name,
-        vocal_range: song.vocalRange, // Make sure this matches your pending_songs table column
+        vocal_range: song.vocalRange,
         artist: song.artist,
         user_id: user.id,
         username: song.username || null,
@@ -922,7 +922,7 @@ export const approvePendingSong = async (
       throw new Error("Pending song not found.");
     }
 
-    // Insert into main songs table - adjust column names based on your actual table structure
+    // Insert into main songs table
     const { error: insertError } = await supabase.from("songs").insert([
       {
         name: pendingSong.name,

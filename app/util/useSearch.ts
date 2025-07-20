@@ -3,7 +3,6 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import debounce from "lodash.debounce";
 import Fuse from "fuse.js";
 import {
-  searchSongsByQuery,
   searchArtistsByQuery,
   getRandomSongs,
   smartSearchSongs,

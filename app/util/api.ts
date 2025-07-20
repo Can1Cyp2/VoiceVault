@@ -1,5 +1,6 @@
 import { Alert } from "react-native";
 import { supabase } from "./supabase";
+import { getSongsByArtist } from "./vocalRange";
 
 export let errorCount = 0;
 

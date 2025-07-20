@@ -9,7 +9,7 @@ export const COLORS = {
 };
 
 export const FONTS = {
-  primary: "Roboto", // Replace with your preferred font family
+  primary: "Roboto", // might change later
 };
 
 export const SHARED_STYLES = {

@@ -421,7 +421,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
             <Text style={styles.modalTitle}>Report an Issue</Text>
             <TextInput
               style={styles.issueInput}
-              placeholder="Describe the issue..."
+              placeholder="Describe the issue... contact voicevaultcontact@gmail.com if this issue fails to send."
               value={issueText}
               onChangeText={setIssueText}
               multiline

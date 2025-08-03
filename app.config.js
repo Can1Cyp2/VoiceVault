@@ -9,7 +9,7 @@ module.exports = () => {
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
-    newArchEnabled: true,
+    newArchEnabled: false, // temp 
     splash: {
       image: "./assets/icon.png",
       resizeMode: "contain",
@@ -41,8 +41,7 @@ module.exports = () => {
         "CHANGE_WIFI_STATE"
       ],
       compileSdkVersion: 35,
-      targetSdkVersion: 35,
-      buildToolsVersion: "35.0.0"
+      targetSdkVersion: 35
     },
     web: {
       favicon: "./assets/favicon.png"
@@ -73,6 +72,7 @@ module.exports = () => {
         }
       ],
       "expo-secure-store",
+      "expo-video",
       [
         "react-native-google-mobile-ads",
         {

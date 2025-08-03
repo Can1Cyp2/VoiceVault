@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Modal,
   View,
@@ -7,9 +7,8 @@ import {
   Linking,
   StyleSheet,
   Alert,
-  TouchableOpacity,
 } from 'react-native';
-import { useAds } from './AdService';
+import Constants from 'expo-constants';
 
 interface Props {
   visible: boolean;
@@ -17,39 +16,38 @@ interface Props {
 }
 
 export const SupportModal = ({ visible, onClose }: Props) => {
-  const { 
-    adsWatched, 
-    canWatchMore, 
-    timeUntilNextAd, 
-    remainingAds,
-    showRewardedAd,
-    showInterstitialAd,
-    isExpoGo 
-  } = useAds();
+  const isExpoGo = Constants.appOwnership === 'expo';
 
-  const handleRewardedAd = async () => {
-    const success = await showRewardedAd();
-    // Don't close modal - let them watch more ads for more revenue!
-  };
+  const handleWatchAd = async () => {
+    if (isExpoGo) {
+      Alert.alert(
+        'Not Available in Preview',
+        'Watching ads is only supported in the full app version.'
+      );
+      return;
+    }
 
-  const handleQuickAd = async () => {
-    const success = await showInterstitialAd();
-    if (success) {
-      onClose();
+    try {
+      const { AdMobRewarded } = await import('expo-ads-admob');
+      await AdMobRewarded.setAdUnitID(
+        'ca-app-pub-3940256099942544/5224354917'
+      );
+      await AdMobRewarded.requestAdAsync();
+      await AdMobRewarded.showAdAsync();
+
+      AdMobRewarded.addEventListener('rewardedVideoUserDidEarnReward', () => {
+        Alert.alert('Thank You!', 'You supported the app by watching an ad!');
+        onClose();
+      });
+    } catch (error) {
+      Alert.alert('Ad Not Ready', 'Try again later.');
     }
   };
 
   const handleDonate = () => {
-    Linking.openURL('https://www.Ko-fi.com/voicevault');
+    Linking.openURL('https://www.Ko-fi.com/voicevault'); // Replace with your link
     onClose();
   };
-
-  const formatTime = (ms: number) => {
-    const seconds = Math.ceil(ms / 1000);
-    return seconds > 0 ? `${seconds}s` : 'Ready!';
-  };
-
-  const adButtonDisabled = !canWatchMore || timeUntilNextAd > 0;
 
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent presentationStyle='overFullScreen'>
@@ -59,64 +57,14 @@ export const SupportModal = ({ visible, onClose }: Props) => {
           <Text style={styles.subheader}>
             Your support helps keep the app running and improving!
           </Text>
-
-          {/* Show ad stats */}
-          {adsWatched > 0 && (
-            <View style={styles.statsContainer}>
-              <Text style={styles.statsText}>
-                🎬 Ads watched today: {adsWatched}
-              </Text>
-              {canWatchMore && (
-                <Text style={styles.remainingText}>
-                  {remainingAds} more available
-                </Text>
-              )}
-            </View>
-          )}
-
           <Button title="☕ Donate Directly" onPress={handleDonate} />
-          
           <View style={{ marginVertical: 10 }} />
-          
-          <TouchableOpacity 
-            style={[styles.adButton, adButtonDisabled && styles.disabledButton]}
-            onPress={handleRewardedAd}
-            disabled={adButtonDisabled}
-          >
-            <Text style={styles.adButtonText}>
-              {isExpoGo ? "🎬 Try Rewarded Ad (Preview)" : "🎥 Watch Ad (+10 coins)"}
-            </Text>
-            {timeUntilNextAd > 0 && (
-              <Text style={styles.waitText}>
-                Wait {formatTime(timeUntilNextAd)}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          <View style={{ marginVertical: 5 }} />
-
-          <TouchableOpacity 
-            style={[styles.quickAdButton, adButtonDisabled && styles.disabledButton]}
-            onPress={handleQuickAd}
-            disabled={adButtonDisabled}
-          >
-            <Text style={styles.adButtonText}>
-              ⚡ Quick Ad (+5 coins)
-            </Text>
-          </TouchableOpacity>
-
-          {!canWatchMore && (
-            <Text style={styles.limitText}>
-              🙏 Daily ad limit reached! Thanks for your support!
-            </Text>
-          )}
-
+          <Button title="🎥 Watch an Ad" onPress={handleWatchAd} />
           {isExpoGo && (
             <Text style={styles.note}>
-              Preview mode - ads will work in the built app
+              Ads only work in the full app, not in preview.
             </Text>
           )}
-          
           <View style={{ marginVertical: 10 }} />
           <Button title="Close" onPress={onClose} />
         </View>
@@ -155,60 +103,5 @@ const styles = StyleSheet.create({
     fontWeight: '300',
     marginBottom: 16,
     textAlign: 'center',
-  },
-  statsContainer: {
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    width: '100%',
-  },
-  statsText: {
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  remainingText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  adButton: {
-    backgroundColor: '#007bff',
-    padding: 12,
-    borderRadius: 8,
-    width: '100%',
-    alignItems: 'center',
-  },
-  quickAdButton: {
-    backgroundColor: '#17a2b8',
-    padding: 12,
-    borderRadius: 8,
-    width: '100%',
-    alignItems: 'center',
-  },
-  disabledButton: {
-    backgroundColor: '#ccc',
-    opacity: 0.6,
-  },
-  adButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  waitText: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  limitText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#856404',
-    textAlign: 'center',
-    backgroundColor: '#fff3cd',
-    padding: 8,
-    borderRadius: 6,
   },
 });

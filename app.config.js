@@ -10,6 +10,7 @@ module.exports = () => {
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
     newArchEnabled: false, // temp 
+
     splash: {
       image: "./assets/icon.png",
       resizeMode: "contain",
@@ -63,7 +64,8 @@ module.exports = () => {
             useFrameworks: "static"
           },
           android: {
-            kotlinVersion: "1.9.25"
+            kotlinVersion: "1.9.10", 
+            composeCompilerVersion: "1.5.8"
           }
         }
       ],

@@ -13,7 +13,7 @@ class AdService {
   private adCount = 0;
   private lastAdTime = 0;
   private readonly MIN_AD_INTERVAL = 30000; // 30 seconds between ads
-  private readonly MAX_ADS_PER_SESSION = 20;
+  private readonly MAX_ADS_PER_SESSION = 100;
 
   async initialize() {
     if (this.isInitialized || isExpoGo) return;

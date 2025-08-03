@@ -64,8 +64,7 @@ module.exports = () => {
             useFrameworks: "static"
           },
           android: {
-            kotlinVersion: "2.0.21",
-            buildToolsVersion: "34.0.0"
+            kotlinVersion: "2.0.21"
           }
         }
       ],

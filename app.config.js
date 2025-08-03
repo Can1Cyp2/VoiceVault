@@ -72,7 +72,14 @@ module.exports = () => {
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-7846050438990670~7402587455",
+          "iosAppId": "ca-app-pub-7846050438990670~3247720022"
+        }
+      ]
     ]
   };
 };

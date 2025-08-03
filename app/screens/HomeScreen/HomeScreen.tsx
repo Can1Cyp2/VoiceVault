@@ -17,6 +17,7 @@ import SignupModal from "../SignupScreen/SignupModal";
 import { CompositeScreenProps } from "@react-navigation/native";
 import { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import { TabParamList } from "../../../App";
+import { SupportModal } from "../../components/SupportModal/SupportModal";
 
 // Combined navigation props for tab and stack navigators
 type HomeScreenProps = CompositeScreenProps<
@@ -28,6 +29,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [isLoginVisible, setLoginVisible] = useState(false);
   const [isSignupVisible, setSignupVisible] = useState(false);
   const [isLoggedIn, setLoggedIn] = useState(false);
+  const [isSupportVisible, setSupportVisible] = useState(false);
 
   // Check if user is logged in when the component mounts
   useEffect(() => {
@@ -90,6 +92,14 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         <Text style={styles.toolsText}>Tools</Text>
       </TouchableOpacity>
 
+      {/* Support Button in Top Right */}
+      <TouchableOpacity
+        style={styles.supportButton}
+        onPress={() => setSupportVisible(true)}
+      >
+        <Ionicons name="heart-outline" size={30} color="#e91e63" />
+      </TouchableOpacity>
+
       {/* Logo Section */}
       <Image
         source={require("../../../assets/transparent-icon.png")}
@@ -127,6 +137,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       <Modal visible={isSignupVisible} transparent animationType="slide">
         <SignupModal onClose={() => setSignupVisible(false)} />
       </Modal>
+      
+      <SupportModal visible={isSupportVisible} onClose={() => setSupportVisible(false)} />
       <Text style={styles.versionText}>Version 1.2.4</Text>
     </View>
   );
@@ -194,5 +206,12 @@ const styles = StyleSheet.create({
     color: "#ff6600",
     marginLeft: 5,
     fontWeight: "bold",
+  },
+  supportButton: {
+    position: "absolute",
+    top: 60,
+    right: 20,
+    flexDirection: "row",
+    alignItems: "center",
   },
 });

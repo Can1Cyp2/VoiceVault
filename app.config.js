@@ -61,6 +61,9 @@ module.exports = () => {
         {
           ios: {
             useFrameworks: "static"
+          },
+          android: {
+            kotlinVersion: "1.9.25"
           }
         }
       ],

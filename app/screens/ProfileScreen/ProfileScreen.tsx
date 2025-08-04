@@ -23,6 +23,7 @@ export default function ProfileScreen({ navigation }: any) {
   const [isLoading, setIsLoading] = useState(true);
   const [isHelpVisible, setHelpVisible] = useState(false);
   const [updateTrigger, setUpdateTrigger] = useState(0); // Triggers refresh
+  const [coinBalance, setCoinBalance] = useState<number | null>(null);
 
   // Admin status hook
   const { isAdmin, loading: adminLoading, adminDetails } = useAdminStatus();
@@ -37,10 +38,27 @@ export default function ProfileScreen({ navigation }: any) {
       if (!user) {
         setUsername("Edit your profile to add a username.");
         setVocalRange("Edit your profile to set a vocal range.");
-      } else {
+      }
+
+      if (user) {
         const displayName = user.user_metadata?.display_name || "";
         setUsername(displayName || "Edit your profile to add a username.");
+
+        // Fetch coin balance
+        const { data: coinData, error } = await supabase
+          .from("user_coins")
+          .select("coins")
+          .eq("user_id", user.id)
+          .single();
+
+        if (error) {
+          console.error("Error fetching coins:", error.message);
+          setCoinBalance(null);
+        } else {
+          setCoinBalance(coinData?.coins || 0);
+        }
       }
+
 
       // Fetch vocal range
       const rangeData = await fetchUserVocalRange();
@@ -88,7 +106,7 @@ export default function ProfileScreen({ navigation }: any) {
       Alert.alert("Logout Failed", error.message);
     } else {
       navigation.navigate("Home"),
-      setUsername("Edit your profile to add a username.");
+        setUsername("Edit your profile to add a username.");
       setVocalRange("Edit your profile to set a vocal range.");
       Alert.alert("Logged Out", "You have successfully logged out.");
     }
@@ -116,6 +134,12 @@ export default function ProfileScreen({ navigation }: any) {
           ? username
           : `Username: ${username}`}
       </Text>
+      {coinBalance !== null && (
+        <Text style={styles.coinBalance}>
+          Coins: 🪙 {coinBalance}
+        </Text>
+      )}
+
       {/* Display Vocal Range */}
       <Text style={styles.vocalRange}>{vocalRange}</Text>
 
@@ -220,6 +244,12 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     marginBottom: 20,
     textAlign: "center",
+  },
+  coinBalance: {
+    fontSize: 16,
+    color: "#ffaa00",
+    fontWeight: "600",
+    marginBottom: 10,
   },
   button: {
     backgroundColor: "#007bff",

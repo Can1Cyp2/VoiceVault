@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Modal,
   Alert,
+  Animated,
 } from "react-native";
 import { supabase } from "../../util/supabase";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -18,6 +19,7 @@ import { CompositeScreenProps } from "@react-navigation/native";
 import { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import { TabParamList } from "../../../App";
 import { SupportModal } from "../../components/SupportModal/SupportModal";
+import { getLoginGlow, setLoginGlow } from "../../util/loginPrompt";
 
 // Combined navigation props for tab and stack navigators
 type HomeScreenProps = CompositeScreenProps<
@@ -30,6 +32,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [isSignupVisible, setSignupVisible] = useState(false);
   const [isLoggedIn, setLoggedIn] = useState(false);
   const [isSupportVisible, setSupportVisible] = useState(false);
+
+  // State for login glow for users not logged in and clicking on the profile screen, and then choosing to log in
+  const [shouldGlow, setShouldGlow] = useState(false);
+  const [blinkAnimation] = useState(new Animated.Value(1));
 
   // Check if user is logged in when the component mounts
   useEffect(() => {
@@ -69,6 +75,48 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       navigation.setOptions({ headerRight: undefined });
     }
   }, [isLoggedIn, navigation]);
+
+  // Check for login glow flag
+  useEffect(() => {
+    const checkLoginGlow = () => {
+      if (getLoginGlow()) {
+        setShouldGlow(true);
+        setLoginGlow(false); // Clear the flag
+
+        // Start blinking animation
+        const blink = Animated.loop(
+          Animated.sequence([
+            Animated.timing(blinkAnimation, {
+              toValue: 0.3,
+              duration: 500,
+              useNativeDriver: true,
+            }),
+            Animated.timing(blinkAnimation, {
+              toValue: 1,
+              duration: 500,
+              useNativeDriver: true,
+            }),
+          ])
+        );
+        blink.start();
+
+        // Remove glow and stop blinking after 5 seconds
+        setTimeout(() => {
+          setShouldGlow(false);
+          blink.stop();
+          blinkAnimation.setValue(1); // Reset to full opacity
+        }, 5000);
+      }
+    };
+
+    // Check immediately
+    checkLoginGlow();
+
+    // Check every 500ms for the flag
+    const interval = setInterval(checkLoginGlow, 500);
+
+    return () => clearInterval(interval);
+  }, [blinkAnimation]);
 
   // Handle logout
   const handleLogout = async () => {
@@ -117,12 +165,20 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         </TouchableOpacity>
       ) : (
         <>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => setLoginVisible(true)}
+          <Animated.View
+            style={[
+              styles.button,
+              shouldGlow && styles.glowButton,
+              shouldGlow && { opacity: blinkAnimation } // Add animated opacity
+            ]}
           >
-            <Text style={styles.buttonText}>Login</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.buttonInner}
+              onPress={() => setLoginVisible(true)}
+            >
+              <Text style={styles.buttonText}>Login</Text>
+            </TouchableOpacity>
+          </Animated.View>
           <TouchableOpacity
             style={[styles.button, styles.signupButton]}
             onPress={() => setSignupVisible(true)}
@@ -137,7 +193,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       <Modal visible={isSignupVisible} transparent animationType="slide">
         <SignupModal onClose={() => setSignupVisible(false)} />
       </Modal>
-      
+
       <SupportModal visible={isSupportVisible} onClose={() => setSupportVisible(false)} />
       <Text style={styles.versionText}>Version 1.2.5</Text>
     </View>
@@ -212,6 +268,22 @@ const styles = StyleSheet.create({
     top: 60,
     right: 20,
     flexDirection: "row",
+    alignItems: "center",
+  },
+  glowButton: {
+    shadowColor: "#ff6600",
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+    elevation: 20, // For Android
+    borderWidth: 2,
+    borderColor: "rgba(255, 102, 0, 0.5)",
+  },
+  buttonInner: {
+    width: "100%",
     alignItems: "center",
   },
 });

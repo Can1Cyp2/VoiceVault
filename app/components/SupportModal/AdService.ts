@@ -3,6 +3,7 @@ import { Alert, Platform } from "react-native";
 import Constants from "expo-constants";
 import { useState, useEffect } from "react";
 import { getSession, supabase } from "../../util/supabase";
+import Toast from "react-native-toast-message";
 
 const isExpoGo = Constants.appOwnership === "expo";
 const isDev = __DEV__;
@@ -13,8 +14,10 @@ class AdService {
   private isInitialized = false;
   private adCount = 0;
   private lastAdTime = 0;
-  private readonly MIN_AD_INTERVAL = 30000; // 30 seconds between ads
-  private readonly MAX_ADS_PER_SESSION = 100;
+  private lastAdType: "rewarded" | "interstitial" | null = null; // Track last ad type
+  private readonly MIN_LONG_AD_INTERVAL = 30000; // 30 seconds between long ads
+  private readonly MIN_AD_INTERVAL = 5000; // 5 seconds between short ads
+  private readonly MAX_ADS_PER_SESSION = 25;
 
   async initialize() {
     if (this.isInitialized || isExpoGo) return;
@@ -80,7 +83,7 @@ class AdService {
       return this.simulateAdInExpo("rewarded");
     }
 
-    if (!this.canShowAd()) return false;
+    if (!this.canShowAd("rewarded")) return false; // Pass "rewarded"
 
     if (!this.isInitialized) {
       await this.initialize();
@@ -88,7 +91,7 @@ class AdService {
 
     try {
       await this.rewardedAd.show();
-      this.recordAdShow();
+      this.recordAdShow("rewarded"); // Pass "rewarded"
       return true;
     } catch (error) {
       Alert.alert("Ad Not Ready", "Please wait a moment and try again.");
@@ -102,7 +105,7 @@ class AdService {
       return this.simulateAdInExpo("interstitial");
     }
 
-    if (!this.canShowAd()) return false;
+    if (!this.canShowAd("interstitial")) return false; // Pass "interstitial"
 
     if (!this.isInitialized) {
       await this.initialize();
@@ -110,7 +113,7 @@ class AdService {
 
     try {
       await this.interstitialAd.show();
-      this.recordAdShow();
+      this.recordAdShow("interstitial"); // Pass "interstitial"
       return true;
     } catch (error) {
       this.interstitialAd?.load();
@@ -118,13 +121,16 @@ class AdService {
     }
   }
 
-  private canShowAd(): boolean {
+  private canShowAd(adType?: "rewarded" | "interstitial"): boolean { // Add optional parameter
     const now = Date.now();
     const timeSinceLastAd = now - this.lastAdTime;
 
-    if (timeSinceLastAd < this.MIN_AD_INTERVAL) {
+    // Use different intervals based on ad type
+    const requiredInterval = adType === "rewarded" ? this.MIN_LONG_AD_INTERVAL : this.MIN_AD_INTERVAL;
+
+    if (timeSinceLastAd < requiredInterval) {
       const waitTime = Math.ceil(
-        (this.MIN_AD_INTERVAL - timeSinceLastAd) / 1000
+        (requiredInterval - timeSinceLastAd) / 1000
       );
       Alert.alert(
         "Please Wait",
@@ -144,9 +150,10 @@ class AdService {
     return true;
   }
 
-  private recordAdShow() {
+  private recordAdShow(adType?: "rewarded" | "interstitial") { // Add optional parameter
     this.adCount++;
     this.lastAdTime = Date.now();
+    if (adType) this.lastAdType = adType; // Track ad type
   }
 
   private simulateAdInExpo(
@@ -161,7 +168,7 @@ class AdService {
             text: "Simulate Success",
             onPress: () => {
               this.onAdReward(type);
-              this.recordAdShow();
+              this.recordAdShow(type); // Pass type
               resolve(true);
             },
           },
@@ -176,7 +183,7 @@ class AdService {
   }
 
   private async onAdReward(type: "rewarded" | "interstitial") {
-    const rewardAmount = type === "rewarded" ? 10 : 5;
+    const rewardAmount = type === "rewarded" ? 10 : 3;
 
     const session = await getSession();
     if (!session) {
@@ -184,10 +191,12 @@ class AdService {
       return;
     }
     if (!session?.session?.user) {
-      Alert.alert(
-        "Guest Mode",
-        `You earned ${rewardAmount} coins! (Not saved)`
-      );
+      Toast.show({
+        type: 'info',
+        text1: 'Ad Watched',
+        text2: `Coins Earned: ${rewardAmount} (Not saved)`,
+        visibilityTime: 3000,
+      });
       return;
     }
 
@@ -202,21 +211,28 @@ class AdService {
       console.error("Error updating coins:", error.message);
       Alert.alert("Error", "Failed to update your coin balance.");
     } else {
-      Alert.alert(
-        "Thank You!",
-        `You earned ${rewardAmount} coins! 🎉\n\nAds watched today: ${this.adCount}`
-      );
+      Toast.show({
+        type: 'success',
+        text1: 'Ad Watched',
+        text2: `Coins Earned: ${rewardAmount}`,
+        visibilityTime: 3000,
+      });
     }
   }
 
   getAdStats() {
+    const now = Date.now();
+    const timeSinceLastAd = now - this.lastAdTime;
+    
+    // Use the correct interval based on the last ad type shown
+    const lastAdInterval = this.lastAdType === "rewarded" 
+      ? this.MIN_LONG_AD_INTERVAL 
+      : this.MIN_AD_INTERVAL;
+
     return {
       adsWatched: this.adCount,
       canWatchMore: this.adCount < this.MAX_ADS_PER_SESSION,
-      timeUntilNextAd: Math.max(
-        0,
-        this.MIN_AD_INTERVAL - (Date.now() - this.lastAdTime)
-      ),
+      timeUntilNextAd: Math.max(0, lastAdInterval - timeSinceLastAd),
       remainingAds: this.MAX_ADS_PER_SESSION - this.adCount,
     };
   }

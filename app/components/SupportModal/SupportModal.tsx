@@ -8,13 +8,24 @@ import {
   StyleSheet,
   Alert,
   TouchableOpacity,
+  Pressable,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAds } from './AdService';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
 }
+
+// Info function for the info button
+const showSupportInfo = () => {
+  Alert.alert(
+    "Support Information",
+    "The lowest donation you can make is $1, I wanted it to be as accessible as possible for anyone who would like to support me. Please feel no pressure in donating!\n\nYou can normally watch hundreds of ads a day before hitting a cap. I simply put a 25 ad cap per session as to not make people feel like they have to watch ads endlessly just to support me. Watching ads is not comparable to the amount of support a donation of any amount would be, however, any support is much appreciated!\n\nI truly am so thankful for all of the support shown!\nThank you.",
+    [{ text: "OK", style: "default" }]
+  );
+};
 
 export const SupportModal = ({ visible, onClose }: Props) => {
   const { 
@@ -55,7 +66,22 @@ export const SupportModal = ({ visible, onClose }: Props) => {
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent presentationStyle='overFullScreen'>
       <View style={styles.overlay}>
         <View style={styles.modal}>
-          <Text style={styles.title}>Support the Creator</Text>
+          {/* Header with title and info button */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Support the Creator</Text>
+            <Pressable 
+              onPress={showSupportInfo}
+              style={styles.infoButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons 
+                name="information-circle-outline" 
+                size={24} 
+                color="#666"
+              />
+            </Pressable>
+          </View>
+          
           <Text style={styles.subheader}>
             Your support helps keep the app running and improving!
           </Text>
@@ -101,7 +127,7 @@ export const SupportModal = ({ visible, onClose }: Props) => {
             disabled={adButtonDisabled}
           >
             <Text style={styles.adButtonText}>
-              ⚡ Quick Ad (+5 coins)
+              ⚡ Quick Ad (+3coins)
             </Text>
           </TouchableOpacity>
 
@@ -139,10 +165,19 @@ const styles = StyleSheet.create({
     width: '80%',
     alignItems: 'center',
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 8,
+  },
   title: {
     fontSize: 20,
-    marginBottom: 14,
     fontWeight: 'bold',
+  },
+  infoButton: {
+    padding: 4,
   },
   note: {
     marginTop: 10,

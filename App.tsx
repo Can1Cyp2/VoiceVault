@@ -10,6 +10,7 @@ import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
 import AdminProfileScreen from "./app/screens/ProfileScreen/AdminProfileScreen";
 import { useEffect, useState } from "react";
 import React from "react";
+import Toast from "react-native-toast-message";
 import { useAdminStatus } from "./app/util/adminUtils";
 
 // Define the types for the tab navigator
@@ -73,65 +74,68 @@ export default function App() {
   }, []);
 
   return (
-    <NavigationContainer
-      onStateChange={(state) => {
-        // Track current screen for tab indication:
-        const currentRoute = state?.routes[state.index];
-        if (currentRoute) {
-          setCurrentScreen(currentRoute.name);
-        }
-      }}
-    >
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-          tabBarStyle: {
-            height: 90,
-            paddingBottom: 10,
-          },
+    <>
+      <NavigationContainer
+        onStateChange={(state) => {
+          // Track current screen for tab indication:
+          const currentRoute = state?.routes[state.index];
+          if (currentRoute) {
+            setCurrentScreen(currentRoute.name);
+          }
         }}
       >
-        <Tab.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{
-            tabBarButton: (props) => (
-              <CustomTabButton
-                {...props}
-                label="Home"
-                icon="home"
-                isCurrentScreen={currentScreen === "Home"}
-              />
-            ),
+        <Tab.Navigator
+          screenOptions={{
+            headerShown: false,
+            tabBarStyle: {
+              height: 90,
+              paddingBottom: 10,
+            },
           }}
-        />
-        <Tab.Screen
-          name="Search"
-          component={AppStack}
-          options={{
-            tabBarButton: (props) => (
-              <CustomSearchButton
-                {...props}
-                isCurrentScreen={currentScreen === "Search"}
-              />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Profile"
-          component={ProfileScreen}
-          options={{
-            tabBarButton: (props) => (
-              <CustomProfileButton
-                {...props}
-                isLoggedIn={isLoggedIn}
-                isCurrentScreen={currentScreen === "Profile"}
-              />
-            ),
-          }}
-        />
-      </Tab.Navigator>
-    </NavigationContainer>
+        >
+          <Tab.Screen
+            name="Home"
+            component={HomeScreen}
+            options={{
+              tabBarButton: (props) => (
+                <CustomTabButton
+                  {...props}
+                  label="Home"
+                  icon="home"
+                  isCurrentScreen={currentScreen === "Home"}
+                />
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="Search"
+            component={AppStack}
+            options={{
+              tabBarButton: (props) => (
+                <CustomSearchButton
+                  {...props}
+                  isCurrentScreen={currentScreen === "Search"}
+                />
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="Profile"
+            component={ProfileScreen}
+            options={{
+              tabBarButton: (props) => (
+                <CustomProfileButton
+                  {...props}
+                  isLoggedIn={isLoggedIn}
+                  isCurrentScreen={currentScreen === "Profile"}
+                />
+              ),
+            }}
+          />
+        </Tab.Navigator>
+      </NavigationContainer>
+      <Toast />
+    </>
   );
 }
 
@@ -139,10 +143,10 @@ export default function App() {
 const CustomTabButton = ({ onPress, accessibilityState, label, icon, isCurrentScreen }: any) => {
   // Use isCurrentScreen prop instead of accessibilityState for more reliable indication
   const isSelected = isCurrentScreen ?? (accessibilityState?.selected ?? false);
-  
+
   return (
-    <Pressable 
-      onPress={onPress} 
+    <Pressable
+      onPress={onPress}
       style={[
         styles.tabButtonContainer,
         isSelected && styles.selectedTabContainer // Add selected style
@@ -237,8 +241,8 @@ const CustomSearchButton = ({ onPress, accessibilityState, isCurrentScreen }: an
   const backgroundColor = isPressed
     ? "#cc6600" // Darker orange when pressed
     : isSelected
-    ? "#ff6600" // Bright orange when selected
-    : "#ff9933"; // Default orange
+      ? "#ff6600" // Bright orange when selected
+      : "#ff9933"; // Default orange
 
   return (
     <Pressable
@@ -246,7 +250,7 @@ const CustomSearchButton = ({ onPress, accessibilityState, isCurrentScreen }: an
       onPressOut={() => setIsPressed(false)}
       onPress={onPress}
       style={[
-        styles.searchButton, 
+        styles.searchButton,
         { backgroundColor },
         isSelected && styles.selectedSearchButton // Add selected search button style
       ]}

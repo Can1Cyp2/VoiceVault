@@ -28,7 +28,6 @@ const ProfileScreenWrapper = () => {
   const { isAdmin, loading } = useAdminStatus();
 
   if (loading) {
-
     return <ProfileScreen />;
   }
 

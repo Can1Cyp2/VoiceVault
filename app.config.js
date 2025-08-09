@@ -43,6 +43,7 @@ module.exports = () => {
         "CHANGE_NETWORK_STATE",
         "ACCESS_WIFI_STATE",
         "CHANGE_WIFI_STATE",
+        "com.google.android.gms.permission.AD_ID",
       ],
       compileSdkVersion: 35,
       targetSdkVersion: 35,

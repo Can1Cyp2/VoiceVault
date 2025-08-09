@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import React from "react";
 import Toast from "react-native-toast-message";
 import { useAdminStatus } from "./app/util/adminUtils";
+import { setLoginGlow } from "./app/util/loginPrompt";
 
 // Define the types for the tab navigator
 export type TabParamList = {
@@ -27,7 +28,6 @@ const ProfileScreenWrapper = () => {
   const { isAdmin, loading } = useAdminStatus();
 
   if (loading) {
-
     return <ProfileScreen />;
   }
 
@@ -197,6 +197,7 @@ const CustomProfileButton = ({
               {
                 text: "Yes",
                 onPress: () => {
+                  setLoginGlow(true); // Set the flag
                   navigation.navigate("Home"); // Navigate to the Home screen
                 },
               },

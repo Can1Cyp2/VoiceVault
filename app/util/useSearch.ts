@@ -8,7 +8,11 @@ import {
   smartSearchSongs,
 } from "../util/api";
 import { checkInternetConnection } from "../util/network";
-import { getSongsByArtist, calculateOverallRange, noteToValue } from "./vocalRange";
+import {
+  getSongsByArtist,
+  calculateOverallRange,
+  noteToValue,
+} from "./vocalRange";
 
 // Cache for search results and artist data
 const searchCache = new Map<string, any[]>();
@@ -235,7 +239,7 @@ export const useSearch = ({
             hasMoreSongs: newSongs.length >= 25,
           }));
         } else {
-          newSongs = await smartSearchSongs(query);
+          newSongs = await smartSearchSongs(query.trim());
           setState((prev) => ({ ...prev, hasMoreSongs: false }));
         }
 
@@ -256,16 +260,17 @@ export const useSearch = ({
           }));
         }
 
-        const artists = await deriveArtistsFromSongs(newSongs, 20, query);
+        const artists = await deriveArtistsFromSongs(
+          newSongs,
+          20,
+          query.trim()
+        );
         setState((prev) => ({ ...prev, allArtists: artists }));
         searchCache.set(cacheKey, newSongs);
       } else {
         let artists: any[] = [];
         if (query.trim() === "") {
-          artists = await deriveArtistsFromSongs(
-            state.randomSongs,
-            20 * pageNum
-          );
+          artists = await searchArtistsByQuery(query.trim(), 20 * pageNum);
           setState((prev) => ({
             ...prev,
             hasMoreArtists: artists.length >= 20 * pageNum,
@@ -397,7 +402,6 @@ export const useSearch = ({
             allArtists: artists,
           }));
         } else {
-
           newSongs = await smartSearchSongs(query);
           const artists = await deriveArtistsFromSongs(newSongs, 20, query);
           setState((prev) => ({
@@ -483,5 +487,3 @@ export const useSearch = ({
     },
   };
 };
-
-

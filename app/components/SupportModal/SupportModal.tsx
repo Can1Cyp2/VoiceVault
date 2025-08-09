@@ -127,7 +127,7 @@ export const SupportModal = ({ visible, onClose }: Props) => {
             disabled={adButtonDisabled}
           >
             <Text style={styles.adButtonText}>
-              ⚡ Quick Ad (+3coins)
+              ⚡ Quick Ad (+3 coins)
             </Text>
           </TouchableOpacity>
 

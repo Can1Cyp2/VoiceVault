@@ -157,7 +157,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       <Text style={styles.title}>Welcome to VoiceVault!</Text>
       <Text style={styles.subtitle}>
         Explore the world of vocal ranges and discover music like never before,
-        with over 28,000 songs!
+        with over 30,000 songs!
       </Text>
       {isLoggedIn ? (
         <TouchableOpacity style={styles.button} onPress={handleLogout}>
@@ -195,7 +195,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       </Modal>
 
       <SupportModal visible={isSupportVisible} onClose={() => setSupportVisible(false)} />
-      <Text style={styles.versionText}>Version 1.2.5</Text>
+      <Text style={styles.versionText}>Version 1.2.6</Text>
     </View>
   );
 }

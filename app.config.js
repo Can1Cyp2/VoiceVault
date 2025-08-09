@@ -70,6 +70,7 @@ module.exports = () => {
             kotlinVersion: "2.0.21",
             compileSdkVersion: 35,
             targetSdkVersion: 35,
+            ndkVersion: "27.0.12077973",
             architectures: ["arm64-v8a", "armeabi-v7a", "x86", "x86_64"],
           },
         },

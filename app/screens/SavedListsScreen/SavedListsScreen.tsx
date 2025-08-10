@@ -8,18 +8,23 @@ import {
   StyleSheet,
   Modal,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import { supabase } from "../../util/supabase";
 import { Ionicons } from "@expo/vector-icons";
+import { COLORS, FONTS } from "../../styles/theme";
 import { deleteList, fetchUserLists, saveNewList } from "./SavedListsLogic";
 
 export default function SavedListsScreen({ navigation }: any) {
-  const [lists, setLists] = useState<string[]>(["All Saved Songs"]); // Default list
+  const [lists, setLists] = useState<string[]>(["All Saved Songs"]);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedList, setSelectedList] = useState<string | null>(null);
   const [newListName, setNewListName] = useState("");
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
 
-  // Fetch saved lists from Supabase on component mount
   useEffect(() => {
     const fetchSavedLists = async () => {
       try {
@@ -38,8 +43,6 @@ export default function SavedListsScreen({ navigation }: any) {
           Alert.alert("Error", error.message);
         } else {
           const fetchedLists = data.map((list: any) => list.name) || [];
-
-          // Ensure only one "All Saved Songs"
           const filteredLists = fetchedLists.filter(
             (list) => list !== "All Saved Songs"
           );
@@ -53,7 +56,6 @@ export default function SavedListsScreen({ navigation }: any) {
     fetchSavedLists();
   }, []);
 
-  // Handle adding a new list
   const handleAddNewList = async () => {
     if (!newListName.trim()) {
       Alert.alert("Error", "List name cannot be empty.");
@@ -65,8 +67,8 @@ export default function SavedListsScreen({ navigation }: any) {
       Alert.alert("Success", `List "${newListName}" created.`);
       setNewListName("");
       setEditModalVisible(false);
+      setIsCreatingNew(false);
 
-      // Refresh the lists
       const updatedLists = await fetchUserLists();
       setLists(updatedLists || []);
     } catch (error) {
@@ -75,7 +77,6 @@ export default function SavedListsScreen({ navigation }: any) {
     }
   };
 
-  // Handle deleting a list
   const handleEditList = async () => {
     if (!newListName.trim()) {
       Alert.alert("Error", "List name cannot be empty.");
@@ -112,121 +113,201 @@ export default function SavedListsScreen({ navigation }: any) {
     }
   };
 
+  const openEditModal = (listName: string) => {
+    setSelectedList(listName);
+    setNewListName(listName);
+    setIsCreatingNew(false);
+    setEditModalVisible(true);
+  };
+
+  const openCreateModal = () => {
+    setSelectedList(null);
+    setNewListName("");
+    setIsCreatingNew(true);
+    setEditModalVisible(true);
+  };
+
+  const handleDeleteList = async () => {
+    if (!selectedList) return;
+    
+    Alert.alert(
+      "Delete List",
+      `Are you sure you want to delete "${selectedList}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteList(selectedList);
+              setLists((prevLists) =>
+                prevLists.filter((list) => list !== selectedList)
+              );
+              setEditModalVisible(false);
+              setSelectedList(null);
+              Alert.alert("Success", "List deleted successfully.");
+            } catch (error) {
+              Alert.alert("Error", "Could not delete the list.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const renderListItem = ({ item, index }: { item: string; index: number }) => (
+    <View style={styles.listItemContainer}>
+      <TouchableOpacity
+        style={[
+          styles.listItem,
+          item === "All Saved Songs" && styles.defaultListItem
+        ]}
+        onPress={() => navigation.navigate("ListDetails", { listName: item })}
+      >
+        <View style={styles.listItemContent}>
+          <View style={styles.listIcon}>
+            <Ionicons 
+              name={item === "All Saved Songs" ? "bookmark" : "list"} 
+              size={24} 
+              color={item === "All Saved Songs" ? COLORS.secondary : COLORS.primary} 
+            />
+          </View>
+          <View style={styles.listTextContainer}>
+            <Text style={[
+              styles.listItemText,
+              item === "All Saved Songs" && styles.defaultListText
+            ]}>
+              {item}
+            </Text>
+            {item === "All Saved Songs" && (
+              <Text style={styles.listItemSubtext}>Default collection</Text>
+            )}
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+      </TouchableOpacity>
+      
+      {item !== "All Saved Songs" && (
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => openEditModal(item)}
+        >
+          <Ionicons name="ellipsis-horizontal" size={20} color={COLORS.textLight} />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-      {/* Header with back button and list icon */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <Ionicons name="arrow-back" size={30} color="#007bff" />
+          <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
         </TouchableOpacity>
-        <Text style={styles.separator}>|</Text>
-        <Ionicons
-          name="list"
-          size={28}
-          color="#007bff"
-          style={styles.headerIcon}
-        />
-        <Text style={styles.headerText}>My Saved Lists</Text>
-        <TouchableOpacity onPress={() => setEditModalVisible(true)}>
-          <Ionicons
-            name="add-circle-outline"
-            size={30}
-            color="green"
-            style={{ marginLeft: 50 }}
-          />
+        
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>My Lists</Text>
+          <Text style={styles.headerSubtitle}>Organize your saved songs</Text>
+        </View>
+
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={openCreateModal}
+        >
+          <Ionicons name="add" size={24} color="white" />
         </TouchableOpacity>
       </View>
 
-      {/* Saved Lists */}
+      {/* Lists */}
       <FlatList
         data={lists}
         keyExtractor={(item) => item}
-        renderItem={({ item, index }) => (
-          <View style={styles.listItem}>
-            <TouchableOpacity
-              onPress={() =>
-                navigation.navigate("ListDetails", { listName: item })
-              }
-            >
-              <Text style={styles.listItemText}>
-                {index + 1}. {item}
-              </Text>
-            </TouchableOpacity>
-            {item !== "All Saved Songs" && (
-              <TouchableOpacity
-                onPress={() => {
-                  setSelectedList(item);
-                  setEditModalVisible(true);
-                }}
-              >
-                <Ionicons
-                  name="ellipsis-horizontal"
-                  size={24}
-                  color="#007bff"
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+        renderItem={renderListItem}
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
         ListEmptyComponent={() => (
-          <Text style={styles.emptyText}>You have no saved lists.</Text>
+          <View style={styles.emptyContainer}>
+            <Ionicons name="list-outline" size={64} color={COLORS.textLight} />
+            <Text style={styles.emptyTitle}>No Lists Yet</Text>
+            <Text style={styles.emptyText}>
+              Create your first list to organize your saved songs
+            </Text>
+            <TouchableOpacity 
+              style={styles.emptyButton}
+              onPress={openCreateModal}
+            >
+              <Text style={styles.emptyButtonText}>Create List</Text>
+            </TouchableOpacity>
+          </View>
         )}
       />
 
-      {/* Edit/Delete Modal */}
+      {/* Edit/Create Modal */}
       <Modal
         visible={editModalVisible}
         transparent
         animationType="slide"
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit or Delete List</Text>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>
+                  {isCreatingNew ? "Create New List" : "Edit List"}
+                </Text>
 
-            <Text style={styles.modalSubtitle}>
-              Selected List: {selectedList}
-            </Text>
+                {!isCreatingNew && (
+                  <Text style={styles.modalSubtitle}>
+                    Current: {selectedList}
+                  </Text>
+                )}
 
-            <TextInput
-              style={styles.input}
-              placeholder="Enter new list name"
-              value={newListName}
-              onChangeText={setNewListName}
-            />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter list name"
+                  value={newListName}
+                  onChangeText={setNewListName}
+                  placeholderTextColor={COLORS.textLight}
+                  autoFocus
+                />
 
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={handleEditList}
-            >
-              <Text style={styles.editButtonText}>Edit</Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={isCreatingNew ? handleAddNewList : handleEditList}
+                >
+                  <Text style={styles.modalButtonText}>
+                    {isCreatingNew ? "Create List" : "Save Changes"}
+                  </Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={async () => {
-                await deleteList(selectedList!); // Call the deleteList function
-                setLists((prevLists) =>
-                  prevLists.filter((list) => list !== selectedList)
-                );
-                setEditModalVisible(false);
-                setSelectedList(null);
-              }}
-            >
-              <Text style={styles.deleteButtonText}>Delete</Text>
-            </TouchableOpacity>
+                {!isCreatingNew && (
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={handleDeleteList}
+                  >
+                    <Text style={styles.deleteButtonText}>Delete List</Text>
+                  </TouchableOpacity>
+                )}
 
-            <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => setEditModalVisible(false)}
-            >
-              <Text style={styles.modalCloseText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={() => setEditModalVisible(false)}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -235,111 +316,225 @@ export default function SavedListsScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
-    paddingHorizontal: 20,
-    paddingTop: 70,
+    backgroundColor: 'white',
   },
+  
+  // Header
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   backButton: {
-    marginRight: 5,
-  },
-  separator: {
-    marginHorizontal: 8,
-    fontSize: 18,
     marginRight: 15,
-    color: "#ccc",
   },
-  headerIcon: {
-    marginRight: 5,
+  headerContent: {
+    flex: 1,
   },
-  headerText: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#007bff",
-    paddingBottom: 2,
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: COLORS.textLight,
+    fontFamily: FONTS.primary,
+    marginTop: 2,
+  },
+  addButton: {
+    backgroundColor: COLORS.primary,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  // List Container
+  listContainer: {
+    padding: 20,
+    paddingTop: 10,
+  },
+
+  // List Items
+  listItemContainer: {
+    marginBottom: 12,
   },
   listItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 15,
-    borderBottomWidth: 1,
-    borderColor: "#ccc",
+    backgroundColor: COLORS.background,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  defaultListItem: {
+    backgroundColor: COLORS.secondary,
+    borderColor: COLORS.secondary,
+  },
+  listItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  listIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  listTextContainer: {
+    flex: 1,
   },
   listItemText: {
     fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
+  },
+  defaultListText: {
+    color: 'white',
+  },
+  listItemSubtext: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontFamily: FONTS.primary,
+    marginTop: 2,
+  },
+  editButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    padding: 4,
+  },
+
+  // Empty State
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
+    marginTop: 20,
+    marginBottom: 8,
   },
   emptyText: {
     fontSize: 16,
-    textAlign: "center",
-    color: "#999",
-    marginTop: 20,
+    color: COLORS.textLight,
+    fontFamily: FONTS.primary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 30,
   },
+  emptyButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  emptyButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: FONTS.primary,
+  },
+
+  // Modal
   modalOverlay: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContent: {
-    width: "80%",
-    padding: 20,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    alignItems: "center",
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 25,
+    width: '90%',
+    maxWidth: 400,
   },
   modalTitle: {
     fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 10,
+    fontWeight: 'bold',
+    color: COLORS.textDark,
+    textAlign: 'center',
+    marginBottom: 8,
+    fontFamily: FONTS.primary,
   },
   modalSubtitle: {
     fontSize: 16,
-    color: "#555",
+    color: COLORS.textLight,
+    textAlign: 'center',
     marginBottom: 20,
-    textAlign: "center",
+    fontFamily: FONTS.primary,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 15,
-    width: "100%",
-  },
-  editButton: {
-    backgroundColor: "#007bff",
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 10,
-    width: "100%",
-    alignItems: "center",
-  },
-  editButtonText: {
-    color: "#fff",
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
     fontSize: 16,
+    fontFamily: FONTS.primary,
+    backgroundColor: COLORS.background,
+  },
+  modalButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: FONTS.primary,
   },
   deleteButton: {
-    backgroundColor: "#f44336",
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 10,
-    width: "100%",
-    alignItems: "center",
+    backgroundColor: '#ff4444',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
   },
   deleteButtonText: {
-    color: "#fff",
+    color: 'white',
     fontSize: 16,
+    fontWeight: '600',
+    fontFamily: FONTS.primary,
   },
-  modalCloseButton: {
-    marginTop: 10,
+  modalCancelButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
   },
-  modalCloseText: {
-    color: "#007bff",
+  modalCancelText: {
+    color: COLORS.textLight,
     fontSize: 16,
+    fontFamily: FONTS.primary,
   },
 });

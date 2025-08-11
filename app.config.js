@@ -21,6 +21,12 @@ module.exports = () => {
       bundleIdentifier: "com.can1cyp2.VoiceVault",
       buildNumber: "1.2.6",
       infoPlist: {
+        // Added for SKAdNetwork
+        SKAdNetworkItems: [
+          { SKAdNetworkIdentifier: "cstr6suwn9.skadnetwork" }, // AdMob / Google
+        ],
+        NSUserTrackingUsageDescription:
+          "If you choose to watch ads: Your data may be used to deliver more relevant ads and measure ad performance by Google (Admob), VoiceVault does not save this data.",
         NSCameraUsageDescription:
           "This app uses the camera for user profile images. (Future updates may require this permission.)",
         NSPhotoLibraryUsageDescription:
@@ -43,6 +49,7 @@ module.exports = () => {
         "CHANGE_NETWORK_STATE",
         "ACCESS_WIFI_STATE",
         "CHANGE_WIFI_STATE",
+        "com.google.android.gms.permission.AD_ID",
       ],
       compileSdkVersion: 35,
       targetSdkVersion: 35,

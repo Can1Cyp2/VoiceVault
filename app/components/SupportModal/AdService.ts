@@ -32,9 +32,13 @@ class AdService {
         MobileAds,
       } = await import("react-native-google-mobile-ads");
 
+      // Initialize SDK first
       await MobileAds().initialize();
 
-      // Real ad unit IDs from AdMob console
+      // Handle consent BEFORE any ad requests
+      await this.initConsent();
+
+      // Choose ad unit IDs
       const rewardedAdUnit = isDev
         ? TestIds.REWARDED
         : Platform.OS === "ios"
@@ -47,19 +51,16 @@ class AdService {
         ? "ca-app-pub-7846050438990670/3136039388" // iOS Interstitial
         : "ca-app-pub-7846050438990670/9677397007"; // Android Interstitial
 
-      // Setup Rewarded Ad
+      // Create ads and wire listeners
       this.rewardedAd = RewardedAd.createForAdRequest(rewardedAdUnit);
       this.rewardedAd.addAdEventListener(
         RewardedAdEventType.EARNED_REWARD,
-        () => {
-          this.onAdReward("rewarded");
-        }
+        () => this.onAdReward("rewarded")
       );
       this.rewardedAd.addAdEventListener(AdEventType.CLOSED, () => {
         setTimeout(() => this.rewardedAd?.load(), 1000);
       });
 
-      // Setup Interstitial Ad
       this.interstitialAd =
         InterstitialAd.createForAdRequest(interstitialAdUnit);
       this.interstitialAd.addAdEventListener(AdEventType.CLOSED, () => {
@@ -67,7 +68,7 @@ class AdService {
         setTimeout(() => this.interstitialAd?.load(), 1000);
       });
 
-      // Preload ads
+      // Preload AFTER creation + listeners + consent
       this.rewardedAd.load();
       this.interstitialAd.load();
 
@@ -78,22 +79,60 @@ class AdService {
     }
   }
 
+  // Request consent before any ad loads
+  private async initConsent() {
+    if (isExpoGo) return;
+    const { AdsConsent } = await import("react-native-google-mobile-ads");
+    await AdsConsent.requestInfoUpdate({}); // refresh requirements
+    await AdsConsent.gatherConsent(); // shows form if required (no-op otherwise)
+  }
+
+  // Build ad request options based on consent
+  private async currentRequestOptions() {
+    const { AdsConsent } = await import("react-native-google-mobile-ads");
+    const choices = await AdsConsent.getUserChoices().catch(() => null);
+
+    // Default to NPA unless we explicitly have permission for personalized ads
+    const allowPersonalized =
+      choices?.selectPersonalisedAds === true &&
+      choices?.storeAndAccessInformationOnDevice !== false;
+
+    // You can also check info.canRequestAds if you want to gate requests entirely.
+    return { requestNonPersonalizedAdsOnly: !allowPersonalized };
+  }
+
+  // Wait until the ad is loaded before calling show()
+  private waitForLoaded(ad: any, timeoutMs = 10000) {
+    return new Promise<void>((resolve, reject) => {
+      const { AdEventType } = require("react-native-google-mobile-ads");
+      const timer = setTimeout(
+        () => reject(new Error("Ad load timeout")),
+        timeoutMs
+      );
+      const unsub = ad.addAdEventListener(AdEventType.LOADED, () => {
+        clearTimeout(timer);
+        unsub();
+        resolve();
+      });
+      try {
+        ad.load();
+      } catch {} // kick a load if needed
+    });
+  }
+
   async showRewardedAd(): Promise<boolean> {
-    if (isExpoGo) {
-      return this.simulateAdInExpo("rewarded");
-    }
-
-    if (!this.canShowAd("rewarded")) return false; // Pass "rewarded"
-
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
+    if (isExpoGo) return this.simulateAdInExpo("rewarded");
+    if (!this.canShowAd("rewarded")) return false;
+    if (!this.isInitialized) await this.initialize();
 
     try {
+      const opts = await this.currentRequestOptions();
+      this.rewardedAd?.load(opts);
+      await this.waitForLoaded(this.rewardedAd);
       await this.rewardedAd.show();
-      this.recordAdShow("rewarded"); // Pass "rewarded"
+      this.recordAdShow("rewarded");
       return true;
-    } catch (error) {
+    } catch {
       Alert.alert("Ad Not Ready", "Please wait a moment and try again.");
       this.rewardedAd?.load();
       return false;
@@ -101,37 +140,34 @@ class AdService {
   }
 
   async showInterstitialAd(): Promise<boolean> {
-    if (isExpoGo) {
-      return this.simulateAdInExpo("interstitial");
-    }
-
-    if (!this.canShowAd("interstitial")) return false; // Pass "interstitial"
-
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
+    if (isExpoGo) return this.simulateAdInExpo("interstitial");
+    if (!this.canShowAd("interstitial")) return false;
+    if (!this.isInitialized) await this.initialize();
 
     try {
+      const opts = await this.currentRequestOptions();
+      this.interstitialAd?.load(opts);
+      await this.waitForLoaded(this.interstitialAd);
       await this.interstitialAd.show();
-      this.recordAdShow("interstitial"); // Pass "interstitial"
+      this.recordAdShow("interstitial");
       return true;
-    } catch (error) {
+    } catch {
       this.interstitialAd?.load();
       return false;
     }
   }
 
-  private canShowAd(adType?: "rewarded" | "interstitial"): boolean { // Add optional parameter
+  private canShowAd(adType?: "rewarded" | "interstitial"): boolean {
+    // Add optional parameter
     const now = Date.now();
     const timeSinceLastAd = now - this.lastAdTime;
 
     // Use different intervals based on ad type
-    const requiredInterval = adType === "rewarded" ? this.MIN_LONG_AD_INTERVAL : this.MIN_AD_INTERVAL;
+    const requiredInterval =
+      adType === "rewarded" ? this.MIN_LONG_AD_INTERVAL : this.MIN_AD_INTERVAL;
 
     if (timeSinceLastAd < requiredInterval) {
-      const waitTime = Math.ceil(
-        (requiredInterval - timeSinceLastAd) / 1000
-      );
+      const waitTime = Math.ceil((requiredInterval - timeSinceLastAd) / 1000);
       Alert.alert(
         "Please Wait",
         `You can watch another ad in ${waitTime} seconds.`
@@ -150,7 +186,8 @@ class AdService {
     return true;
   }
 
-  private recordAdShow(adType?: "rewarded" | "interstitial") { // Add optional parameter
+  private recordAdShow(adType?: "rewarded" | "interstitial") {
+    // Add optional parameter
     this.adCount++;
     this.lastAdTime = Date.now();
     if (adType) this.lastAdType = adType; // Track ad type
@@ -192,8 +229,8 @@ class AdService {
     }
     if (!session?.session?.user) {
       Toast.show({
-        type: 'info',
-        text1: 'Ad Watched',
+        type: "info",
+        text1: "Ad Watched",
         text2: `Coins Earned: ${rewardAmount} (Not saved)`,
         visibilityTime: 3000,
       });
@@ -212,8 +249,8 @@ class AdService {
       Alert.alert("Error", "Failed to update your coin balance.");
     } else {
       Toast.show({
-        type: 'success',
-        text1: 'Ad Watched',
+        type: "success",
+        text1: "Ad Watched",
         text2: `Coins Earned: ${rewardAmount}`,
         visibilityTime: 3000,
       });
@@ -223,11 +260,12 @@ class AdService {
   getAdStats() {
     const now = Date.now();
     const timeSinceLastAd = now - this.lastAdTime;
-    
+
     // Use the correct interval based on the last ad type shown
-    const lastAdInterval = this.lastAdType === "rewarded" 
-      ? this.MIN_LONG_AD_INTERVAL 
-      : this.MIN_AD_INTERVAL;
+    const lastAdInterval =
+      this.lastAdType === "rewarded"
+        ? this.MIN_LONG_AD_INTERVAL
+        : this.MIN_AD_INTERVAL;
 
     return {
       adsWatched: this.adCount,

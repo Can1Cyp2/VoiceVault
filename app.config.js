@@ -5,7 +5,7 @@ module.exports = () => {
   return {
     name: "VoiceVault",
     slug: "VoiceVault",
-    version: "1.2.6",
+    version: "1.2.7",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -19,7 +19,7 @@ module.exports = () => {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.can1cyp2.VoiceVault",
-      buildNumber: "1.2.6",
+      buildNumber: "1.2.7",
       infoPlist: {
         // Added for SKAdNetwork
         SKAdNetworkItems: [

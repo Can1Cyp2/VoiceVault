@@ -13,6 +13,10 @@ import {
 import { supabase } from "../../util/supabase";
 import { checkAdminStatus } from "../../util/adminUtils";
 
+// 
+import Constants from "expo-constants";
+import * as Updates from "expo-updates";
+
 interface AdminScreenProps {
     navigation: any;
 }
@@ -133,6 +137,24 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
         );
     };
 
+    const isExpoGo = Constants.appOwnership === "expo";
+    const IS_INTERNAL = __DEV__ || (Updates?.channel ?? "").includes("internal");
+
+    // >>> ADD THIS: open Ad Inspector without touching AdService
+    const handleOpenAdInspector = async () => {
+        if (isExpoGo) {
+            Alert.alert("Ad Inspector", "Requires a native build (not Expo Go).");
+            return;
+        }
+        try {
+            const { MobileAds } = await import("react-native-google-mobile-ads");
+            await MobileAds().openAdInspector();
+        } catch (e: any) {
+            console.warn("Ad Inspector failed:", e?.message ?? e);
+            Alert.alert("Ad Inspector", "Unavailable in this build.");
+        }
+    };
+
     if (isLoading) {
         return (
             <View style={styles.loadingContainer}>
@@ -214,6 +236,23 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
             {/* Admin Actions */}
             <View style={styles.actionsSection}>
                 <Text style={styles.sectionTitle}>Admin Actions</Text>
+
+                {IS_INTERNAL && !isExpoGo && (
+                    <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={handleOpenAdInspector}
+                    >
+                        <Text style={styles.actionIcon}>🧪</Text>
+                        <View style={styles.actionContent}>
+                            <Text style={styles.actionTitle}>Ad Inspector (Internal)</Text>
+                            <Text style={styles.actionDescription}>
+                                Debug ad serving & consent. Also enable Single ad source testing
+                                for AdMob Network.
+                            </Text>
+                        </View>
+                        <Text style={styles.actionArrow}>›</Text>
+                    </TouchableOpacity>
+                )}
 
                 <TouchableOpacity
                     style={styles.actionButton}

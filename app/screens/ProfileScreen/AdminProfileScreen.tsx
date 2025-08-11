@@ -138,22 +138,21 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
     };
 
     const isExpoGo = Constants.appOwnership === "expo";
-    const IS_INTERNAL = __DEV__ || (Updates?.channel ?? "").includes("internal");
+    const SHOW_INSPECTOR = !isExpoGo; // show on any native build
+
 
     // >>> ADD THIS: open Ad Inspector without touching AdService
     const handleOpenAdInspector = async () => {
-        if (isExpoGo) {
-            Alert.alert("Ad Inspector", "Requires a native build (not Expo Go).");
-            return;
-        }
+        if (isExpoGo) { Alert.alert("Ad Inspector", "Requires a native build."); return; }
         try {
             const { MobileAds } = await import("react-native-google-mobile-ads");
-            await MobileAds().openAdInspector();
+            await MobileAds().initialize();         // ensure SDK ready
+            await MobileAds().openAdInspector();    // open inspector
         } catch (e: any) {
-            console.warn("Ad Inspector failed:", e?.message ?? e);
             Alert.alert("Ad Inspector", "Unavailable in this build.");
         }
     };
+
 
     if (isLoading) {
         return (
@@ -237,7 +236,7 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
             <View style={styles.actionsSection}>
                 <Text style={styles.sectionTitle}>Admin Actions</Text>
 
-                {IS_INTERNAL && !isExpoGo && (
+                {SHOW_INSPECTOR && !isExpoGo && (
                     <TouchableOpacity
                         style={styles.actionButton}
                         onPress={handleOpenAdInspector}

@@ -32,6 +32,10 @@ class AdService {
         MobileAds,
       } = await import("react-native-google-mobile-ads");
 
+      await MobileAds().setRequestConfiguration({
+        testDeviceIdentifiers: ["3BCF74E4-2002-4788-B97C-84D1F37DEBC7"],
+      });
+
       // Initialize SDK first
       await MobileAds().initialize();
 

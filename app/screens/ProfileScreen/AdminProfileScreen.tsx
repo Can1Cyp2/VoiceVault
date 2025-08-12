@@ -141,17 +141,31 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
     const SHOW_INSPECTOR = !isExpoGo; // show on any native build
 
 
-    // >>> ADD THIS: open Ad Inspector without touching AdService
     const handleOpenAdInspector = async () => {
-        if (isExpoGo) { Alert.alert("Ad Inspector", "Requires a native build."); return; }
+        const isExpoGo = Constants.appOwnership === "expo";
+        if (isExpoGo) {
+            Alert.alert("Ad Inspector", "Requires a native build (not Expo Go).");
+            return;
+        }
         try {
             const { MobileAds } = await import("react-native-google-mobile-ads");
-            await MobileAds().initialize();         // ensure SDK ready
-            await MobileAds().openAdInspector();    // open inspector
+            // TellS AdMob you're testing on this device
+            await MobileAds().setRequestConfiguration({
+                testDeviceIdentifiers: ['3BCF74E4-2002-4788-B97C-84D1F37DEBC7'],
+            });
+
+            // Initialize SDK
+            await MobileAds().initialize();
+
+            // Open Inspector
+            await MobileAds().openAdInspector();
         } catch (e: any) {
-            Alert.alert("Ad Inspector", "Unavailable in this build.");
+            console.log("[AdInspector] error:", e?.code, e?.message, e);
+            Alert.alert("Ad Inspector", `Unavailable:\n${e?.code ?? ""} ${e?.message ?? "Unknown error"}`);
         }
     };
+
+
 
 
     if (isLoading) {

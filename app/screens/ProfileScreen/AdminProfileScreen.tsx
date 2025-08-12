@@ -9,11 +9,12 @@ import {
     ScrollView,
     Alert,
     ActivityIndicator,
+    Platform,
 } from "react-native";
 import { supabase } from "../../util/supabase";
 import { checkAdminStatus } from "../../util/adminUtils";
+import { adService } from "../../components/SupportModal/AdService"; // Import your ad service
 
-// 
 import Constants from "expo-constants";
 import * as Updates from "expo-updates";
 
@@ -30,6 +31,17 @@ interface AdminDetails {
     is_active: boolean;
 }
 
+interface AdDebugInfo {
+    lastError: string | null;
+    adMobInitialized: boolean;
+    consentStatus: string;
+    rewardedAdLoaded: boolean;
+    interstitialAdLoaded: boolean;
+    lastAdAttempt: string | null;
+    platform: string;
+    isDev: boolean;
+}
+
 export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
     const [adminDetails, setAdminDetails] = useState<AdminDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -38,27 +50,171 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
         activeUsers: 0,
         newUsersToday: 0,
     });
+    const [adDebugInfo, setAdDebugInfo] = useState<AdDebugInfo>({
+        lastError: null,
+        adMobInitialized: false,
+        consentStatus: 'Unknown',
+        rewardedAdLoaded: false,
+        interstitialAdLoaded: false,
+        lastAdAttempt: null,
+        platform: Platform.OS,
+        isDev: __DEV__
+    });
+    const [debugLogs, setDebugLogs] = useState<string[]>([]);
 
     useEffect(() => {
         fetchAdminData();
+        setupAdDebugMonitoring();
     }, []);
+
+    const addDebugLog = (message: string) => {
+        const timestamp = new Date().toLocaleTimeString();
+        const logMessage = `${timestamp}: ${message}`;
+        setDebugLogs(prev => [logMessage, ...prev.slice(0, 19)]); // Keep last 20 logs
+    };
+
+    const setupAdDebugMonitoring = async () => {
+        // Override console methods to capture ad-related logs
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+
+        console.log = (...args) => {
+            const message = args.join(' ');
+            if (message.toLowerCase().includes('ad') || message.toLowerCase().includes('admob')) {
+                addDebugLog(`LOG: ${message}`);
+            }
+            originalConsoleLog(...args);
+        };
+
+        console.error = (...args) => {
+            const message = args.join(' ');
+            if (message.toLowerCase().includes('ad') || message.toLowerCase().includes('admob')) {
+                addDebugLog(`ERROR: ${message}`);
+                setAdDebugInfo(prev => ({ ...prev, lastError: message }));
+            }
+            originalConsoleError(...args);
+        };
+
+        console.warn = (...args) => {
+            const message = args.join(' ');
+            if (message.toLowerCase().includes('ad') || message.toLowerCase().includes('admob')) {
+                addDebugLog(`WARN: ${message}`);
+            }
+            originalConsoleWarn(...args);
+        };
+
+        // Get initial ad status
+        await checkAdStatus();
+    };
+
+    const getDeviceIdForTesting = async () => {
+        try {
+            if (Constants.appOwnership === "expo") {
+                addDebugLog("Cannot get device ID in Expo Go");
+                return;
+            }
+
+            const { MobileAds, TestIds, RewardedAd, AdEventType } = await import("react-native-google-mobile-ads");
+
+            // Initialize without test devices first
+            await MobileAds().initialize();
+
+            // Try to load a test ad to trigger the device ID log
+            const testAd = RewardedAd.createForAdRequest(TestIds.REWARDED);
+
+            // Add error listener to catch device ID
+            testAd.addAdEventListener(AdEventType.ERROR, (error: any) => {
+                console.log('Ad error (look for device ID in logs):', error);
+                addDebugLog(`Ad error: ${JSON.stringify(error)}`);
+            });
+
+            addDebugLog("Loading test ad to get device ID - check device logs for test device identifier");
+            await testAd.load();
+
+        } catch (error) {
+            addDebugLog(`Error getting device ID: ${error}`);
+        }
+    };
+
+    const checkAdStatus = async () => {
+        try {
+            if (Constants.appOwnership === "expo") {
+                addDebugLog("Running in Expo Go - ads disabled");
+                return;
+            }
+
+            const { MobileAds, AdsConsent } = await import("react-native-google-mobile-ads");
+
+            // Check AdMob initialization
+            try {
+                await MobileAds().initialize();
+                setAdDebugInfo(prev => ({ ...prev, adMobInitialized: true }));
+                addDebugLog("AdMob SDK initialized successfully");
+            } catch (error) {
+                addDebugLog(`AdMob initialization failed: ${error}`);
+            }
+
+            // Check consent status
+            try {
+                const consentInfo = await AdsConsent.getConsentInfo();
+                setAdDebugInfo(prev => ({
+                    ...prev,
+                    consentStatus: `Can request ads: ${consentInfo.canRequestAds}`
+                }));
+                addDebugLog(`Consent status: ${JSON.stringify(consentInfo)}`);
+            } catch (error) {
+                addDebugLog(`Consent check failed: ${error}`);
+            }
+
+        } catch (error) {
+            addDebugLog(`Ad status check failed: ${error}`);
+        }
+    };
+
+    const testRewardedAd = async () => {
+        addDebugLog("Admin testing rewarded ad...");
+        setAdDebugInfo(prev => ({ ...prev, lastAdAttempt: 'Rewarded Ad' }));
+
+        try {
+            const result = await adService.showRewardedAd();
+            addDebugLog(`Rewarded ad result: ${result ? 'SUCCESS' : 'FAILED'}`);
+        } catch (error) {
+            addDebugLog(`Rewarded ad error: ${error}`);
+        }
+    };
+
+    const testInterstitialAd = async () => {
+        addDebugLog("Admin testing interstitial ad...");
+        setAdDebugInfo(prev => ({ ...prev, lastAdAttempt: 'Interstitial Ad' }));
+
+        try {
+            const result = await adService.showInterstitialAd();
+            addDebugLog(`Interstitial ad result: ${result ? 'SUCCESS' : 'FAILED'}`);
+        } catch (error) {
+            addDebugLog(`Interstitial ad error: ${error}`);
+        }
+    };
+
+    const clearDebugLogs = () => {
+        setDebugLogs([]);
+        setAdDebugInfo(prev => ({ ...prev, lastError: null, lastAdAttempt: null }));
+        addDebugLog("Debug logs cleared");
+    };
 
     const fetchAdminData = async () => {
         try {
             setIsLoading(true);
 
-            // Use the new checkAdminStatus function that gets both status and details
             const { isAdmin, adminDetails } = await checkAdminStatus();
 
             if (!isAdmin) {
                 Alert.alert("Access Denied", "You don't have admin privileges");
-                navigation.goBack(); // or navigate to a different screen
+                navigation.goBack();
                 return;
             }
 
             setAdminDetails(adminDetails);
-
-            // Fetch some basic stats
             await fetchUserStats();
         } catch (error) {
             console.error("Error fetching admin data:", error);
@@ -70,14 +226,12 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
 
     const fetchUserStats = async () => {
         try {
-            // Get total users count
             const { count: totalCount, error: totalError } = await supabase
                 .from("profiles")
                 .select("*", { count: "exact", head: true });
 
             if (totalError) throw totalError;
 
-            // Get users created today
             const today = new Date().toISOString().split("T")[0];
             const { count: todayCount, error: todayError } = await supabase
                 .from("profiles")
@@ -89,57 +243,13 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
 
             setUserStats({
                 totalUsers: totalCount || 0,
-                activeUsers: totalCount || 0, // For now, assuming all users are active
+                activeUsers: totalCount || 0,
                 newUsersToday: todayCount || 0,
             });
         } catch (error) {
             console.error("Error fetching user stats:", error);
         }
     };
-
-    const handleUserManagement = () => {
-        Alert.alert(
-            "User Management",
-            "This feature would allow you to view, edit, and manage user accounts.",
-            [{ text: "OK" }]
-        );
-    };
-
-    const handleContentModeration = () => {
-        Alert.alert(
-            "Content Moderation",
-            "This feature would allow you to moderate user-generated content and reports.",
-            [{ text: "OK" }]
-        );
-    };
-
-    const handleAppSettings = () => {
-        Alert.alert(
-            "App Settings",
-            "This feature would allow you to configure global app settings and features.",
-            [{ text: "OK" }]
-        );
-    };
-
-    const handleAnalytics = () => {
-        Alert.alert(
-            "Analytics",
-            "This feature would show detailed app usage analytics and metrics.",
-            [{ text: "OK" }]
-        );
-    };
-
-    const handleSystemLogs = () => {
-        Alert.alert(
-            "System Logs",
-            "This feature would show system logs and error reports.",
-            [{ text: "OK" }]
-        );
-    };
-
-    const isExpoGo = Constants.appOwnership === "expo";
-    const SHOW_INSPECTOR = !isExpoGo; // show on any native build
-
 
     const handleOpenAdInspector = async () => {
         const isExpoGo = Constants.appOwnership === "expo";
@@ -149,24 +259,45 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
         }
         try {
             const { MobileAds } = await import("react-native-google-mobile-ads");
-            // TellS AdMob you're testing on this device
-            await MobileAds().setRequestConfiguration({
-                testDeviceIdentifiers: ['3BCF74E4-2002-4788-B97C-84D1F37DEBC7'],
-            });
 
-            // Initialize SDK
+            if (__DEV__) {
+                await MobileAds().setRequestConfiguration({
+                    testDeviceIdentifiers: ['3BCF74E4-2002-4788-B97C-84D1F37DEBC7'],
+                });
+                addDebugLog("Test device ID set for Ad Inspector");
+            }
+
             await MobileAds().initialize();
-
-            // Open Inspector
             await MobileAds().openAdInspector();
+            addDebugLog("Ad Inspector opened");
         } catch (e: any) {
-            console.log("[AdInspector] error:", e?.code, e?.message, e);
+            const errorMsg = `Ad Inspector error: ${e?.code} ${e?.message}`;
+            addDebugLog(errorMsg);
             Alert.alert("Ad Inspector", `Unavailable:\n${e?.code ?? ""} ${e?.message ?? "Unknown error"}`);
         }
     };
 
+    const handleUserManagement = () => {
+        Alert.alert("User Management", "This feature would allow you to view, edit, and manage user accounts.", [{ text: "OK" }]);
+    };
 
+    const handleContentModeration = () => {
+        Alert.alert("Content Moderation", "This feature would allow you to moderate user-generated content and reports.", [{ text: "OK" }]);
+    };
 
+    const handleAppSettings = () => {
+        Alert.alert("App Settings", "This feature would allow you to configure global app settings and features.", [{ text: "OK" }]);
+    };
+
+    const handleAnalytics = () => {
+        Alert.alert("Analytics", "This feature would show detailed app usage analytics and metrics.", [{ text: "OK" }]);
+    };
+
+    const handleSystemLogs = () => {
+        Alert.alert("System Logs", "This feature would show system logs and error reports.", [{ text: "OK" }]);
+    };
+
+    const isExpoGo = Constants.appOwnership === "expo";
 
     if (isLoading) {
         return (
@@ -182,10 +313,7 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
             <View style={styles.container}>
                 <Text style={styles.errorText}>Access Denied</Text>
                 <Text style={styles.errorSubtext}>You don't have admin privileges.</Text>
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
-                >
+                <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
                     <Text style={styles.backButtonText}>Go Back</Text>
                 </TouchableOpacity>
             </View>
@@ -196,10 +324,7 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
         <ScrollView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
-                >
+                <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
                     <Text style={styles.backButtonText}>← Back</Text>
                 </TouchableOpacity>
                 <Text style={styles.title}>Admin Panel</Text>
@@ -211,9 +336,7 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
                 <Text style={styles.adminCardTitle}>Admin Information</Text>
                 <View style={styles.adminInfo}>
                     <Text style={styles.infoLabel}>Role:</Text>
-                    <Text style={styles.infoValue}>
-                        {adminDetails.role.replace("_", " ").toUpperCase()}
-                    </Text>
+                    <Text style={styles.infoValue}>{adminDetails.role.replace("_", " ").toUpperCase()}</Text>
                 </View>
                 <View style={styles.adminInfo}>
                     <Text style={styles.infoLabel}>Email:</Text>
@@ -221,9 +344,73 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
                 </View>
                 <View style={styles.adminInfo}>
                     <Text style={styles.infoLabel}>Admin Since:</Text>
-                    <Text style={styles.infoValue}>
-                        {new Date(adminDetails.created_at).toLocaleDateString()}
-                    </Text>
+                    <Text style={styles.infoValue}>{new Date(adminDetails.created_at).toLocaleDateString()}</Text>
+                </View>
+            </View>
+
+            {/* Ad Debug Section */}
+            <View style={styles.debugSection}>
+                <Text style={styles.sectionTitle}>🐛 Ad Debug Panel</Text>
+
+                {/* Ad Status */}
+                <View style={styles.debugCard}>
+                    <Text style={styles.debugCardTitle}>Ad System Status</Text>
+                    <View style={styles.statusItem}>
+                        <Text style={styles.statusLabel}>Platform:</Text>
+                        <Text style={styles.statusValue}>{adDebugInfo.platform} ({adDebugInfo.isDev ? 'DEV' : 'PROD'})</Text>
+                    </View>
+                    <View style={styles.statusItem}>
+                        <Text style={styles.statusLabel}>AdMob Initialized:</Text>
+                        <Text style={[styles.statusValue, { color: adDebugInfo.adMobInitialized ? '#4CAF50' : '#F44336' }]}>
+                            {adDebugInfo.adMobInitialized ? 'YES' : 'NO'}
+                        </Text>
+                    </View>
+                    <View style={styles.statusItem}>
+                        <Text style={styles.statusLabel}>Consent Status:</Text>
+                        <Text style={styles.statusValue}>{adDebugInfo.consentStatus}</Text>
+                    </View>
+                    {adDebugInfo.lastError && (
+                        <View style={styles.statusItem}>
+                            <Text style={styles.statusLabel}>Last Error:</Text>
+                            <Text style={[styles.statusValue, { color: '#F44336' }]}>{adDebugInfo.lastError}</Text>
+                        </View>
+                    )}
+                </View>
+
+                {/* Ad Test Buttons */}
+                <View style={styles.debugCard}>
+                    <Text style={styles.debugCardTitle}>Test Ads</Text>
+                    <TouchableOpacity style={styles.testButton} onPress={testRewardedAd}>
+                        <Text style={styles.testButtonText}>🎁 Test Rewarded Ad</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.testButton} onPress={testInterstitialAd}>
+                        <Text style={styles.testButtonText}>📺 Test Interstitial Ad</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.testButton} onPress={checkAdStatus}>
+                        <Text style={styles.testButtonText}>🔄 Refresh Ad Status</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.testButton, { backgroundColor: '#9C27B0' }]} onPress={getDeviceIdForTesting}>
+                        <Text style={styles.testButtonText}>📱 Get Device ID</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Debug Logs */}
+                <View style={styles.debugCard}>
+                    <View style={styles.logsHeader}>
+                        <Text style={styles.debugCardTitle}>Debug Logs</Text>
+                        <TouchableOpacity style={styles.clearButton} onPress={clearDebugLogs}>
+                            <Text style={styles.clearButtonText}>Clear</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <ScrollView style={styles.logsContainer} nestedScrollEnabled>
+                        {debugLogs.length === 0 ? (
+                            <Text style={styles.noLogsText}>No logs yet. Test an ad to see debug info.</Text>
+                        ) : (
+                            debugLogs.map((log, index) => (
+                                <Text key={index} style={styles.logText}>{log}</Text>
+                            ))
+                        )}
+                    </ScrollView>
                 </View>
             </View>
 
@@ -250,101 +437,43 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
             <View style={styles.actionsSection}>
                 <Text style={styles.sectionTitle}>Admin Actions</Text>
 
-                {SHOW_INSPECTOR && !isExpoGo && (
-                    <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={handleOpenAdInspector}
-                    >
+                {!isExpoGo && (
+                    <TouchableOpacity style={styles.actionButton} onPress={handleOpenAdInspector}>
                         <Text style={styles.actionIcon}>🧪</Text>
                         <View style={styles.actionContent}>
-                            <Text style={styles.actionTitle}>Ad Inspector (Internal)</Text>
-                            <Text style={styles.actionDescription}>
-                                Debug ad serving & consent. Also enable Single ad source testing
-                                for AdMob Network.
-                            </Text>
+                            <Text style={styles.actionTitle}>Ad Inspector</Text>
+                            <Text style={styles.actionDescription}>Debug ad serving & consent</Text>
                         </View>
                         <Text style={styles.actionArrow}>›</Text>
                     </TouchableOpacity>
                 )}
 
-                <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={handleUserManagement}
-                >
+                <TouchableOpacity style={styles.actionButton} onPress={handleUserManagement}>
                     <Text style={styles.actionIcon}>👥</Text>
                     <View style={styles.actionContent}>
                         <Text style={styles.actionTitle}>User Management</Text>
-                        <Text style={styles.actionDescription}>
-                            View, edit, and manage user accounts
-                        </Text>
+                        <Text style={styles.actionDescription}>View, edit, and manage user accounts</Text>
                     </View>
                     <Text style={styles.actionArrow}>›</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={handleContentModeration}
-                >
+                <TouchableOpacity style={styles.actionButton} onPress={handleContentModeration}>
                     <Text style={styles.actionIcon}>🛡️</Text>
                     <View style={styles.actionContent}>
                         <Text style={styles.actionTitle}>Content Moderation</Text>
-                        <Text style={styles.actionDescription}>
-                            Moderate content and handle reports
-                        </Text>
+                        <Text style={styles.actionDescription}>Moderate content and handle reports</Text>
                     </View>
                     <Text style={styles.actionArrow}>›</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={handleAnalytics}
-                >
+                <TouchableOpacity style={styles.actionButton} onPress={handleAnalytics}>
                     <Text style={styles.actionIcon}>📊</Text>
                     <View style={styles.actionContent}>
                         <Text style={styles.actionTitle}>Analytics</Text>
-                        <Text style={styles.actionDescription}>
-                            View app usage and performance metrics
-                        </Text>
+                        <Text style={styles.actionDescription}>View app usage and performance metrics</Text>
                     </View>
                     <Text style={styles.actionArrow}>›</Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={handleAppSettings}
-                >
-                    <Text style={styles.actionIcon}>⚙️</Text>
-                    <View style={styles.actionContent}>
-                        <Text style={styles.actionTitle}>App Settings</Text>
-                        <Text style={styles.actionDescription}>
-                            Configure global app settings
-                        </Text>
-                    </View>
-                    <Text style={styles.actionArrow}>›</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={handleSystemLogs}
-                >
-                    <Text style={styles.actionIcon}>📋</Text>
-                    <View style={styles.actionContent}>
-                        <Text style={styles.actionTitle}>System Logs</Text>
-                        <Text style={styles.actionDescription}>
-                            View system logs and error reports
-                        </Text>
-                    </View>
-                    <Text style={styles.actionArrow}>›</Text>
-                </TouchableOpacity>
-            </View>
-
-            {/* Warning Section */}
-            <View style={styles.warningSection}>
-                <Text style={styles.warningTitle}>⚠️ Admin Responsibilities</Text>
-                <Text style={styles.warningText}>
-                    As an admin, you have access to sensitive user data and system controls.
-                    Please use these privileges responsibly and in accordance with privacy policies.
-                </Text>
             </View>
         </ScrollView>
     );
@@ -425,6 +554,93 @@ const styles = StyleSheet.create({
         color: "#333",
         fontWeight: "600",
     },
+    debugSection: {
+        marginHorizontal: 20,
+        marginBottom: 20,
+    },
+    debugCard: {
+        backgroundColor: "white",
+        padding: 20,
+        marginBottom: 12,
+        borderRadius: 12,
+        borderLeftWidth: 4,
+        borderLeftColor: "#2196F3",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    debugCardTitle: {
+        fontSize: 16,
+        fontWeight: "bold",
+        color: "#333",
+        marginBottom: 12,
+    },
+    statusItem: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginBottom: 8,
+    },
+    statusLabel: {
+        fontSize: 14,
+        color: "#666",
+        fontWeight: "500",
+    },
+    statusValue: {
+        fontSize: 14,
+        color: "#333",
+        fontWeight: "600",
+        flex: 1,
+        textAlign: "right",
+    },
+    testButton: {
+        backgroundColor: "#2196F3",
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 8,
+        alignItems: "center",
+    },
+    testButtonText: {
+        color: "white",
+        fontWeight: "600",
+        fontSize: 14,
+    },
+    logsHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 12,
+    },
+    clearButton: {
+        backgroundColor: "#FF9800",
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 6,
+    },
+    clearButtonText: {
+        color: "white",
+        fontSize: 12,
+        fontWeight: "600",
+    },
+    logsContainer: {
+        maxHeight: 200,
+        backgroundColor: "#f8f8f8",
+        borderRadius: 8,
+        padding: 12,
+    },
+    noLogsText: {
+        color: "#999",
+        fontStyle: "italic",
+        textAlign: "center",
+        padding: 20,
+    },
+    logText: {
+        fontSize: 12,
+        color: "#333",
+        marginBottom: 4,
+        fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    },
     statsSection: {
         marginHorizontal: 20,
         marginBottom: 20,
@@ -500,25 +716,6 @@ const styles = StyleSheet.create({
     actionArrow: {
         fontSize: 20,
         color: "#ccc",
-    },
-    warningSection: {
-        margin: 20,
-        padding: 20,
-        backgroundColor: "#fff3cd",
-        borderRadius: 12,
-        borderLeftWidth: 4,
-        borderLeftColor: "#ffc107",
-    },
-    warningTitle: {
-        fontSize: 16,
-        fontWeight: "bold",
-        color: "#856404",
-        marginBottom: 10,
-    },
-    warningText: {
-        fontSize: 14,
-        color: "#856404",
-        lineHeight: 20,
     },
     errorText: {
         fontSize: 24,

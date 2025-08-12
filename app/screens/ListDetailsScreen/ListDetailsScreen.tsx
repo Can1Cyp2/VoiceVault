@@ -19,8 +19,8 @@ export default function ListDetailsScreen({ route, navigation }: any) {
   useEffect(() => {
     const fetchSongs = async () => {
       try {
-        const user = supabase.auth.user();
-        if (!user) {
+        const session = supabase.auth.session();
+        if (!session?.user) {
           Alert.alert("Error", "Please log in to view this list.");
           return;
         }
@@ -28,7 +28,7 @@ export default function ListDetailsScreen({ route, navigation }: any) {
         let query = supabase
           .from("saved_songs")
           .select("*")
-          .eq("user_id", user.id);
+          .eq("user_id", session.user.id);
 
         if (listName !== "All Saved Songs") {
           query = query.eq("list_name", listName);
@@ -62,7 +62,7 @@ export default function ListDetailsScreen({ route, navigation }: any) {
           <Ionicons
             name={isEditing ? "checkmark" : "create-outline"}
             size={24}
-            color={isEditing ? "green" : COLORS.primary}
+            color={isEditing ? COLORS.success : COLORS.primary}
           />
         </TouchableOpacity>
       ),
@@ -233,7 +233,7 @@ export default function ListDetailsScreen({ route, navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: COLORS.background,
   },
 
   // Header Info

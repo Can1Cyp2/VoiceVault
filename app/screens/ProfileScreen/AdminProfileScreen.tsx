@@ -18,6 +18,79 @@ import { adService } from "../../components/SupportModal/AdService"; // Import y
 import Constants from "expo-constants";
 import * as Updates from "expo-updates";
 
+// Parse Supabase/Postgres timestamp strings like "2025-06-28 02:54:57.472176+00"
+// into a JS Date reliably across platforms.
+function parseSupabaseTimestamp(ts?: string | null): Date | null {
+    if (!ts) return null;
+    try {
+        // Trim whitespace
+        let s = ts.trim();
+
+        // Replace the first space between date and time with a 'T' to make it ISO-like
+        s = s.replace(' ', 'T');
+
+        // If there are more than 3 fractional second digits (microseconds), truncate to milliseconds
+        // e.g. .472176 -> .472
+        s = s.replace(/\.(\d{3})\d+/, '.$1');
+
+        // Normalize timezone formats: convert trailing +00 or +0000 to Z, and ensure offsets have a colon
+        // Examples: +00 -> Z, +0000 -> +00:00, +01 -> +01:00
+        // If it already ends with Z or +hh:mm, leave as-is
+        if (/Z$/.test(s) || /[+-]\d{2}:\d{2}$/.test(s)) {
+            // ok
+        } else if (/[+-]\d{2}$/.test(s)) {
+            s = s.replace(/([+-]\d{2})$/, '$1:00');
+        } else if (/[+-]\d{4}$/.test(s)) {
+            s = s.replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
+        } else if (/[+-]0{2}(:?0{2})?$/.test(s)) {
+            s = s.replace(/\+00(:?00)?$/, 'Z');
+            s = s.replace(/-00(:?00)?$/, 'Z');
+        }
+
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) return d;
+
+        // Fallback: parse manually with regex to handle microseconds and various offset formats
+        const re = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(?:([+-])(\d{2}):?(\d{2})?)?$/;
+        const m = s.match(re);
+        if (!m) return null;
+
+        const year = parseInt(m[1], 10);
+        const month = parseInt(m[2], 10) - 1;
+        const day = parseInt(m[3], 10);
+        const hour = parseInt(m[4], 10);
+        const minute = parseInt(m[5], 10);
+        const second = parseInt(m[6], 10);
+        const frac = m[7] ? m[7].slice(0, 3).padEnd(3, '0') : '000'; // milliseconds
+        const ms = parseInt(frac, 10);
+
+        // timezone offset
+        let offsetMinutes = 0;
+        if (m[8]) {
+            const sign = m[8] === '+' ? 1 : -1;
+            const offH = parseInt(m[9] || '0', 10);
+            const offM = parseInt(m[10] || '0', 10);
+            offsetMinutes = sign * (offH * 60 + offM);
+        }
+
+        // Build UTC milliseconds by treating components as local to the given offset,
+        // then subtract offset to get true UTC timestamp.
+        const utcMs = Date.UTC(year, month, day, hour, minute, second, ms) - offsetMinutes * 60 * 1000;
+        const out = new Date(utcMs);
+        if (isNaN(out.getTime())) return null;
+        return out;
+    } catch (e) {
+        console.error('parseSupabaseTimestamp error', e, ts);
+        return null;
+    }
+}
+
+function formatSupabaseDate(ts?: string | null) {
+    const d = parseSupabaseTimestamp(ts);
+    if (!d) return 'Invalid date';
+    return d.toLocaleDateString();
+}
+
 interface AdminScreenProps {
     navigation: any;
 }
@@ -71,6 +144,26 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
         const timestamp = new Date().toLocaleTimeString();
         const logMessage = `${timestamp}: ${message}`;
         setDebugLogs(prev => [logMessage, ...prev.slice(0, 19)]); // Keep last 20 logs
+    };
+
+    // Call the DB RPC to get canonical profile info (email, created_at, is_admin, role)
+    const fetchAdminProfileRPC = async (uid: string) => {
+        try {
+            const { data, error } = await supabase.rpc('get_admin_profile', { p_uid: uid });
+            if (error) {
+                const errMsg = error && (error as any).message ? (error as any).message : JSON.stringify(error);
+                addDebugLog(`get_admin_profile RPC error: ${errMsg}`);
+                console.error('get_admin_profile RPC error', error);
+                return null;
+            }
+            const row = Array.isArray(data) && data.length ? data[0] : data ?? null;
+            addDebugLog(`get_admin_profile RPC success: ${JSON.stringify(row)}`);
+            return row as any;
+        } catch (e) {
+            addDebugLog(`get_admin_profile exception: ${String(e)}`);
+            console.error('get_admin_profile exception', e);
+            return null;
+        }
     };
 
     const setupAdDebugMonitoring = async () => {
@@ -214,7 +307,21 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
                 return;
             }
 
-            setAdminDetails(adminDetails);
+            // Try to enrich adminDetails with canonical profile info via RPC
+            const currentUser = supabase.auth.user();
+            addDebugLog(`checkAdminStatus returned adminDetails: ${JSON.stringify(adminDetails)}`);
+            addDebugLog(`authenticated user id: ${currentUser?.id}`);
+            const uidToUse = (adminDetails && (adminDetails.user_id || adminDetails.id)) || currentUser?.id || null;
+            const rpcRow = uidToUse ? await fetchAdminProfileRPC(uidToUse) : null;
+            const merged = { ...adminDetails } as any;
+            if (rpcRow) {
+                // rpcRow may have email, created_at, is_admin, role
+                if (rpcRow.email) merged.email = rpcRow.email;
+                if (rpcRow.created_at) merged.created_at = rpcRow.created_at;
+                if (rpcRow.role) merged.role = rpcRow.role;
+            }
+
+            setAdminDetails(merged as AdminDetails);
             await fetchUserStats();
         } catch (error) {
             console.error("Error fetching admin data:", error);
@@ -226,20 +333,46 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
 
     const fetchUserStats = async () => {
         try {
+            // Prefer a server-side RPC that can bypass RLS for admin stats if available
+            try {
+                const { data: rpcData, error: rpcError } = await supabase.rpc('admin_get_stats');
+                if (!rpcError && rpcData) {
+                    // expected shape: { total_users: number, new_today: number } or [ { ... } ]
+                    const payload = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+                    const totalUsersRpc = payload?.total_users ?? payload?.totalUsers ?? 0;
+                    const newTodayRpc = payload?.new_today ?? payload?.newToday ?? 0;
+                    setUserStats({
+                        totalUsers: totalUsersRpc,
+                        activeUsers: totalUsersRpc,
+                        newUsersToday: newTodayRpc,
+                    });
+                    return;
+                }
+            } catch (rpcEx) {
+                // ignore and fall back to client queries
+                addDebugLog(`RPC admin_get_stats not available or failed: ${JSON.stringify(rpcEx)}`);
+            }
+            // Use a minimal select('id') with head:true when only counts are needed.
             const { count: totalCount, error: totalError } = await supabase
                 .from("profiles")
-                .select("*", { count: "exact", head: true });
+                .select("id", { count: "exact", head: true });
 
-            if (totalError) throw totalError;
+            if (totalError) {
+                addDebugLog(`Error fetching total users: ${JSON.stringify(totalError)}`);
+                throw totalError;
+            }
 
             const today = new Date().toISOString().split("T")[0];
             const { count: todayCount, error: todayError } = await supabase
                 .from("profiles")
-                .select("*", { count: "exact", head: true })
+                .select("id", { count: "exact", head: true })
                 .gte("created_at", `${today}T00:00:00.000Z`)
                 .lt("created_at", `${today}T23:59:59.999Z`);
 
-            if (todayError) throw todayError;
+            if (todayError) {
+                addDebugLog(`Error fetching today's users: ${JSON.stringify(todayError)}`);
+                throw todayError;
+            }
 
             setUserStats({
                 totalUsers: totalCount || 0,
@@ -248,6 +381,13 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
             });
         } catch (error) {
             console.error("Error fetching user stats:", error);
+            const errMsg = error && (error as any).message ? (error as any).message : JSON.stringify(error);
+            addDebugLog(`Error fetching user stats: ${errMsg}`);
+            // If this is an RLS/permission issue, the error message will indicate so.
+            const userMessage = /permission/i.test(errMsg) ?
+                "Permission denied when reading profiles. Consider adding an admin RPC or adjusting RLS policies." :
+                `Failed to fetch user stats: ${errMsg}`;
+            Alert.alert("Stats Error", userMessage);
         }
     };
 
@@ -344,7 +484,7 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
                 </View>
                 <View style={styles.adminInfo}>
                     <Text style={styles.infoLabel}>Admin Since:</Text>
-                    <Text style={styles.infoValue}>{new Date(adminDetails.created_at).toLocaleDateString()}</Text>
+                    <Text style={styles.infoValue}>{formatSupabaseDate(adminDetails.created_at)}</Text>
                 </View>
             </View>
 

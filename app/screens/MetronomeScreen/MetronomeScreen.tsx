@@ -47,6 +47,9 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
   const [beatCount, setBeatCount] = useState(0);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [accentSound, setAccentSound] = useState<Audio.Sound | null>(null);
+  // use refs for Audio.Sound objects to ensure cleanup and stable references
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const accentRef = useRef<Audio.Sound | null>(null);
   const [tapTimes, setTapTimes] = useState<number[]>([]);
   const flashAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -77,8 +80,12 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
         const accentSoundObj = new Audio.Sound();
 
         try {
-          await clickSoundObj.loadAsync(require("../../../assets/accent.mp3"));
-          await accentSoundObj.loadAsync(require("../../../assets/click.mp3"));
+          // load correct assets into matching variables (click = click, accent = accent)
+          await clickSoundObj.loadAsync(require("../../../assets/click.mp3"));
+          await accentSoundObj.loadAsync(require("../../../assets/accent.mp3"));
+          // store in refs (avoid triggering rerenders when they change)
+          soundRef.current = clickSoundObj;
+          accentRef.current = accentSoundObj;
           setSound(clickSoundObj);
           setAccentSound(accentSoundObj);
         } catch (error) {
@@ -87,9 +94,16 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
             "Audio Error",
             "Failed to load metronome sounds. Using fallback audio."
           );
-          await clickSoundObj.loadAsync(require("../../../assets/click.mp3"));
-          setSound(clickSoundObj);
-          setAccentSound(clickSoundObj);
+          // fallback to a single click sound
+          try {
+            await clickSoundObj.loadAsync(require("../../../assets/click.mp3"));
+            soundRef.current = clickSoundObj;
+            accentRef.current = clickSoundObj;
+            setSound(clickSoundObj);
+            setAccentSound(clickSoundObj);
+          } catch (e) {
+            console.error("Fallback sound load failed:", e);
+          }
         }
       } catch (error) {
         console.error("Error setting up audio:", error);
@@ -100,8 +114,21 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
     setupAudio();
 
     return () => {
-      sound?.unloadAsync();
-      accentSound?.unloadAsync();
+      // unload from refs to ensure we unload the actual loaded objects
+      (async () => {
+        try {
+          if (soundRef.current) {
+            await soundRef.current.unloadAsync();
+            soundRef.current = null;
+          }
+          if (accentRef.current) {
+            await accentRef.current.unloadAsync();
+            accentRef.current = null;
+          }
+        } catch (e) {
+          console.error("Error unloading sounds on unmount:", e);
+        }
+      })();
     };
   }, []);
 
@@ -132,6 +159,37 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
+    // guard to avoid overlapping playback calls
+    const playingRef = { busy: false };
+
+    const playMetronomeTick = async (isAccent: boolean) => {
+      try {
+        const target = isAccent ? accentRef.current : soundRef.current;
+        if (!target) return;
+
+        // prevent overlapping calls
+        if ((playingRef as any).busy) return;
+        (playingRef as any).busy = true;
+
+        // replayAsync can interrupt ongoing playback; using stop/setPosition/play to be explicit
+        try {
+          await target.stopAsync();
+        } catch (e) {
+          // ignore if not playing
+        }
+        try {
+          await target.setPositionAsync(0);
+        } catch (e) {
+          // some platforms may not need this
+        }
+        await target.playAsync();
+      } catch (error) {
+        console.error("Error playing metronome tick:", error);
+      } finally {
+        (playingRef as any).busy = false;
+      }
+    };
+
     if (isPlaying) {
       const intervalMs = (60 / bpm) * 1000;
       interval = setInterval(() => {
@@ -139,26 +197,7 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
           const beatsPerMeasure = getBeatsPerMeasure();
           const newBeat = (prev % beatsPerMeasure) + 1;
 
-          const playSound = async (soundObj: Audio.Sound | null) => {
-            try {
-              if (soundObj) {
-                await soundObj.replayAsync();
-              }
-            } catch (error) {
-              console.error("Error playing sound:", error);
-            }
-          };
-
-          if (uniformSound) {
-            playSound(accentSound); // Always play the sharp sound
-          } else {
-            if (newBeat === 1) {
-              playSound(accentSound);
-            } else {
-              playSound(sound);
-            }
-          }
-
+          // trigger visual animation
           Animated.parallel([
             Animated.sequence([
               Animated.timing(flashAnim, {
@@ -190,14 +229,20 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
             ]),
           ]).start();
 
+          // decide which sound to play (do this outside of async state update to reduce jitter)
+          const isAccent = uniformSound ? true : newBeat === 1;
+          // play without awaiting so timer stays accurate; playback function guards against overlap
+          playMetronomeTick(isAccent);
+
           return newBeat;
         });
       }, intervalMs);
     }
+
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isPlaying, bpm, timeSignature, sound, accentSound, flashAnim, scaleAnim, uniformSound]);
+  }, [isPlaying, bpm, timeSignature, flashAnim, scaleAnim, uniformSound]);
 
   // Reset tap times if the user stops tapping for 2 seconds
   useEffect(() => {

@@ -195,7 +195,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       </Modal>
 
       <SupportModal visible={isSupportVisible} onClose={() => setSupportVisible(false)} />
-      <Text style={styles.versionText}>Version 1.2.7 (1.0)</Text>
+      <Text style={styles.versionText}>Version 1.2.8</Text>
     </View>
   );
 }

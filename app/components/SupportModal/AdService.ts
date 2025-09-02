@@ -8,15 +8,18 @@ import Toast from "react-native-toast-message";
 const isExpoGo = Constants.appOwnership === "expo";
 const isDev = __DEV__;
 
+// Consistent test device ID across the app
+const ADMIN_TEST_DEVICE_ID = '3BCF74E4-2002-4788-B97C-84D1F37DEBC7';
+
 class AdService {
   private rewardedAd: any = null;
   private interstitialAd: any = null;
   private isInitialized = false;
   private adCount = 0;
   private lastAdTime = 0;
-  private lastAdType: "rewarded" | "interstitial" | null = null; // Track last ad type
-  private readonly MIN_LONG_AD_INTERVAL = 30000; // 30 seconds between long ads
-  private readonly MIN_AD_INTERVAL = 5000; // 5 seconds between short ads
+  private lastAdType: "rewarded" | "interstitial" | null = null;
+  private readonly MIN_LONG_AD_INTERVAL = 30000;
+  private readonly MIN_AD_INTERVAL = 5000;
   private readonly MAX_ADS_PER_SESSION = 25;
 
   async initialize() {
@@ -32,106 +35,228 @@ class AdService {
         MobileAds,
       } = await import("react-native-google-mobile-ads");
 
-      await MobileAds().initialize();
+      // Configure test device FIRST - before any SDK operations
+      if (isDev) {
+        console.log(`Configuring test device: ${ADMIN_TEST_DEVICE_ID}`);
+        await MobileAds().setRequestConfiguration({
+          testDeviceIdentifiers: [ADMIN_TEST_DEVICE_ID],
+        });
+        console.log("Test device configured");
+      }
 
-      // Real ad unit IDs from AdMob console
+      // Initialize SDK
+      console.log("Initializing AdMob SDK...");
+      await MobileAds().initialize();
+      console.log("AdMob SDK initialized successfully");
+
+      // Handle consent
+      await this.initConsent();
+
+      // Choose ad unit IDs
       const rewardedAdUnit = isDev
         ? TestIds.REWARDED
         : Platform.OS === "ios"
-        ? "ca-app-pub-7846050438990670/9825538992" // iOS Rewarded
-        : "ca-app-pub-7846050438990670/8635778070"; // Android Rewarded
+        ? "ca-app-pub-7846050438990670/9825538992"
+        : "ca-app-pub-7846050438990670/8635778070";
 
       const interstitialAdUnit = isDev
         ? TestIds.INTERSTITIAL
         : Platform.OS === "ios"
-        ? "ca-app-pub-7846050438990670/3136039388" // iOS Interstitial
-        : "ca-app-pub-7846050438990670/9677397007"; // Android Interstitial
+        ? "ca-app-pub-7846050438990670/3136039388"
+        : "ca-app-pub-7846050438990670/9677397007";
 
-      // Setup Rewarded Ad
-      this.rewardedAd = RewardedAd.createForAdRequest(rewardedAdUnit);
+      console.log("Creating ad instances...", { rewardedAdUnit, interstitialAdUnit, platform: Platform.OS, isDev });
+
+      // Create ads with proper request options
+      const requestOptions = await this.currentRequestOptions();
+      
+      this.rewardedAd = RewardedAd.createForAdRequest(rewardedAdUnit, requestOptions);
+      this.rewardedAd.addAdEventListener(AdEventType.LOADED, () => {
+        console.log("Rewarded ad loaded successfully");
+      });
+      this.rewardedAd.addAdEventListener(AdEventType.ERROR, (error: any) => {
+        console.error("Rewarded ad error:", error);
+      });
       this.rewardedAd.addAdEventListener(
         RewardedAdEventType.EARNED_REWARD,
-        () => {
-          this.onAdReward("rewarded");
-        }
+        () => this.onAdReward("rewarded")
       );
       this.rewardedAd.addAdEventListener(AdEventType.CLOSED, () => {
-        setTimeout(() => this.rewardedAd?.load(), 1000);
+        console.log("Rewarded ad closed, preloading next ad...");
+        setTimeout(() => this.preloadRewardedAd(), 1000);
       });
 
-      // Setup Interstitial Ad
-      this.interstitialAd =
-        InterstitialAd.createForAdRequest(interstitialAdUnit);
+      this.interstitialAd = InterstitialAd.createForAdRequest(interstitialAdUnit, requestOptions);
+      this.interstitialAd.addAdEventListener(AdEventType.LOADED, () => {
+        console.log("Interstitial ad loaded successfully");
+      });
+      this.interstitialAd.addAdEventListener(AdEventType.ERROR, (error: any) => {
+        console.error("Interstitial ad error:", error);
+      });
       this.interstitialAd.addAdEventListener(AdEventType.CLOSED, () => {
         this.onAdReward("interstitial");
-        setTimeout(() => this.interstitialAd?.load(), 1000);
+        console.log("Interstitial ad closed, preloading next ad...");
+        setTimeout(() => this.preloadInterstitialAd(), 1000);
       });
 
-      // Preload ads
-      this.rewardedAd.load();
-      this.interstitialAd.load();
+      // Initial preload
+      this.preloadRewardedAd();
+      this.preloadInterstitialAd();
 
       this.isInitialized = true;
+      console.log("AdService initialized successfully");
     } catch (error) {
       console.error("Failed to initialize ads:", error);
       this.isInitialized = true;
     }
   }
 
+  private async initConsent() {
+    if (isExpoGo) return;
+    
+    try {
+      const { AdsConsent } = await import("react-native-google-mobile-ads");
+      
+      console.log("Requesting consent info update...");
+      await AdsConsent.requestInfoUpdate({});
+      
+      console.log("Gathering consent...");
+      await AdsConsent.gatherConsent();
+      
+      const info = await AdsConsent.getConsentInfo();
+      console.log("Consent status:", info);
+      
+      // Check if we can request ads
+      if (info.canRequestAds === false) {
+        console.warn("Cannot request ads due to consent status");
+      }
+    } catch (error) {
+      console.error("Consent initialization error:", error);
+    }
+  }
+
+  private async currentRequestOptions() {
+    if (isExpoGo) return {};
+    
+    try {
+      const { AdsConsent } = await import("react-native-google-mobile-ads");
+      const choices = await AdsConsent.getUserChoices().catch(() => null);
+      
+      const allowPersonalized =
+        choices?.selectPersonalisedAds === true &&
+        choices?.storeAndAccessInformationOnDevice !== false;
+
+      console.log("Ad request options:", { allowPersonalized });
+      return { requestNonPersonalizedAdsOnly: !allowPersonalized };
+    } catch (error) {
+      console.error("Error getting request options:", error);
+      return {};
+    }
+  }
+
+  private async preloadRewardedAd() {
+    if (!this.rewardedAd) return;
+    
+    try {
+      const options = await this.currentRequestOptions();
+      await this.rewardedAd.load(options);
+    } catch (error) {
+      console.error("Error preloading rewarded ad:", error);
+    }
+  }
+
+  private async preloadInterstitialAd() {
+    if (!this.interstitialAd) return;
+    
+    try {
+      const options = await this.currentRequestOptions();
+      await this.interstitialAd.load(options);
+    } catch (error) {
+      console.error("Error preloading interstitial ad:", error);
+    }
+  }
+
   async showRewardedAd(): Promise<boolean> {
-    if (isExpoGo) {
-      return this.simulateAdInExpo("rewarded");
-    }
-
-    if (!this.canShowAd("rewarded")) return false; // Pass "rewarded"
-
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
+    if (isExpoGo) return this.simulateAdInExpo("rewarded");
+    if (!this.canShowAd("rewarded")) return false;
+    if (!this.isInitialized) await this.initialize();
 
     try {
+      console.log("Attempting to show rewarded ad...");
+      
+      if (!this.rewardedAd?.loaded) {
+        console.log("Rewarded ad not loaded, loading now...");
+        Alert.alert("Loading Ad", "Please wait a moment while the ad loads...");
+        const options = await this.currentRequestOptions();
+        await this.rewardedAd?.load(options);
+        
+        // Wait for load with timeout
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error("Load timeout")), 10000);
+          const unsub = this.rewardedAd.addAdEventListener("loaded", () => {
+            clearTimeout(timeout);
+            unsub();
+            resolve(true);
+          });
+        });
+      }
+
       await this.rewardedAd.show();
-      this.recordAdShow("rewarded"); // Pass "rewarded"
+      this.recordAdShow("rewarded");
+      console.log("Rewarded ad shown successfully");
       return true;
     } catch (error) {
-      Alert.alert("Ad Not Ready", "Please wait a moment and try again.");
-      this.rewardedAd?.load();
+      console.error("Error showing rewarded ad:", error);
+      Alert.alert("Ad Not Available", "Unable to load ad at this time. Please try again later.");
+      this.preloadRewardedAd(); // Attempt to preload for next time
       return false;
     }
   }
 
   async showInterstitialAd(): Promise<boolean> {
-    if (isExpoGo) {
-      return this.simulateAdInExpo("interstitial");
-    }
-
-    if (!this.canShowAd("interstitial")) return false; // Pass "interstitial"
-
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
+    if (isExpoGo) return this.simulateAdInExpo("interstitial");
+    if (!this.canShowAd("interstitial")) return false;
+    if (!this.isInitialized) await this.initialize();
 
     try {
+      console.log("Attempting to show interstitial ad...");
+      
+      if (!this.interstitialAd?.loaded) {
+        console.log("Interstitial ad not loaded, loading now...");
+        const options = await this.currentRequestOptions();
+        await this.interstitialAd?.load(options);
+        
+        // Wait for load with timeout
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error("Load timeout")), 10000);
+          const unsub = this.interstitialAd.addAdEventListener("loaded", () => {
+            clearTimeout(timeout);
+            unsub();
+            resolve(true);
+          });
+        });
+      }
+
       await this.interstitialAd.show();
-      this.recordAdShow("interstitial"); // Pass "interstitial"
+      this.recordAdShow("interstitial");
+      console.log("Interstitial ad shown successfully");
       return true;
     } catch (error) {
-      this.interstitialAd?.load();
+      console.error("Error showing interstitial ad:", error);
+      this.preloadInterstitialAd(); // Attempt to preload for next time
       return false;
     }
   }
 
-  private canShowAd(adType?: "rewarded" | "interstitial"): boolean { // Add optional parameter
+  private canShowAd(adType?: "rewarded" | "interstitial"): boolean {
     const now = Date.now();
     const timeSinceLastAd = now - this.lastAdTime;
 
-    // Use different intervals based on ad type
-    const requiredInterval = adType === "rewarded" ? this.MIN_LONG_AD_INTERVAL : this.MIN_AD_INTERVAL;
+    const requiredInterval =
+      adType === "rewarded" ? this.MIN_LONG_AD_INTERVAL : this.MIN_AD_INTERVAL;
 
     if (timeSinceLastAd < requiredInterval) {
-      const waitTime = Math.ceil(
-        (requiredInterval - timeSinceLastAd) / 1000
-      );
+      const waitTime = Math.ceil((requiredInterval - timeSinceLastAd) / 1000);
       Alert.alert(
         "Please Wait",
         `You can watch another ad in ${waitTime} seconds.`
@@ -150,10 +275,11 @@ class AdService {
     return true;
   }
 
-  private recordAdShow(adType?: "rewarded" | "interstitial") { // Add optional parameter
+  private recordAdShow(adType?: "rewarded" | "interstitial") {
     this.adCount++;
     this.lastAdTime = Date.now();
-    if (adType) this.lastAdType = adType; // Track ad type
+    if (adType) this.lastAdType = adType;
+    console.log(`Ad shown: ${adType}, total ads: ${this.adCount}`);
   }
 
   private simulateAdInExpo(
@@ -168,7 +294,7 @@ class AdService {
             text: "Simulate Success",
             onPress: () => {
               this.onAdReward(type);
-              this.recordAdShow(type); // Pass type
+              this.recordAdShow(type);
               resolve(true);
             },
           },
@@ -192,8 +318,8 @@ class AdService {
     }
     if (!session?.session?.user) {
       Toast.show({
-        type: 'info',
-        text1: 'Ad Watched',
+        type: "info",
+        text1: "Ad Watched",
         text2: `Coins Earned: ${rewardAmount} (Not saved)`,
         visibilityTime: 3000,
       });
@@ -202,7 +328,6 @@ class AdService {
 
     const userId = session.session.user.id;
 
-    // Upsert user's coin count
     const { data, error } = await supabase.rpc("increment_user_coins", {
       reward: rewardAmount,
     });
@@ -212,8 +337,8 @@ class AdService {
       Alert.alert("Error", "Failed to update your coin balance.");
     } else {
       Toast.show({
-        type: 'success',
-        text1: 'Ad Watched',
+        type: "success",
+        text1: "Ad Watched",
         text2: `Coins Earned: ${rewardAmount}`,
         visibilityTime: 3000,
       });
@@ -223,11 +348,11 @@ class AdService {
   getAdStats() {
     const now = Date.now();
     const timeSinceLastAd = now - this.lastAdTime;
-    
-    // Use the correct interval based on the last ad type shown
-    const lastAdInterval = this.lastAdType === "rewarded" 
-      ? this.MIN_LONG_AD_INTERVAL 
-      : this.MIN_AD_INTERVAL;
+
+    const lastAdInterval =
+      this.lastAdType === "rewarded"
+        ? this.MIN_LONG_AD_INTERVAL
+        : this.MIN_AD_INTERVAL;
 
     return {
       adsWatched: this.adCount,
@@ -235,6 +360,11 @@ class AdService {
       timeUntilNextAd: Math.max(0, lastAdInterval - timeSinceLastAd),
       remainingAds: this.MAX_ADS_PER_SESSION - this.adCount,
     };
+  }
+
+  // Add method to get test device ID for debugging
+  getTestDeviceId(): string {
+    return ADMIN_TEST_DEVICE_ID;
   }
 }
 
@@ -257,6 +387,7 @@ export const useAds = () => {
     ...stats,
     showRewardedAd: () => adService.showRewardedAd(),
     showInterstitialAd: () => adService.showInterstitialAd(),
+    getTestDeviceId: () => adService.getTestDeviceId(),
     isExpoGo,
   };
 };

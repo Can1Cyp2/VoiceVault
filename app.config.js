@@ -5,7 +5,7 @@ module.exports = () => {
   return {
     name: "VoiceVault",
     slug: "VoiceVault",
-    version: "1.2.6",
+    version: "1.2.7",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -19,8 +19,56 @@ module.exports = () => {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.can1cyp2.VoiceVault",
-      buildNumber: "1.2.6",
+      buildNumber: "1.2.7",
       infoPlist: {
+        // Complete SKAdNetwork setup for iOS 14.5+ ad tracking
+        SKAdNetworkItems: [
+          // Google AdMob
+          { SKAdNetworkIdentifier: "cstr6suwn9.skadnetwork" },
+          // Google Ad Manager
+          { SKAdNetworkIdentifier: "4fzdc2evr5.skadnetwork" },
+          // Unity Ads
+          { SKAdNetworkIdentifier: "4468km3ulz.skadnetwork" },
+          // Facebook/Meta
+          { SKAdNetworkIdentifier: "v9wttpbfk9.skadnetwork" },
+          // AppLovin
+          { SKAdNetworkIdentifier: "ludvb6z3bs.skadnetwork" },
+          // ironSource
+          { SKAdNetworkIdentifier: "su67r6k2v3.skadnetwork" },
+          // Vungle
+          { SKAdNetworkIdentifier: "gta9lk7p23.skadnetwork" },
+          // AdColony
+          { SKAdNetworkIdentifier: "4pfyvq9l8r.skadnetwork" },
+          // Chartboost
+          { SKAdNetworkIdentifier: "f38h382jlk.skadnetwork" },
+          // InMobi
+          { SKAdNetworkIdentifier: "wzmmz9fp6w.skadnetwork" },
+          // MyTarget
+          { SKAdNetworkIdentifier: "n6fk4nfna4.skadnetwork" },
+          // Yandex
+          { SKAdNetworkIdentifier: "zq492l623r.skadnetwork" },
+          // Tapjoy
+          { SKAdNetworkIdentifier: "hs6bdukanm.skadnetwork" },
+          // Pangle (TikTok)
+          { SKAdNetworkIdentifier: "238da6jt44.skadnetwork" },
+          // Mintegral
+          { SKAdNetworkIdentifier: "KBD757YWX3.skadnetwork" },
+          // Additional Google networks
+          { SKAdNetworkIdentifier: "9t245vhmpl.skadnetwork" },
+          { SKAdNetworkIdentifier: "9rd848q2bz.skadnetwork" },
+          { SKAdNetworkIdentifier: "n6fk4nfna4.skadnetwork" },
+          { SKAdNetworkIdentifier: "7ug5zh24hu.skadnetwork" },
+          { SKAdNetworkIdentifier: "prc4yf9cyb.skadnetwork" },
+          { SKAdNetworkIdentifier: "m8dbw4sv7c.skadnetwork" },
+          { SKAdNetworkIdentifier: "c6k4g5qg8m.skadnetwork" },
+          { SKAdNetworkIdentifier: "s39g8k73mm.skadnetwork" },
+          { SKAdNetworkIdentifier: "3qy4746246.skadnetwork" },
+          { SKAdNetworkIdentifier: "f73kdq92p3.skadnetwork" },
+          { SKAdNetworkIdentifier: "kbd757ywx3.skadnetwork" },
+          { SKAdNetworkIdentifier: "4fzdc2evr5.skadnetwork" },
+        ],
+        NSUserTrackingUsageDescription:
+          "If you choose to watch ads: Your data may be used to deliver more relevant ads and measure ad performance by Google (Admob), VoiceVault does not save this data.",
         NSCameraUsageDescription:
           "This app uses the camera for user profile images. (Future updates may require this permission.)",
         NSPhotoLibraryUsageDescription:
@@ -28,6 +76,11 @@ module.exports = () => {
         NSMicrophoneUsageDescription:
           "This app may use the microphone in future updates.",
         ITSAppUsesNonExemptEncryption: false,
+        // App Transport Security for ad loading
+        NSAppTransportSecurity: {
+          NSAllowsArbitraryLoads: true,
+          NSAllowsArbitraryLoadsInWebContent: true,
+        },
       },
     },
     android: {
@@ -38,15 +91,20 @@ module.exports = () => {
       },
       package: "com.can1cyp2.VoiceVault",
       permissions: [
-        "INTERNET",
-        "ACCESS_NETWORK_STATE",
-        "CHANGE_NETWORK_STATE",
-        "ACCESS_WIFI_STATE",
-        "CHANGE_WIFI_STATE",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.CHANGE_NETWORK_STATE",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.CHANGE_WIFI_STATE",
         "com.google.android.gms.permission.AD_ID",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
       ],
       compileSdkVersion: 35,
       targetSdkVersion: 35,
+      config: {
+        googleMobileAdsAppId: "ca-app-pub-7846050438990670~7402587455",
+      },
     },
     web: {
       favicon: "./assets/favicon.png",
@@ -83,6 +141,9 @@ module.exports = () => {
         {
           androidAppId: "ca-app-pub-7846050438990670~7402587455",
           iosAppId: "ca-app-pub-7846050438990670~3247720022",
+          delay_app_open: 1000,
+          user_tracking_usage_description:
+            "If you choose to watch ads: Your data may be used to deliver more relevant ads and measure ad performance by Google (Admob), VoiceVault does not save this data.",
         },
       ],
     ],

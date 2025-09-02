@@ -6,7 +6,7 @@
 // // Get Supabase URL and Service Role Key from environment variables
 // const SUPABASE_URL = Deno.env.get("https://ydxbhxstbspjpncpsmrz.supabase.co")!;
 // const SERVICE_ROLE_KEY = Deno.env.get(
-//   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlkeGJoeHN0YnNwanBuY3BzbXJ6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNzE0NjUyNSwiZXhwIjoyMDUyNzIyNTI1fQ.kjk-aPnHPJsD-GDBDrGZI8RljvMoBKePFczdxSP1mBs"
+//   "..kjk--"
 // )!; // Secure Admin Key
 
 // // Create Supabase client with admin privileges

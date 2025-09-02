@@ -17,6 +17,7 @@ import { adService } from "../../components/SupportModal/AdService"; // Import y
 
 import Constants from "expo-constants";
 import * as Updates from "expo-updates";
+import AdminQuickStats from './AdminQuickStats';
 
 // Parse Supabase/Postgres timestamp strings like "2025-06-28 02:54:57.472176+00"
 // into a JS Date reliably across platforms.
@@ -139,6 +140,8 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
         fetchAdminData();
         setupAdDebugMonitoring();
     }, []);
+
+    // userStats are now provided by a dedicated component (AdminQuickStats)
 
     const addDebugLog = (message: string) => {
         const timestamp = new Date().toLocaleTimeString();
@@ -322,7 +325,7 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
             }
 
             setAdminDetails(merged as AdminDetails);
-            await fetchUserStats();
+            // stats handled by AdminQuickStats component
         } catch (error) {
             console.error("Error fetching admin data:", error);
             Alert.alert("Error", "Failed to load admin data");
@@ -557,20 +560,7 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
             {/* Stats Cards */}
             <View style={styles.statsSection}>
                 <Text style={styles.sectionTitle}>Quick Stats</Text>
-                <View style={styles.statsRow}>
-                    <View style={styles.statCard}>
-                        <Text style={styles.statNumber}>{userStats.totalUsers}</Text>
-                        <Text style={styles.statLabel}>Total Users</Text>
-                    </View>
-                    <View style={styles.statCard}>
-                        <Text style={styles.statNumber}>{userStats.activeUsers}</Text>
-                        <Text style={styles.statLabel}>Active Users</Text>
-                    </View>
-                    <View style={styles.statCard}>
-                        <Text style={styles.statNumber}>{userStats.newUsersToday}</Text>
-                        <Text style={styles.statLabel}>New Today</Text>
-                    </View>
-                </View>
+                <AdminQuickStats />
             </View>
 
             {/* Admin Actions */}

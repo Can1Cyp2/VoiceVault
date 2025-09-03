@@ -22,7 +22,7 @@
     "@reduxjs/toolkit": "^2.4.0",
     "@supabase/supabase-js": "^1.35.6",
     "argparse": "^2.0.1",
-    "eas-cli": "^14.7.1",
+    "eas-cli": "^16.18.0",
     "expo": "^53.0.7",
     "expo-audio": "~0.4.4",
     "expo-av": "^15.1.4",

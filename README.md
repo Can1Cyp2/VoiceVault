@@ -111,7 +111,7 @@ VoiceVault is the perfect tool for vocalists, music students, and karaoke enthus
 5. **Build for Production**:
    - To build for Android or iOS and submit to app stores, use EAS:
      ```bash
-     eas build --platform android
+     eas build --platform android --profile production
      ```
    - Follow the EAS CLI prompts to configure and build your app.
 

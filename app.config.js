@@ -134,6 +134,7 @@ module.exports = () => {
           },
         },
       ],
+      "expo-font",
       "expo-secure-store",
       "expo-video",
       [

@@ -45,11 +45,19 @@ class AdService {
       this.AdEventType = AdEventType;
       this.RewardedAdEventType = RewardedAdEventType;
 
+      // Request iOS App Tracking Transparency permission first (iOS 14.5+)
+      if (Platform.OS === 'ios') {
+        await this.requestIOSTrackingPermission();
+      }
+
       // Configure test device FIRST - before any SDK operations
       if (isDev) {
         console.log(`Configuring test device: ${ADMIN_TEST_DEVICE_ID}`);
         await MobileAds().setRequestConfiguration({
           testDeviceIdentifiers: [ADMIN_TEST_DEVICE_ID],
+          // Add additional privacy controls for testing
+          tagForChildDirectedTreatment: false, // False because app does not directly target children
+          tagForUnderAgeOfConsent: false, // False because app does not directly target children. only set to true for users under consent age in their country
         });
         console.log("Test device configured");
       }
@@ -154,6 +162,32 @@ class AdService {
     }
   }
 
+  private async requestIOSTrackingPermission() {
+    if (Platform.OS !== 'ios') return;
+
+    try {
+      // Dynamically import expo-tracking-transparency
+      const TrackingTransparency = await import('expo-tracking-transparency');
+      
+      // Request tracking permissions
+      const { status } = await TrackingTransparency.requestTrackingPermissionsAsync();
+      
+      console.log('iOS Tracking Permission Status:', status);
+      
+      if (status === 'granted') {
+        console.log('Tracking permission granted - personalized ads enabled');
+      } else {
+        console.log('Tracking permission denied - using non-personalized ads');
+      }
+      
+      return status === 'granted';
+    } catch (error) {
+      console.error('Error requesting iOS tracking permission:', error);
+      // Continue without tracking permission
+      return false;
+    }
+  }
+
   private async initConsent() {
     if (isExpoGo) return;
 
@@ -189,9 +223,26 @@ class AdService {
       const { AdsConsent } = await import("react-native-google-mobile-ads");
       const choices = await AdsConsent.getUserChoices().catch(() => null);
 
-      const allowPersonalized =
+      let allowPersonalized =
         choices?.selectPersonalisedAds === true &&
         choices?.storeAndAccessInformationOnDevice !== false;
+
+      // On iOS, also check App Tracking Transparency status
+      if (Platform.OS === 'ios') {
+        try {
+          const TrackingTransparency = await import('expo-tracking-transparency');
+          const { status } = await TrackingTransparency.getTrackingPermissionsAsync();
+          
+          // Only allow personalized ads if both GDPR consent AND iOS tracking are granted
+          if (status !== 'granted') {
+            allowPersonalized = false;
+            console.log('iOS tracking denied - forcing non-personalized ads');
+          }
+        } catch (error) {
+          console.error('Error checking iOS tracking status:', error);
+          allowPersonalized = false;
+        }
+      }
 
       console.log("Ad request options:", { allowPersonalized });
       return { requestNonPersonalizedAdsOnly: !allowPersonalized };

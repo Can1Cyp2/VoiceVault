@@ -13,6 +13,7 @@ import React from "react";
 import Toast from "react-native-toast-message";
 import { useAdminStatus } from "./app/util/adminUtils";
 import { setLoginGlow } from "./app/util/loginPrompt";
+import { adService } from "./app/components/SupportModal/AdService";
 
 // Define the types for the tab navigator
 export type TabParamList = {
@@ -39,6 +40,9 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState("Home"); // Track current screen
 
   useEffect(() => {
+    // Initialize AdMob SDK early
+    adService.initialize().catch(console.error);
+
     const checkSession = async () => {
       try {
         const sessionResult = await getSession();

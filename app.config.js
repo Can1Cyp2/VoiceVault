@@ -105,6 +105,8 @@ module.exports = () => {
       config: {
         googleMobileAdsAppId: "ca-app-pub-7846050438990670~7402587455",
       },
+      // Add privacy policy for Play Store compliance
+      privacyPolicyUrl: "https://can1cyp2.github.io/VoiceVault-Landing/", // Replace with your actual privacy policy URL
     },
     web: {
       favicon: "./assets/favicon.png",
@@ -136,6 +138,7 @@ module.exports = () => {
       "expo-font",
       "expo-secure-store",
       "expo-video",
+      "expo-tracking-transparency",
       [
         "react-native-google-mobile-ads",
         {

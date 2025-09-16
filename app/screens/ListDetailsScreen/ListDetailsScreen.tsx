@@ -6,15 +6,35 @@ import {
   StyleSheet,
   Alert,
   TouchableOpacity,
+  Modal,
+  ScrollView,
+  Dimensions,
 } from "react-native";
 import { supabase } from "../../util/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, FONTS } from "../../styles/theme";
+import { updateListIcon } from "../SavedListsScreen/SavedListsLogic";
 
 export default function ListDetailsScreen({ route, navigation }: any) {
   const { listName } = route.params;
   const [songs, setSongs] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
+  const [listIcon, setListIcon] = useState<string>("list");
+  const [iconModalVisible, setIconModalVisible] = useState(false);
+  const [availableIcons, setAvailableIcons] = useState<any[]>([]);
+
+  const fetchAvailableIcons = async () => {
+    try {
+      const { data } = await supabase
+        .from('list_icons')
+        .select('name, label, category, sort_order')
+        .order('category')
+        .order('sort_order');
+      if (data) setAvailableIcons(data || []);
+    } catch (err) {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     const fetchSongs = async () => {
@@ -40,6 +60,23 @@ export default function ListDetailsScreen({ route, navigation }: any) {
           Alert.alert("Error", error.message);
         } else {
           setSongs(data || []);
+          // if the saved_lists table has an icon column, fetch icon for this list
+          try {
+            if (listName !== 'All Saved Songs') {
+              const { data: listData } = await supabase
+                .from('saved_lists')
+                .select('icon')
+                .eq('user_id', session.user.id)
+                .eq('name', listName)
+                .single();
+
+              if (listData?.icon) setListIcon(listData.icon);
+            } else {
+              setListIcon('bookmark');
+            }
+          } catch (err) {
+            // ignore
+          }
         }
       } catch (error) {
         console.error("Error fetching songs:", error);
@@ -48,6 +85,7 @@ export default function ListDetailsScreen({ route, navigation }: any) {
     };
 
     fetchSongs();
+    fetchAvailableIcons();
   }, [listName]);
 
   // Set navigation header
@@ -187,13 +225,18 @@ export default function ListDetailsScreen({ route, navigation }: any) {
     <View style={styles.container}>
       {/* Header Info */}
       <View style={styles.headerInfo}>
-        <View style={styles.listIconContainer}>
-          <Ionicons 
-            name={listName === "All Saved Songs" ? "bookmark" : "list"} 
-            size={32} 
-            color={listName === "All Saved Songs" ? COLORS.secondary : COLORS.primary} 
+          <TouchableOpacity
+          style={styles.listIconContainer}
+          onPress={() => {
+            if (listName !== 'All Saved Songs') setIconModalVisible(true);
+          }}
+        >
+          <Ionicons
+            name={(listName === "All Saved Songs" ? "bookmark" : (listIcon || 'list')) as any}
+            size={32}
+            color={listName === "All Saved Songs" ? COLORS.secondary : COLORS.primary}
           />
-        </View>
+        </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={styles.listTitle}>{listName}</Text>
           <Text style={styles.songCount}>
@@ -226,6 +269,63 @@ export default function ListDetailsScreen({ route, navigation }: any) {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={renderEmptyState}
       />
+
+      {/* Icon Picker Modal */}
+      {iconModalVisible && (
+        <Modal transparent animationType="slide" visible={iconModalVisible}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.iconModalContent}>
+              <Text style={styles.modalTitle}>Choose List Icon</Text>
+
+              {/* Scrollable list that fits within the modal */}
+              <ScrollView style={styles.iconScroll} contentContainerStyle={styles.iconScrollContent}>
+                {(() => {
+                  const grouped: Record<string, any[]> = {};
+                  availableIcons.forEach((i: any) => {
+                    const c = i.category || 'Other';
+                    if (!grouped[c]) grouped[c] = [];
+                    grouped[c].push(i);
+                  });
+                  const categories = Object.keys(grouped).sort();
+
+                  return (
+                    <View style={styles.iconSections}>
+                      {categories.map((category) => (
+                        <View key={category} style={styles.iconSection}>
+                          <Text style={styles.iconSectionTitle}>{category}</Text>
+                          <View style={styles.iconGrid}>
+                            {grouped[category].map((icon: any) => (
+                              <TouchableOpacity
+                                key={icon.name}
+                                style={styles.iconChoice}
+                                onPress={async () => {
+                                  const ok = await updateListIcon(listName, icon.name);
+                                  if (ok) setListIcon(icon.name);
+                                  setIconModalVisible(false);
+                                }}
+                              >
+                                <Ionicons name={icon.name as any} size={28} color={COLORS.primary} />
+                                <Text style={styles.iconLabel}>{icon.label || icon.name}</Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })()}
+              </ScrollView>
+
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setIconModalVisible(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -416,6 +516,82 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: FONTS.primary,
+  },
+  // Icon picker modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconModalContent: {
+    width: '90%',
+    maxWidth: 420,
+    backgroundColor: COLORS.background,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    /* Constrain the modal height to 80% of screen height so it fits on smaller devices */
+    maxHeight: Math.round(Dimensions.get('window').height * 0.8),
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.textDark,
+    marginBottom: 12,
+    fontFamily: FONTS.primary,
+  },
+  iconGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  iconScroll: {
+    width: '100%',
+  },
+  iconScrollContent: {
+    paddingBottom: 12,
+  },
+  iconChoice: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: COLORS.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    margin: 6,
+  },
+  modalCancelButton: {
+    paddingVertical: 10,
+  },
+  modalCancelText: {
+    color: COLORS.textLight,
+    fontFamily: FONTS.primary,
+  },
+  iconSections: {
+    width: '100%',
+    marginBottom: 12,
+  },
+  iconSection: {
+    marginBottom: 12,
+  },
+  iconSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.textDark,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+    fontFamily: FONTS.primary,
+  },
+  iconLabel: {
+    fontSize: 10,
+    color: COLORS.textLight,
+    marginTop: 4,
+    textAlign: 'center',
     fontFamily: FONTS.primary,
   },
 });

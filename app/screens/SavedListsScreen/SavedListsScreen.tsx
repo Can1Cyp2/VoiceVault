@@ -19,42 +19,38 @@ import { COLORS, FONTS } from "../../styles/theme";
 import { deleteList, fetchUserLists, saveNewList } from "./SavedListsLogic";
 
 export default function SavedListsScreen({ navigation }: any) {
-  const [lists, setLists] = useState<string[]>(["All Saved Songs"]);
+  const [lists, setLists] = useState<any[]>([{ name: "All Saved Songs", icon: 'bookmark' }]);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedList, setSelectedList] = useState<string | null>(null);
   const [newListName, setNewListName] = useState("");
   const [isCreatingNew, setIsCreatingNew] = useState(false);
 
-  useEffect(() => {
-    const fetchSavedLists = async () => {
-      try {
-        const session = supabase.auth.session();
-        if (!session?.user) {
-          Alert.alert("Error", "Please log in to view your saved lists.");
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from("saved_lists")
-          .select("name")
-          .eq("user_id", session.user.id);
-
-        if (error) {
-          Alert.alert("Error", error.message);
-        } else {
-          const fetchedLists = data.map((list: any) => list.name) || [];
-          const filteredLists = fetchedLists.filter(
-            (list) => list !== "All Saved Songs"
-          );
-          setLists(["All Saved Songs", ...filteredLists]);
-        }
-      } catch (error) {
-        console.error("Error fetching saved lists:", error);
+  // Extracted loader so we can call it on mount and when screen gains focus
+  const loadSavedLists = async () => {
+    try {
+      const session = supabase.auth.session();
+      if (!session?.user) {
+        Alert.alert("Error", "Please log in to view your saved lists.");
+        return;
       }
-    };
 
-    fetchSavedLists();
-  }, []);
+      const fetched = await fetchUserLists();
+      const other = (fetched || []).filter((l: any) => l.name !== 'All Saved Songs');
+      setLists([{ name: 'All Saved Songs', icon: 'bookmark' }, ...other.map((l: any) => ({ name: l.name, icon: l.icon || 'list' }))]);
+    } catch (error) {
+      console.error("Error fetching saved lists:", error);
+    }
+  };
+
+  useEffect(() => {
+    loadSavedLists();
+    // Refresh lists when returning to this screen (e.g. after changing an icon)
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadSavedLists();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   const handleAddNewList = async () => {
     if (!newListName.trim()) {
@@ -70,7 +66,8 @@ export default function SavedListsScreen({ navigation }: any) {
       setIsCreatingNew(false);
 
       const updatedLists = await fetchUserLists();
-      setLists(updatedLists || []);
+      const other = (updatedLists || []).filter((l: any) => l.name !== 'All Saved Songs');
+      setLists([{ name: 'All Saved Songs', icon: 'bookmark' }, ...other.map((l: any) => ({ name: l.name, icon: l.icon || 'list' }))]);
     } catch (error) {
       console.error("Error creating new list:", error);
       Alert.alert("Error", "Could not create the new list.");
@@ -101,7 +98,7 @@ export default function SavedListsScreen({ navigation }: any) {
       } else {
         setLists((prevLists) =>
           prevLists.map((list) =>
-            list === selectedList ? newListName.trim() : list
+            list.name === selectedList ? { ...list, name: newListName.trim() } : list
           )
         );
         setEditModalVisible(false);
@@ -138,11 +135,11 @@ export default function SavedListsScreen({ navigation }: any) {
         {
           text: "Delete",
           style: "destructive",
-          onPress: async () => {
+            onPress: async () => {
             try {
               await deleteList(selectedList);
               setLists((prevLists) =>
-                prevLists.filter((list) => list !== selectedList)
+                prevLists.filter((list) => list.name !== selectedList)
               );
               setEditModalVisible(false);
               setSelectedList(null);
@@ -156,31 +153,31 @@ export default function SavedListsScreen({ navigation }: any) {
     );
   };
 
-  const renderListItem = ({ item, index }: { item: string; index: number }) => (
+  const renderListItem = ({ item, index }: { item: any; index: number }) => (
     <View style={styles.listItemContainer}>
       <TouchableOpacity
         style={[
           styles.listItem,
-          item === "All Saved Songs" && styles.defaultListItem
+          item.name === "All Saved Songs" && styles.defaultListItem
         ]}
-        onPress={() => navigation.navigate("ListDetails", { listName: item })}
+        onPress={() => navigation.navigate("ListDetails", { listName: item.name })}
       >
         <View style={styles.listItemContent}>
-          <View style={styles.listIcon}>
+          <View style={[styles.listIcon, item.name !== 'All Saved Songs' && styles.listIconLarge]}>
             <Ionicons 
-              name={item === "All Saved Songs" ? "bookmark" : "list"} 
-              size={24} 
-              color={item === "All Saved Songs" ? COLORS.secondary : COLORS.primary} 
+              name={(item.name === "All Saved Songs" ? "bookmark" : (item.icon || 'list')) as any} 
+              size={item.name === 'All Saved Songs' ? 24 : 28} 
+              color={item.name === "All Saved Songs" ? COLORS.secondary : COLORS.primary} 
             />
           </View>
           <View style={styles.listTextContainer}>
             <Text style={[
               styles.listItemText,
-              item === "All Saved Songs" && styles.defaultListText
+              item.name === "All Saved Songs" && styles.defaultListText
             ]}>
-              {item}
+              {item.name}
             </Text>
-            {item === "All Saved Songs" && (
+            {item.name === "All Saved Songs" && (
               <Text style={styles.listItemSubtext}>Default collection</Text>
             )}
           </View>
@@ -188,10 +185,10 @@ export default function SavedListsScreen({ navigation }: any) {
         <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} style={styles.listArrow} />
       </TouchableOpacity>
       
-      {item !== "All Saved Songs" && (
+      {item.name !== "All Saved Songs" && (
         <TouchableOpacity
           style={styles.editButton}
-          onPress={() => openEditModal(item)}
+          onPress={() => openEditModal(item.name)}
         >
           <Ionicons name="ellipsis-horizontal" size={20} color={COLORS.textLight} />
         </TouchableOpacity>
@@ -226,7 +223,7 @@ export default function SavedListsScreen({ navigation }: any) {
       {/* Lists */}
       <FlatList
         data={lists}
-        keyExtractor={(item) => item}
+        keyExtractor={(item) => item.name}
         renderItem={renderListItem}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
@@ -400,6 +397,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
+  },
+  listIconLarge: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
   },
   listTextContainer: {
     flex: 1,

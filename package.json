@@ -52,7 +52,8 @@
     "voice-vault-app": "file:",
     "VoiceVault": "file:",
     "VoiceVault-app": "file:",
-    "expo-font": "~14.0.8"
+    "expo-font": "~14.0.8",
+    "expo-tracking-transparency": "~6.0.7"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",

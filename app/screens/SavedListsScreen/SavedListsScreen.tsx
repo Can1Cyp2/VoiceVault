@@ -185,7 +185,7 @@ export default function SavedListsScreen({ navigation }: any) {
             )}
           </View>
         </View>
-        <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+        <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} style={styles.listArrow} />
       </TouchableOpacity>
       
       {item !== "All Saved Songs" && (
@@ -424,6 +424,11 @@ const styles = StyleSheet.create({
     top: 16,
     right: 16,
     padding: 4,
+  },
+  listArrow: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
   },
 
   // Empty State

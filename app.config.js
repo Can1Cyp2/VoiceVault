@@ -1,4 +1,7 @@
 // app.config.js
+// Developer: Can1Cyp2
+// Email: can1cyp2apps@gmail.com
+// Website: https://SebastianLandry.ca
 require("dotenv").config(); // Load .env.local for local development
 
 module.exports = () => {

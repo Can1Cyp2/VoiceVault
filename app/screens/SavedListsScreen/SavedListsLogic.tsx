@@ -17,6 +17,8 @@ export const saveNewList = async (listName: string) => {
       {
         name: listName,
         user_id: session.user.id,
+        // optional icon column - default to 'list'
+        icon: 'list',
       },
     ]);
 
@@ -104,5 +106,28 @@ export const fetchUserLists = async () => {
   } catch (error: any) {
     Alert.alert("Error", error.message);
     return [];
+  }
+};
+
+// Update a list's icon
+export const updateListIcon = async (listName: string, iconName: string) => {
+  try {
+    const session = supabase.auth.session();
+    if (!session?.user) {
+      Alert.alert("Error", "Please log in to update the list icon.");
+      return false;
+    }
+
+    const { error } = await supabase
+      .from("saved_lists")
+      .update({ icon: iconName })
+      .eq("name", listName)
+      .eq("user_id", session.user.id);
+
+    if (error) throw error;
+    return true;
+  } catch (error: any) {
+    Alert.alert("Error", error.message);
+    return false;
   }
 };

@@ -82,7 +82,7 @@ VoiceVault is the perfect tool for vocalists, music students, and karaoke enthus
 ### Steps to Run Locally
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/your-username/voicevault.git
+   git clone https://github.com/Can1Cyp2/VoiceVault.git
    cd voicevault
    ```
 
@@ -139,7 +139,7 @@ Contributions are welcome! If you can help resolve the network connectivity issu
 1. Fork the repository.
 2. Create a new branch:
    ```bash
-   git checkout -b feature/your-feature-name
+   git checkout -b feature/my-new-feature
    ```
 3. Make your changes and commit:
    ```bash
@@ -147,7 +147,7 @@ Contributions are welcome! If you can help resolve the network connectivity issu
    ```
 4. Push to your fork:
    ```bash
-   git push origin feature/your-feature-name
+   git push origin feature/my-new-feature
    ```
 5. Open a pull request with a detailed description of your changes.
 
@@ -181,4 +181,13 @@ This project is licensed under the Apache License, Version 2.0 (See the [LICENSE
     or using it to provide services for a fee, without explicit permission from the project owner.
     You may contribute to the original project via pull requests, but you may not fork the project
     to create an independent version or distribute it without permission.
+
+---
+
+## 👨‍💻 Developer
+
+**Developer**: Can1Cyp2  
+**Email**: can1cyp2apps@gmail.com  
+**Website**: https://SebastianLandry.ca
+
 ---

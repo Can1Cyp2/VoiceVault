@@ -24,6 +24,8 @@ module.exports = () => {
       bundleIdentifier: "com.can1cyp2.VoiceVault",
       buildNumber: "1.2.8",
       infoPlist: {
+        // CRITICAL: AdMob App ID (required by Google Mobile Ads SDK)
+        GADApplicationIdentifier: "ca-app-pub-7846050438990670~3247720022",
         // Complete SKAdNetwork setup for iOS 14.5+ ad tracking
         SKAdNetworkItems: [
           // Google AdMob

@@ -46,10 +46,8 @@ class AdService {
       this.AdEventType = AdEventType;
       this.RewardedAdEventType = RewardedAdEventType;
 
-      // Request iOS App Tracking Transparency permission first (iOS 14.5+)
-      if (Platform.OS === 'ios') {
-        await this.requestIOSTrackingPermission();
-      }
+      // ATT permission is now requested at app startup (App.tsx) before AdService initializes
+      // This ensures the prompt appears immediately on all iOS versions including iPadOS 26+
 
       // Configure test device FIRST - before any SDK operations
       if (isDev) {

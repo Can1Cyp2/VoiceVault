@@ -78,8 +78,6 @@ module.exports = () => {
           "This app uses the camera for user profile images. (Future updates may require this permission.)",
         NSPhotoLibraryUsageDescription:
           "This app accesses your photo library for profile picture uploads. (Future updates may require this permission.)",
-        NSMicrophoneUsageDescription:
-          "This app may use the microphone in future updates.",
         ITSAppUsesNonExemptEncryption: false,
         // App Transport Security for ad loading
         NSAppTransportSecurity: {

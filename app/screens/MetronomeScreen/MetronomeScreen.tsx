@@ -55,20 +55,10 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const [uniformSound, setUniformSound] = useState(false); // state for uniform click sound
 
-  // Request audio permissions on mount
+  // Setup audio on mount
   useEffect(() => {
     const setupAudio = async () => {
       try {
-        const { status } = await Audio.requestPermissionsAsync();
-        if (status !== "granted") {
-          console.error("Audio permissions not granted");
-          Alert.alert(
-            "Permission Denied",
-            "Audio permissions are required to play metronome sounds. Please enable them in your device settings."
-          );
-          return;
-        }
-
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: false,
           playsInSilentModeIOS: true,

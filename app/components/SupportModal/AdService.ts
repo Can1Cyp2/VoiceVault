@@ -18,6 +18,7 @@ class AdService {
   private adCount = 0;
   private lastAdTime = 0;
   private lastAdType: "rewarded" | "interstitial" | null = null;
+  private interstitialWasShown = false; // Track if interstitial was actually shown
   private readonly MIN_LONG_AD_INTERVAL = 30000;
   private readonly MIN_AD_INTERVAL = 5000;
   private readonly MAX_ADS_PER_SESSION = 25;
@@ -45,10 +46,8 @@ class AdService {
       this.AdEventType = AdEventType;
       this.RewardedAdEventType = RewardedAdEventType;
 
-      // Request iOS App Tracking Transparency permission first (iOS 14.5+)
-      if (Platform.OS === 'ios') {
-        await this.requestIOSTrackingPermission();
-      }
+      // ATT permission is now requested at app startup (App.tsx) before AdService initializes
+      // This ensures the prompt appears immediately on all iOS versions including iPadOS 26+
 
       // Configure test device FIRST - before any SDK operations
       if (isDev) {
@@ -64,8 +63,9 @@ class AdService {
 
       // Initialize SDK
       console.log("Initializing AdMob SDK...");
-      await MobileAds().initialize();
-      console.log("AdMob SDK initialized successfully");
+      const initResult = await MobileAds().initialize();
+      console.log("✅ AdMob SDK initialized successfully");
+      console.log("SDK initialization result:", initResult);
 
       // Handle consent
       await this.initConsent();
@@ -99,16 +99,17 @@ class AdService {
         requestOptions
       );
 
-      // ✅ FIXED: Use AdEventType consistently for all events
-      this.rewardedAd.addAdEventListener(AdEventType.LOADED, () => {
+      // ✅ FIXED: Use RewardedAdEventType for LOADED event only
+      this.rewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => {
         console.log("Rewarded ad loaded successfully");
       });
 
+      // ✅ Use AdEventType for ERROR and CLOSED (these don't exist in RewardedAdEventType)
       this.rewardedAd.addAdEventListener(AdEventType.ERROR, (error: any) => {
         console.error("Rewarded ad error:", error);
       });
 
-      // ✅ FIXED: This is the only RewardedAdEventType we need
+      // ✅ Earned reward event
       this.rewardedAd.addAdEventListener(
         RewardedAdEventType.EARNED_REWARD,
         (reward: any) => {
@@ -124,39 +125,76 @@ class AdService {
       });
 
       // Create interstitial ad instance
-      this.interstitialAd = InterstitialAd.createForAdRequest(
-        interstitialAdUnit,
-        requestOptions
-      );
+      console.log("Creating interstitial ad instance...");
+      try {
+        this.interstitialAd = InterstitialAd.createForAdRequest(
+          interstitialAdUnit,
+          requestOptions
+        );
+        console.log("✅ Interstitial ad instance created:", !!this.interstitialAd);
+      } catch (error) {
+        console.error("❌ CRITICAL: Failed to create interstitial ad:", error);
+        throw error; // Re-throw to see the full error
+      }
 
       this.interstitialAd.addAdEventListener(AdEventType.LOADED, () => {
-        console.log("Interstitial ad loaded successfully");
+        console.log("✅ Interstitial ad loaded successfully");
       });
 
       this.interstitialAd.addAdEventListener(
         AdEventType.ERROR,
         (error: any) => {
-          console.error("Interstitial ad error:", error);
+          console.error("❌ Interstitial ad error during preload:", error);
+          console.error("Error code:", error?.code);
+          console.error("Error message:", error?.message);
         }
       );
 
+      // Track when ad is actually shown (impression)
+      this.interstitialAd.addAdEventListener(AdEventType.OPENED, () => {
+        console.log("✅ Interstitial ad opened/shown");
+        this.interstitialWasShown = true;
+      });
+
       this.interstitialAd.addAdEventListener(AdEventType.CLOSED, () => {
         console.log("Interstitial ad closed");
-        this.onAdReward("interstitial");
+        // Only give reward if ad was actually shown (not closed before showing)
+        if (this.interstitialWasShown) {
+          console.log("Ad was shown - giving reward");
+          this.onAdReward("interstitial");
+          this.interstitialWasShown = false; // Reset flag
+        } else {
+          console.log("Ad was not shown - no reward");
+        }
         // Add delay to prevent immediate reload issues
         setTimeout(() => this.preloadInterstitialAd(), 2000);
       });
 
       // Wait a moment before initial preload to ensure ads are fully set up
       setTimeout(() => {
+        console.log("Starting ad preload...");
+        console.log("Rewarded ad instance exists:", !!this.rewardedAd);
+        console.log("Interstitial ad instance exists:", !!this.interstitialAd);
         this.preloadRewardedAd();
         this.preloadInterstitialAd();
       }, 1000);
 
       this.isInitialized = true;
-      console.log("AdService initialized successfully");
-    } catch (error) {
-      console.error("Failed to initialize ads:", error);
+      console.log("✅ AdService initialized successfully");
+      console.log("Final check - Rewarded ad:", !!this.rewardedAd, "Interstitial ad:", !!this.interstitialAd);
+    } catch (error: any) {
+      console.error("❌ Failed to initialize ads:", error);
+      console.error("Error message:", error?.message);
+      console.error("Error stack:", error?.stack);
+      console.error("Rewarded ad created:", !!this.rewardedAd);
+      console.error("Interstitial ad created:", !!this.interstitialAd);
+      
+      // Show alert to user about the specific error
+      Alert.alert(
+        "Ad Initialization Error",
+        `Failed to initialize ads: ${error?.message || 'Unknown error'}\n\nRewarded: ${!!this.rewardedAd ? 'OK' : 'FAILED'}\nInterstitial: ${!!this.interstitialAd ? 'OK' : 'FAILED'}`
+      );
+      
       // Still mark as initialized to prevent infinite retry loops
       this.isInitialized = true;
     }
@@ -279,36 +317,52 @@ class AdService {
   async showRewardedAd(): Promise<boolean> {
     if (isExpoGo) return this.simulateAdInExpo("rewarded");
     if (!this.canShowAd("rewarded")) return false;
-    if (!this.isInitialized) await this.initialize();
+    
+    if (!this.isInitialized) {
+      console.log("AdService not initialized, initializing now...");
+      await this.initialize();
+      // Give it a moment to finish initialization
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
 
     try {
       console.log("Attempting to show rewarded ad...");
+      console.log("Ad initialization status:", this.isInitialized);
+      console.log("Ad instance exists:", !!this.rewardedAd);
 
       // ✅ FIXED: Check if ad exists and is loaded properly
       if (!this.rewardedAd) {
-        console.error("Rewarded ad instance not created");
+        console.error("❌ Rewarded ad instance not created");
+        Alert.alert(
+          "Ad Error",
+          "Ad system not initialized. Please restart the app and try again."
+        );
         return false;
       }
 
+      console.log("Checking if ad is loaded:", this.rewardedAd.loaded);
       if (!this.rewardedAd.loaded) {
         console.log("Rewarded ad not loaded, loading now...");
         Alert.alert("Loading Ad", "Please wait a moment while the ad loads...");
         const options = await this.currentRequestOptions();
+        console.log("Loading ad with options:", options);
+        console.log("Loading ad with options:", options);
         await this.rewardedAd.load(options);
 
         // ✅ FIXED: Wait for load with proper event handling
         await new Promise((resolve, reject) => {
-          const timeout = setTimeout(
-            () => reject(new Error("Load timeout")),
-            10000
-          );
+          const timeout = setTimeout(() => {
+            console.error("❌ Ad load timeout after 10 seconds");
+            reject(new Error("Load timeout"));
+          }, 10000);
 
           const loadedListener = () => {
+            console.log("✅ Ad loaded successfully");
             clearTimeout(timeout);
-            // ✅ FIXED: Safe event listener removal
-            if (this.rewardedAd && this.AdEventType) {
+            // ✅ FIXED: Safe event listener removal - Use RewardedAdEventType for RewardedAd
+            if (this.rewardedAd && this.RewardedAdEventType) {
               this.rewardedAd.removeAdEventListener(
-                this.AdEventType.LOADED,
+                this.RewardedAdEventType.LOADED,
                 loadedListener
               );
             }
@@ -316,8 +370,11 @@ class AdService {
           };
 
           const errorListener = (error: any) => {
+            console.error("❌ Ad load error:", error);
+            console.error("Error code:", error?.code);
+            console.error("Error message:", error?.message);
             clearTimeout(timeout);
-            // ✅ FIXED: Safe event listener removal
+            // ✅ FIXED: Use AdEventType for ERROR event
             if (this.rewardedAd && this.AdEventType) {
               this.rewardedAd.removeAdEventListener(
                 this.AdEventType.ERROR,
@@ -327,10 +384,10 @@ class AdService {
             reject(error);
           };
 
-          // ✅ FIXED: Use AdEventType consistently
-          if (this.rewardedAd && this.AdEventType) {
+          // ✅ FIXED: Use RewardedAdEventType for LOADED, AdEventType for ERROR
+          if (this.rewardedAd && this.RewardedAdEventType && this.AdEventType) {
             this.rewardedAd.addAdEventListener(
-              this.AdEventType.LOADED,
+              this.RewardedAdEventType.LOADED,
               loadedListener
             );
             this.rewardedAd.addAdEventListener(
@@ -343,16 +400,27 @@ class AdService {
         });
       }
 
+      console.log("Showing ad now...");
       await this.rewardedAd.show();
       this.recordAdShow("rewarded");
-      console.log("Rewarded ad shown successfully");
+      console.log("✅ Rewarded ad shown successfully");
       return true;
-    } catch (error) {
-      console.error("Error showing rewarded ad:", error);
-      Alert.alert(
-        "Ad Not Available",
-        "Unable to load ad at this time. Please try again later."
-      );
+    } catch (error: any) {
+      console.error("❌ Error showing rewarded ad:", error);
+      console.error("Error code:", error?.code);
+      console.error("Error message:", error?.message);
+      console.error("Error stack:", error?.stack);
+      
+      // Provide more specific error messages
+      let errorMessage = "Unable to load ad at this time. Please try again later.";
+      
+      if (error?.code === 3) {
+        errorMessage = "No ad inventory available right now. Please try again in a few minutes.";
+      } else if (error?.message?.includes("timeout")) {
+        errorMessage = "Ad loading timed out. Please check your internet connection.";
+      }
+      
+      Alert.alert("Ad Not Available", errorMessage);
       this.preloadRewardedAd();
       return false;
     }
@@ -361,30 +429,46 @@ class AdService {
   async showInterstitialAd(): Promise<boolean> {
     if (isExpoGo) return this.simulateAdInExpo("interstitial");
     if (!this.canShowAd("interstitial")) return false;
-    if (!this.isInitialized) await this.initialize();
+    
+    if (!this.isInitialized) {
+      console.log("AdService not initialized, initializing now...");
+      await this.initialize();
+      // Give it a moment to finish initialization
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
 
     try {
       console.log("Attempting to show interstitial ad...");
+      console.log("Ad initialization status:", this.isInitialized);
+      console.log("Interstitial ad instance exists:", !!this.interstitialAd);
 
       // ✅ FIXED: Check if ad exists and is loaded properly
       if (!this.interstitialAd) {
-        console.error("Interstitial ad instance not created");
+        console.error("❌ Interstitial ad instance not created");
+        Alert.alert(
+          "Ad Error",
+          "Interstitial ad system not initialized. Please restart the app and try again."
+        );
         return false;
       }
 
+      console.log("Checking if interstitial ad is loaded:", this.interstitialAd.loaded);
       if (!this.interstitialAd.loaded) {
         console.log("Interstitial ad not loaded, loading now...");
         const options = await this.currentRequestOptions();
+        console.log("Loading interstitial ad with options:", options);
+        console.log("Loading interstitial ad with options:", options);
         await this.interstitialAd.load(options);
 
         // ✅ FIXED: Wait for load with proper error handling
         await new Promise((resolve, reject) => {
-          const timeout = setTimeout(
-            () => reject(new Error("Load timeout")),
-            10000
-          );
+          const timeout = setTimeout(() => {
+            console.error("❌ Interstitial ad load timeout after 10 seconds");
+            reject(new Error("Load timeout"));
+          }, 10000);
 
           const loadedListener = () => {
+            console.log("✅ Interstitial ad loaded successfully");
             clearTimeout(timeout);
             // ✅ FIXED: Safe event listener removal
             if (this.interstitialAd && this.AdEventType) {
@@ -397,6 +481,9 @@ class AdService {
           };
 
           const errorListener = (error: any) => {
+            console.error("❌ Interstitial ad load error:", error);
+            console.error("Error code:", error?.code);
+            console.error("Error message:", error?.message);
             clearTimeout(timeout);
             // ✅ FIXED: Safe event listener removal
             if (this.interstitialAd && this.AdEventType) {
@@ -424,12 +511,30 @@ class AdService {
         });
       }
 
+      console.log("Showing interstitial ad now...");
+      this.interstitialWasShown = false; // Reset before showing
       await this.interstitialAd.show();
       this.recordAdShow("interstitial");
-      console.log("Interstitial ad shown successfully");
+      console.log("✅ Interstitial ad shown successfully");
       return true;
-    } catch (error) {
-      console.error("Error showing interstitial ad:", error);
+    } catch (error: any) {
+      console.error("❌ Error showing interstitial ad:", error);
+      console.error("Error code:", error?.code);
+      console.error("Error message:", error?.message);
+      console.error("Error stack:", error?.stack);
+      
+      // Provide more specific error messages
+      let errorMessage = "Unable to load interstitial ad at this time. Please try again later.";
+      
+      if (error?.code === 3) {
+        errorMessage = "No ad inventory available right now. Please try again in a few minutes.";
+      } else if (error?.message?.includes("timeout")) {
+        errorMessage = "Ad loading timed out. Please check your internet connection.";
+      } else if (error?.message?.includes("not created") || error?.message?.includes("not available")) {
+        errorMessage = "Ad not created. The ad system may still be initializing.";
+      }
+      
+      Alert.alert("Ad Not Available", errorMessage);
       this.preloadInterstitialAd();
       return false;
     }
@@ -499,16 +604,14 @@ class AdService {
     const rewardAmount = type === "rewarded" ? 10 : 3;
 
     const session = await getSession();
-    if (!session) {
-      Alert.alert("Not Logged In", "You need to log in to earn rewards.");
-      return;
-    }
-    if (!session?.session?.user) {
+    
+    // Allow ad watching even when not logged in, but don't save rewards
+    if (!session || !session?.session?.user) {
       Toast.show({
         type: "info",
-        text1: "Ad Watched",
-        text2: `Coins Earned: ${rewardAmount} (Not saved)`,
-        visibilityTime: 3000,
+        text1: "Thank You for Supporting!",
+        text2: "Log in to earn and save coins from watching ads",
+        visibilityTime: 4000,
       });
       return;
     }

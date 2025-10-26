@@ -45,13 +45,11 @@ export const SupportModal = ({ visible, onClose }: Props) => {
 
   const handleQuickAd = async () => {
     const success = await showInterstitialAd();
-    if (success) {
-      onClose();
-    }
+    // Don't close modal - let them watch more ads!
   };
 
   const handleDonate = () => {
-    Linking.openURL('https://www.Ko-fi.com/voicevault');
+    Linking.openURL('https://ko-fi.com/can1cyp2apps');
     onClose();
   };
 

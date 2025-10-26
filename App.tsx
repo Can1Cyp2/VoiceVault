@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Alert, Text, View } from "react-native";
+import { Pressable, StyleSheet, Alert, Text, View, Platform } from "react-native";
 import { NavigationContainer, useNavigation } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { AppStack } from "./app/navigation/StackNavigator";
@@ -14,6 +14,60 @@ import Toast from "react-native-toast-message";
 import { useAdminStatus } from "./app/util/adminUtils";
 import { setLoginGlow } from "./app/util/loginPrompt";
 import { adService } from "./app/components/SupportModal/AdService";
+
+// Request ATT permission IMMEDIATELY on iOS before any other initialization
+// For iPadOS 26.0.1+ compatibility
+const requestATTPermission = async () => {
+  if (Platform.OS !== 'ios') {
+    console.log('🔒 Not iOS, skipping ATT');
+    return false;
+  }
+  
+  try {
+    console.log('🔒 Importing expo-tracking-transparency...');
+    const TrackingTransparency = await import('expo-tracking-transparency');
+    console.log('🔒 Module imported successfully');
+    
+    // First check current status
+    console.log('🔒 Checking current ATT status...');
+    const { status: currentStatus } = await TrackingTransparency.getTrackingPermissionsAsync();
+    console.log('🔒 Current ATT Status:', currentStatus);
+    console.log('🔒 Status type:', typeof currentStatus);
+    console.log('🔒 Status value (string):', String(currentStatus));
+    
+    // Check if permission was already granted
+    if (currentStatus === 'granted') {
+      console.log('🔒 ATT already granted');
+      return true;
+    }
+    
+    // Check if permission was already denied
+    if (currentStatus === 'denied') {
+      console.log('🔒 ATT already denied');
+      return false;
+    }
+    
+    // Status is undetermined - request permission
+    console.log('🔒 ATT Status is undetermined, requesting permission NOW...');
+    console.log('🔒 About to show system ATT dialog...');
+    
+    const { status: newStatus } = await TrackingTransparency.requestTrackingPermissionsAsync();
+    
+    console.log('🔒 ATT Permission Response:', newStatus);
+    console.log('🔒 Response type:', typeof newStatus);
+    console.log('🔒 Response value (string):', String(newStatus));
+    
+    const granted = newStatus === 'granted';
+    console.log('🔒 Permission granted?', granted);
+    return granted;
+  } catch (error: any) {
+    console.error('❌ ATT request error:', error);
+    console.error('❌ Error message:', error?.message);
+    console.error('❌ Error stack:', error?.stack);
+    console.error('❌ Error details:', JSON.stringify(error, null, 2));
+    return false;
+  }
+};
 
 // Define the types for the tab navigator
 export type TabParamList = {
@@ -38,10 +92,32 @@ const ProfileScreenWrapper = () => {
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentScreen, setCurrentScreen] = useState("Home"); // Track current screen
+  const [attRequested, setAttRequested] = useState(false);
 
   useEffect(() => {
-    // Initialize AdMob SDK early
-    adService.initialize().catch(console.error);
+    // CRITICAL: Request ATT permission FIRST, before any SDK initialization
+    // iOS 18+ requires ATT to be called immediately without delays
+    const initializeApp = async () => {
+      console.log('📱 App initializing...');
+      console.log('📱 Platform:', Platform.OS);
+      console.log('📱 ATT already requested:', attRequested);
+      
+      if (Platform.OS === 'ios' && !attRequested) {
+        console.log('🔒 Starting ATT permission flow...');
+        
+        // NO DELAY - iOS 18+ requires immediate request
+        const granted = await requestATTPermission();
+        console.log('🔒 ATT Permission Result:', granted ? 'GRANTED' : 'DENIED/RESTRICTED');
+        setAttRequested(true);
+        console.log('✅ ATT request flow completed');
+      }
+      
+      // Now initialize AdMob SDK after ATT prompt
+      console.log('📱 Initializing AdMob SDK...');
+      adService.initialize().catch(console.error);
+    };
+
+    initializeApp();
 
     const checkSession = async () => {
       try {

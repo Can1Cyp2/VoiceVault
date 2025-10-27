@@ -11,7 +11,6 @@ import {
   RefreshControl,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { useFocusEffect, useRoute } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/StackNavigator";
 import { Ionicons } from "@expo/vector-icons";
@@ -96,17 +95,6 @@ export default function SearchScreen() {
       subscription?.unsubscribe();
     };
   }, []);
-
-  // Logic to Navigate to metronome screen
-  const route = useRoute();
-  useFocusEffect(
-    React.useCallback(() => {
-      if ((route as any)?.params?.screen === "Metronome") {
-        navigation.navigate("Metronome");
-        navigation.setParams(undefined);
-      }
-    }, [route, navigation])
-  );
 
   // Function to handle adding a new song
   const handleAddPress = () => {
@@ -272,7 +260,7 @@ export default function SearchScreen() {
                   <View style={styles.resultIcon}>
                     <Ionicons
                       name={filter === "songs" ? "musical-notes" : "person"}
-                      size={24}
+                      size={25}
                       color="#FF6347"
                     />
                   </View>
@@ -295,7 +283,7 @@ export default function SearchScreen() {
                             ? "checkmark-circle"
                             : "close-circle"
                       }
-                      size={30}
+                      size={31}
                       color={
                         filter === "songs"
                           ? isSongInRange(item.vocalRange)
@@ -379,7 +367,7 @@ const styles = StyleSheet.create({
     borderColor: "#FF6347",
   },
   resultItem: {
-    padding: 16,
+    padding: 17,
     marginVertical: 6,
     marginHorizontal: 16,
     backgroundColor: "#FFFFFF",
@@ -396,12 +384,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   resultText: {
-    fontSize: 17,
+    fontSize: 17.5,
     fontWeight: "600",
     color: "#1A1A1A",
   },
   resultSubText: {
-    fontSize: 13,
+    fontSize: 13.5,
     color: "#666",
     marginTop: 3,
   },
@@ -430,9 +418,9 @@ const styles = StyleSheet.create({
     marginLeft: "auto",
   },
   resultIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
     backgroundColor: "#FFF0ED",
     justifyContent: "center",
     alignItems: "center",

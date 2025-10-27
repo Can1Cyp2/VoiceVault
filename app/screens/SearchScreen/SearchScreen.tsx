@@ -173,7 +173,7 @@ export default function SearchScreen() {
               setFilter("songs");
             }}
           >
-            <Text style={styles.filterText}>Songs</Text>
+            <Text style={[styles.filterText, filter === "songs" && { color: "#fff" }]}>Songs</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.filterButton, filter === "artists" && styles.activeFilter]}
@@ -182,7 +182,7 @@ export default function SearchScreen() {
               setFilter("artists");
             }}
           >
-            <Text style={styles.filterText}>Artists</Text>
+            <Text style={[styles.filterText, filter === "artists" && { color: "#fff" }]}>Artists</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.filterButtonRight} onPress={handleInRangePress}>
             <Ionicons
@@ -269,11 +269,13 @@ export default function SearchScreen() {
             return (
               <TouchableOpacity onPress={() => handlePress(item)}>
                 <View style={styles.resultItem}>
-                  <Ionicons
-                    name={filter === "songs" ? "musical-notes" : "person"}
-                    size={30}
-                    style={styles.resultIcon}
-                  />
+                  <View style={styles.resultIcon}>
+                    <Ionicons
+                      name={filter === "songs" ? "musical-notes" : "person"}
+                      size={24}
+                      color="#FF6347"
+                    />
+                  </View>
                   <View style={styles.resultTextContainer}>
                     <Text style={styles.resultText}>{item.name}</Text>
                     {filter === "songs" && (
@@ -297,11 +299,11 @@ export default function SearchScreen() {
                       color={
                         filter === "songs"
                           ? isSongInRange(item.vocalRange)
-                            ? "tomato"
-                            : "grey"
+                            ? "#FF6347"
+                            : "#CCC"
                           : isArtistInRange(item)
-                            ? "tomato"
-                            : "grey"
+                            ? "#FF6347"
+                            : "#CCC"
                       }
                       style={styles.inRangeIcon}
                     />
@@ -342,17 +344,17 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", paddingTop: 30 },
+  container: { flex: 1, backgroundColor: "#F5F5F5", paddingTop: 30 },
   searchBarContainer: {
     marginTop: 20,
-    paddingHorizontal: 10,
+    paddingHorizontal: 16,
   },
   loadingText: { textAlign: "center", marginVertical: 10, color: "gray" },
   filterContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 10,
-    paddingHorizontal: 10,
+    marginVertical: 15,
+    paddingHorizontal: 16,
   },
   addButton: {
     position: "absolute",
@@ -364,41 +366,44 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   filterButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
     marginHorizontal: 5,
-    borderRadius: 5,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: "#ddd",
-    backgroundColor: "#f0f0f0",
-  },
-  activeFilter: { backgroundColor: "tomato", borderColor: "tomato" },
-  resultItem: {
-    padding: 15,
-    marginVertical: 8,
-    marginHorizontal: 10,
     backgroundColor: "#fff",
+  },
+  activeFilter: { 
+    backgroundColor: "#FF6347", 
+    borderColor: "#FF6347",
+  },
+  resultItem: {
+    padding: 16,
+    marginVertical: 6,
+    marginHorizontal: 16,
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
     flexDirection: "row",
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
   resultTextContainer: {
     flex: 1,
   },
   resultText: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "600",
-    color: "#333",
+    color: "#1A1A1A",
   },
   resultSubText: {
-    fontSize: 14,
-    color: "#888",
-    marginTop: 2,
+    fontSize: 13,
+    color: "#666",
+    marginTop: 3,
   },
   errorContainer: {
     alignItems: "center",
@@ -425,8 +430,13 @@ const styles = StyleSheet.create({
     marginLeft: "auto",
   },
   resultIcon: {
-    marginRight: 15,
-    color: "tomato",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#FFF0ED",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
   },
   filterButtonRight: {
     position: "absolute",
@@ -439,9 +449,10 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   filterText: {
-    fontSize: 12,
-    fontWeight: "bold",
+    fontSize: 13,
+    fontWeight: "600",
     textAlign: "center",
+    color: "#1A1A1A",
   },
   loadingFooter: {
     paddingVertical: 10,

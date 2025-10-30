@@ -134,7 +134,13 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       {/* Tools Button in Top Left */}
       <TouchableOpacity
         style={styles.toolsButton}
-        onPress={() => navigation.navigate("Search", { screen: "Metronome" })}
+        onPress={() => {
+          // @ts-ignore - Navigate to nested screen
+          navigation.navigate("Search", { 
+            screen: "Metronome",
+            initial: false 
+          });
+        }}
       >
         <Ionicons name="cog-outline" size={30} color="#ff6600" />
         <Text style={styles.toolsText}>Tools</Text>

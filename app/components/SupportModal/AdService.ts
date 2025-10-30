@@ -135,7 +135,8 @@ class AdService {
         console.log("✅ Interstitial ad instance created:", !!this.interstitialAd);
       } catch (error) {
         console.error("❌ CRITICAL: Failed to create interstitial ad:", error);
-        throw error; // Re-throw to see the full error
+        // Don't throw - continue without interstitial ads
+        this.interstitialAd = null;
       }
 
       this.interstitialAd.addAdEventListener(AdEventType.LOADED, () => {
@@ -372,7 +373,6 @@ class AdService {
         Alert.alert("Loading Ad", "Please wait a moment while the ad loads...");
         const options = await this.currentRequestOptions();
         console.log("Loading ad with options:", options);
-        console.log("Loading ad with options:", options);
         await this.rewardedAd.load(options);
 
         // ✅ FIXED: Wait for load with proper event handling
@@ -444,9 +444,16 @@ class AdService {
         errorMessage = "No ad inventory available right now. Please try again in a few minutes.";
       } else if (error?.message?.includes("timeout")) {
         errorMessage = "Ad loading timed out. Please check your internet connection.";
+      } else if (error?.message?.includes("show")) {
+        // If error is during show(), preload a new ad
+        errorMessage = "Failed to display ad. A new ad will be loaded.";
+        this.preloadRewardedAd();
       }
       
-      Alert.alert("Ad Not Available", errorMessage);
+      // Don't show alert for certain non-critical errors
+      if (error?.code !== 0) { // Error code 0 is often "ad closed" which is not an error
+        Alert.alert("Ad Not Available", errorMessage);
+      }
       this.preloadRewardedAd();
       return false;
     }

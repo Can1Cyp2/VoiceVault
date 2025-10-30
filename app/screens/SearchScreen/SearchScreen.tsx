@@ -347,6 +347,7 @@ const styles = StyleSheet.create({
   addButton: {
     position: "absolute",
     left: 17,
+    zIndex: 10,
   },
   filterButtonsWrapper: {
     flexDirection: "row",

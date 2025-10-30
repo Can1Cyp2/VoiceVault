@@ -2,6 +2,7 @@
 
 import React from "react";
 import { TextInput, StyleSheet, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 export const SearchBar = ({
   onSearch,
@@ -10,9 +11,11 @@ export const SearchBar = ({
 }) => {
   return (
     <View style={styles.container}>
+      <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
       <TextInput
         style={styles.input}
         placeholder="Search for an artist or song..."
+        placeholderTextColor="#999"
         onChangeText={onSearch} // Call onSearch on every keystroke
       />
     </View>
@@ -20,12 +23,20 @@ export const SearchBar = ({
 };
 
 const styles = StyleSheet.create({
-  container: { flexDirection: "row", padding: 10 },
+  container: { 
+    flexDirection: "row", 
+    alignItems: "center",
+    backgroundColor: "#F0F0F0",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
   input: {
     flex: 1,
-    borderColor: "gray",
-    borderWidth: 1,
-    padding: 8,
-    marginRight: 8,
+    fontSize: 16,
+    color: "#333",
   },
 });

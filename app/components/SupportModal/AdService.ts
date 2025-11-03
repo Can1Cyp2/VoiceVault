@@ -4,6 +4,7 @@ import Constants from "expo-constants";
 import { useState, useEffect } from "react";
 import { getSession, supabase } from "../../util/supabase";
 import Toast from "react-native-toast-message";
+import * as TrackingTransparency from "expo-tracking-transparency";
 
 const isExpoGo = Constants.appOwnership === "expo";
 const isDev = __DEV__;
@@ -232,17 +233,42 @@ class AdService {
     try {
       const { AdsConsent } = await import("react-native-google-mobile-ads");
 
-      console.log("Requesting consent info update...");
-      await AdsConsent.requestInfoUpdate({});
+      // Get Apple's ATT status
+      const attStatus = await TrackingTransparency.getTrackingPermissionsAsync();
+      console.log("ATT Status for consent:", attStatus.status);
 
-      console.log("Gathering consent...");
-      await AdsConsent.gatherConsent();
+      console.log("Requesting consent info update...");
+      
+      // Configure consent based on ATT response
+      const consentConfig = {
+        debugGeography: __DEV__ ? 1 : 0, // 1 = EEA in debug mode, 0 = disabled
+        tagForUnderAgeOfConsent: false,
+      };
+
+      await AdsConsent.requestInfoUpdate(consentConfig);
 
       const info = await AdsConsent.getConsentInfo();
-      console.log("Consent status:", info);
+      console.log("Consent status before setting:", info);
+
+      // If user granted ATT, we can skip the Google consent dialog
+      // and mark consent as obtained
+      if (attStatus.status === 'granted') {
+        console.log("ATT granted - using that for AdMob consent");
+        // User already consented via Apple ATT, no need to show Google dialog
+      } else if (attStatus.status === 'denied') {
+        console.log("ATT denied - respecting user choice for AdMob");
+        // User denied ATT, respect that choice
+      } else {
+        // Only show Google dialog if ATT wasn't explicitly granted/denied
+        console.log("Gathering consent...");
+        await AdsConsent.gatherConsent();
+      }
+
+      const finalInfo = await AdsConsent.getConsentInfo();
+      console.log("Final consent status:", finalInfo);
 
       // Check if we can request ads
-      if (info.canRequestAds === false) {
+      if (finalInfo.canRequestAds === false) {
         console.warn("Cannot request ads due to consent status");
         return false;
       }

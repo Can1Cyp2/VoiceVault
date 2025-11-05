@@ -1,6 +1,6 @@
 // File: app/screens/ProfileScreen/ProfileScreen.tsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,11 +10,13 @@ import {
   Modal,
   ActivityIndicator,
   GestureResponderEvent,
+  Switch,
 } from "react-native";
 import ProfileMenu from "./ProfileMenu";
 import { supabase } from "../../util/supabase";
 import { fetchUserVocalRange } from "../../util/api";
 import { useAdminStatus } from "../../util/adminUtils";
+import { useTheme } from "../../contexts/ThemeContext";
 
 export default function ProfileScreen({ navigation }: any) {
   const [isMenuVisible, setMenuVisible] = useState(false);
@@ -24,6 +26,9 @@ export default function ProfileScreen({ navigation }: any) {
   const [isHelpVisible, setHelpVisible] = useState(false);
   const [updateTrigger, setUpdateTrigger] = useState(0); // Triggers refresh
   const [coinBalance, setCoinBalance] = useState<number | null>(null);
+
+  // Theme hook
+  const { colors, isDark, mode, setMode } = useTheme();
 
   // Admin status hook
   const { isAdmin, loading: adminLoading, adminDetails } = useAdminStatus();
@@ -99,6 +104,9 @@ export default function ProfileScreen({ navigation }: any) {
     };
   }, [updateTrigger]); // Refresh on updates
 
+  // Create styles with theme colors using useMemo
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   // Handle logout
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -115,9 +123,9 @@ export default function ProfileScreen({ navigation }: any) {
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#007bff" />
-        <Text style={styles.loadingText}>Loading...</Text>
+      <View style={[styles.container, { justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.link} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
       </View>
     );
   }
@@ -142,6 +150,17 @@ export default function ProfileScreen({ navigation }: any) {
 
       {/* Display Vocal Range */}
       <Text style={styles.vocalRange}>{vocalRange}</Text>
+
+      {/* Dark Mode Toggle */}
+      <View style={styles.settingRow}>
+        <Text style={styles.settingLabel}>🌙 Dark Mode</Text>
+        <Switch
+          value={isDark}
+          onValueChange={(value) => setMode(value ? 'dark' : 'light')}
+          trackColor={{ false: colors.border, true: colors.primary }}
+          thumbColor={isDark ? colors.backgroundCard : colors.backgroundTertiary}
+        />
+      </View>
 
       <TouchableOpacity
         style={styles.button}
@@ -218,41 +237,63 @@ export default function ProfileScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: colors.backgroundSecondary,
     padding: 20,
   },
   title: {
     fontSize: 28,
     fontWeight: "bold",
     marginBottom: 20,
-    color: "#333",
+    color: colors.textPrimary,
   },
   username: {
     fontSize: 18,
-    color: "#555",
+    color: colors.textSecondary,
     marginBottom: 10,
     textAlign: "center",
   },
   vocalRange: {
     fontSize: 16,
-    color: "#888",
+    color: colors.textTertiary,
     fontStyle: "italic",
     marginBottom: 20,
     textAlign: "center",
   },
   coinBalance: {
     fontSize: 16,
-    color: "#ffaa00",
+    color: colors.gold,
     fontWeight: "600",
     marginBottom: 10,
   },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '80%',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 15,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  settingLabel: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    fontWeight: '500',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+  },
   button: {
-    backgroundColor: "#007bff",
+    backgroundColor: colors.link,
     padding: 15,
     borderRadius: 5,
     marginBottom: 10,
@@ -260,11 +301,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   buttonText: {
-    color: "#fff",
+    color: colors.buttonText,
     fontSize: 16,
   },
   menuButton: {
-    backgroundColor: "#4caf50",
+    backgroundColor: colors.greenDark,
     padding: 15,
     borderRadius: 5,
     marginBottom: 10,
@@ -272,20 +313,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   menuButtonText: {
-    color: "#fff",
+    color: colors.buttonText,
     fontSize: 16,
   },
   // Admin Section Styles
   adminSection: {
     marginTop: 20,
     padding: 20,
-    backgroundColor: "#fff5f5",
+    backgroundColor: colors.highlight,
     borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: "#ff4757",
+    borderLeftColor: colors.danger,
     width: "80%",
     alignItems: "center",
-    shadowColor: "#ff4757",
+    shadowColor: colors.danger,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -294,12 +335,12 @@ const styles = StyleSheet.create({
   adminLabel: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#ff4757",
+    color: colors.danger,
     marginBottom: 12,
     textAlign: "center",
   },
   adminButton: {
-    backgroundColor: "#ff4757",
+    backgroundColor: colors.danger,
     padding: 15,
     borderRadius: 8,
     width: "100%",
@@ -307,13 +348,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   adminButtonText: {
-    color: "#fff",
+    color: colors.buttonText,
     fontSize: 16,
     fontWeight: "600",
   },
   adminRole: {
     fontSize: 12,
-    color: "#666",
+    color: colors.textSecondary,
     fontStyle: "italic",
     textAlign: "center",
   },
@@ -321,7 +362,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 20,
     right: 20,
-    backgroundColor: "#f44336",
+    backgroundColor: colors.dangerDark,
     width: 50,
     height: 50,
     borderRadius: 25,
@@ -329,7 +370,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   helpButtonText: {
-    color: "#fff",
+    color: colors.buttonText,
     fontSize: 35,
     fontWeight: "bold",
   },
@@ -337,12 +378,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: colors.overlay,
   },
   modalContent: {
     width: "80%",
     padding: 20,
-    backgroundColor: "#fff",
+    backgroundColor: colors.backgroundCard,
     borderRadius: 10,
     alignItems: "center",
   },
@@ -350,26 +391,22 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     marginBottom: 15,
+    color: colors.textPrimary,
   },
   modalText: {
     fontSize: 16,
-    color: "#555",
+    color: colors.textSecondary,
     textAlign: "center",
     marginBottom: 20,
   },
   modalCloseButton: {
-    backgroundColor: "#007bff",
+    backgroundColor: colors.link,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 5,
   },
   modalCloseText: {
-    color: "#fff",
+    color: colors.buttonText,
     fontSize: 16,
-  },
-  loadingText: {
-    fontSize: 18,
-    color: "#555",
-    textAlign: "center",
   },
 });

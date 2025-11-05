@@ -126,7 +126,15 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
     navigation.setOptions({
       headerLeft: () => (
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={() => {
+            // Check if we can go back in the navigation stack
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              // If we can't go back, navigate to Search screen
+              navigation.navigate("Search");
+            }
+          }}
           style={{ paddingLeft: 10 }}
         >
           <Ionicons name="arrow-back" size={24} color="#ff6600" />

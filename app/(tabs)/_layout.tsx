@@ -1,10 +1,11 @@
 // import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 
 import { RootStackParamList } from "../navigation/types";
 import HomeScreen from "../screens/HomeScreen/HomeScreen";
-import { SearchStack } from "../navigation/StackNavigator"; // Import the Search Stack
+import { AppStack } from "../navigation/StackNavigator"; // Import the App Stack
 
 const Tab = createBottomTabNavigator<RootStackParamList>();
 
@@ -15,7 +16,7 @@ export default function Layout() {
         <Tab.Screen name="Home" component={HomeScreen} />
         <Tab.Screen
           name="Search"
-          component={SearchStack}
+          component={AppStack}
           options={{ headerShown: false }}
         />
       </Tab.Navigator>

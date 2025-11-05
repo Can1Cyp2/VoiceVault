@@ -8,7 +8,7 @@ module.exports = () => {
   return {
     name: "VoiceVault",
     slug: "VoiceVault",
-    version: "1.2.8",
+    version: "1.2.9",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -22,7 +22,7 @@ module.exports = () => {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.can1cyp2.VoiceVault",
-      buildNumber: "1.2.8",
+      buildNumber: "1.2.9",
       infoPlist: {
         // CRITICAL: AdMob App ID (required by Google Mobile Ads SDK)
         GADApplicationIdentifier: "ca-app-pub-7846050438990670~3247720022",

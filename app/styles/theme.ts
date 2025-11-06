@@ -56,10 +56,10 @@ export const LightColors = {
 // Dark theme colors
 export const DarkColors = {
   // Backgrounds
-  background: '#121212',
-  backgroundSecondary: '#1e1e1e',
-  backgroundTertiary: '#2a2a2a',
-  backgroundCard: '#1e1e1e',
+  background: '#051629',
+  backgroundSecondary: '#051629',
+  backgroundTertiary: '#0a2540',
+  backgroundCard: '#0a2540',
   
   // Text
   textPrimary: '#e0e0e0',

@@ -20,11 +20,11 @@ allprojects {
     maven { url 'https://www.jitpack.io' }
   }
   
+  // Force all subprojects to use Kotlin 2.0.21
   configurations.all {
     resolutionStrategy {
       force "org.jetbrains.kotlin:kotlin-stdlib:2.0.21"
       force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.0.21"
-      force "org.jetbrains.kotlin:kotlin-reflect:2.0.21"
     }
   }
 }

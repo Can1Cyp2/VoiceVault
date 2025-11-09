@@ -17,13 +17,4 @@
     <domain includeSubdomains="true">gstatic.com</domain>
     <domain includeSubdomains="true">googleapis.com</domain>
   </domain-config>
-</network-security-config>ion="1.0" encoding="utf-8"?>
-<network-security-config>
-  <domain-config>
-    <domain includeSubdomains="true">ydxbhxstbspjpncpsmrz.supabase.co</domain>
-    <trust-anchors>
-      <certificates src="system" />
-      <certificates src="user" />
-    </trust-anchors>
-  </domain-config>
 </network-security-config>

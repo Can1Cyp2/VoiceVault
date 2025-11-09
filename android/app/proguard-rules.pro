@@ -11,10 +11,4 @@
 -keep class com.swmansion.reanimated.** { *; }
 -keep class com.facebook.react.turbomodule.** { *; }
 
-# Google Mobile Ads (AdMob) ProGuard rules
--keep class com.google.android.gms.ads.** { *; }
--keep class com.google.ads.** { *; }
--keep class com.google.android.gms.common.** { *; }
--dontwarn com.google.android.gms.**
-
 # Add any project specific keep options here:

@@ -92,8 +92,8 @@ android {
         applicationId 'com.can1cyp2.VoiceVault'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10206
-        versionName "1.2.6"
+        versionCode 10209
+        versionName "1.2.9"
     }
     signingConfigs {
         debug {

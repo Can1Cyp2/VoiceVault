@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -17,13 +17,18 @@ import { supabase } from "../../util/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, FONTS } from "../../styles/theme";
 import { deleteList, fetchUserLists, saveNewList } from "./SavedListsLogic";
+import { useTheme } from "../../contexts/ThemeContext";
 
 export default function SavedListsScreen({ navigation }: any) {
+  const { colors } = useTheme();
   const [lists, setLists] = useState<any[]>([{ name: "All Saved Songs", icon: 'bookmark' }]);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedList, setSelectedList] = useState<string | null>(null);
   const [newListName, setNewListName] = useState("");
   const [isCreatingNew, setIsCreatingNew] = useState(false);
+
+  // Create themed styles
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Extracted loader so we can call it on mount and when screen gains focus
   const loadSavedLists = async () => {
@@ -310,12 +315,12 @@ export default function SavedListsScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
-  
+
   // Header
   header: {
     flexDirection: 'row',
@@ -323,9 +328,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   backButton: {
     marginRight: 15,
@@ -336,23 +341,23 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     fontFamily: FONTS.primary,
   },
   headerSubtitle: {
     fontSize: 16,
-    color: COLORS.textLight,
+    color: colors.textSecondary,
     fontFamily: FONTS.primary,
     marginTop: 2,
   },
   addButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     width: 44,
     height: 44,
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -370,20 +375,20 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   listItem: {
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.backgroundCard,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: '#000',
+    borderColor: colors.border,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 2,
   },
   defaultListItem: {
-    backgroundColor: COLORS.secondary,
-    borderColor: COLORS.secondary,
+    backgroundColor: colors.secondary,
+    borderColor: colors.secondary,
   },
   listItemContent: {
     flexDirection: 'row',
@@ -393,7 +398,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -409,17 +414,18 @@ const styles = StyleSheet.create({
   listItemText: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     fontFamily: FONTS.primary,
   },
   defaultListText: {
-    color: 'white',
+    color: colors.textInverse,
   },
   listItemSubtext: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: colors.textInverse,
     fontFamily: FONTS.primary,
     marginTop: 2,
+    opacity: 0.8,
   },
   editButton: {
     position: 'absolute',
@@ -442,27 +448,27 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     fontFamily: FONTS.primary,
     marginTop: 20,
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 16,
-    color: COLORS.textLight,
+    color: colors.textSecondary,
     fontFamily: FONTS.primary,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 30,
   },
   emptyButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   emptyButtonText: {
-    color: 'white',
+    color: colors.textInverse,
     fontSize: 16,
     fontWeight: '600',
     fontFamily: FONTS.primary,
@@ -471,12 +477,12 @@ const styles = StyleSheet.create({
   // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.backgroundCard,
     borderRadius: 20,
     padding: 25,
     width: '90%',
@@ -485,50 +491,51 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     textAlign: 'center',
     marginBottom: 8,
     fontFamily: FONTS.primary,
   },
   modalSubtitle: {
     fontSize: 16,
-    color: COLORS.textLight,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
     fontFamily: FONTS.primary,
   },
   input: {
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
     fontSize: 16,
     fontFamily: FONTS.primary,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.backgroundCard,
+    color: colors.textPrimary,
   },
   modalButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 12,
   },
   modalButtonText: {
-    color: 'white',
+    color: colors.textInverse,
     fontSize: 16,
     fontWeight: '600',
     fontFamily: FONTS.primary,
   },
   deleteButton: {
-    backgroundColor: '#ff4444',
+    backgroundColor: colors.danger,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 12,
   },
   deleteButtonText: {
-    color: 'white',
+    color: colors.textInverse,
     fontSize: 16,
     fontWeight: '600',
     fontFamily: FONTS.primary,
@@ -540,7 +547,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalCancelText: {
-    color: COLORS.textLight,
+    color: colors.textSecondary,
     fontSize: 16,
     fontFamily: FONTS.primary,
   },

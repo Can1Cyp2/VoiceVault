@@ -1,5 +1,5 @@
 // File: app/screens/ProfileScreen/EditProfileModal.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { supabase } from "../../util/supabase";
 import { fetchUserVocalRange } from "../../util/api";
 import { submitVocalRange } from "../UserVocalRange/UserVocalRangeLogic";
 import { Picker } from "@react-native-picker/picker";
+import { useTheme } from "../../contexts/ThemeContext";
 
 // Define all notes from C1 to C7
 export const NOTES = [
@@ -102,6 +103,8 @@ export default function EditProfileModal({
   onClose: () => void;
   onSave?: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [displayName, setDisplayName] = useState("");
   const [minRange, setMinRange] = useState("C0");
   const [maxRange, setMaxRange] = useState("C0");
@@ -292,46 +295,49 @@ export default function EditProfileModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: colors.overlay,
   },
   modal: {
     width: "80%",
     padding: 20,
-    backgroundColor: "#fff",
+    backgroundColor: colors.backgroundCard,
     borderRadius: 10,
     alignItems: "center",
   },
   title: {
     fontSize: 20,
     fontWeight: "bold",
+    color: colors.textPrimary,
     marginBottom: 20,
   },
   input: {
     width: "100%",
     borderWidth: 1,
-    borderColor: "#ccc",
+    borderColor: colors.border,
     borderRadius: 5,
     padding: 10,
     marginBottom: 20,
+    backgroundColor: colors.inputBackground,
+    color: colors.textPrimary,
   },
   saveButton: {
-    backgroundColor: "#007bff",
+    backgroundColor: colors.secondary,
     padding: 10,
     borderRadius: 5,
     width: "100%",
     alignItems: "center",
   },
   saveButtonText: {
-    color: "#fff",
+    color: colors.buttonText,
     fontWeight: "bold",
   },
   closeButton: {
-    color: "#007bff",
+    color: colors.link,
     marginTop: 10,
   },
   inputLabel: {
@@ -339,11 +345,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "bold",
     marginBottom: 5,
-    color: "#444",
+    color: colors.textSecondary,
   },
   label: {
     fontSize: 16,
     fontWeight: "bold",
+    color: colors.textPrimary,
     marginTop: 10,
   },
   picker: {
@@ -356,13 +363,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#ccc",
+    borderColor: colors.border,
     borderRadius: 5,
-    backgroundColor: "#f9f9f9",
+    backgroundColor: colors.inputBackground,
     marginVertical: 5,
   },
   pickerButtonText: {
     fontSize: 16,
-    color: "#333",
+    color: colors.textPrimary,
   },
 });

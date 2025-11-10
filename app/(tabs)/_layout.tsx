@@ -36,9 +36,17 @@ export default function Layout() {
             backgroundColor: colors.backgroundCard,
             borderTopColor: colors.border,
             borderTopWidth: 1,
+            elevation: 0, // Remove shadow on Android
+            shadowOpacity: 0, // Remove shadow on iOS
           },
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textSecondary,
+          tabBarLabelStyle: {
+            fontSize: 12,
+          },
+          tabBarItemStyle: {
+            backgroundColor: colors.backgroundCard,
+          },
           headerStyle: {
             backgroundColor: colors.backgroundCard,
           },

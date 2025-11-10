@@ -1,5 +1,6 @@
 // import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import React, { useMemo } from "react";
+import { View } from "react-native";
 import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
@@ -33,19 +34,23 @@ export default function Layout() {
       <Tab.Navigator
         screenOptions={{
           tabBarStyle: {
-            backgroundColor: colors.backgroundCard,
+            backgroundColor: colors.background,  // Use darker background, not backgroundCard
             borderTopColor: colors.border,
             borderTopWidth: 1,
             elevation: 0, // Remove shadow on Android
             shadowOpacity: 0, // Remove shadow on iOS
+            height: 60, // Explicit height
           },
+          tabBarBackground: () => (
+            <View style={{ flex: 1, backgroundColor: colors.background }} />  // Match the darker background
+          ),
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textSecondary,
           tabBarLabelStyle: {
             fontSize: 12,
           },
           tabBarItemStyle: {
-            backgroundColor: colors.backgroundCard,
+            backgroundColor: 'transparent', // Let background show through
           },
           headerStyle: {
             backgroundColor: colors.backgroundCard,

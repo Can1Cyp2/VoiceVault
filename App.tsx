@@ -5,6 +5,7 @@ import { AppStack } from "./app/navigation/StackNavigator";
 import { Ionicons } from "@expo/vector-icons";
 import { getSession, supabase } from "./app/util/supabase";
 import { StatusBar } from "expo-status-bar";
+import { ThemeProvider, useTheme } from "./app/contexts/ThemeContext";
 
 import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
 import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
@@ -15,7 +16,6 @@ import Toast from "react-native-toast-message";
 import { useAdminStatus } from "./app/util/adminUtils";
 import { setLoginGlow } from "./app/util/loginPrompt";
 import { adService } from "./app/components/SupportModal/AdService";
-import { ThemeProvider, useTheme } from "./app/contexts/ThemeContext";
 
 // Request ATT permission IMMEDIATELY on iOS before any other initialization
 // For iPadOS 26.0.1+ compatibility
@@ -91,12 +91,11 @@ const ProfileScreenWrapper = () => {
   return isAdmin ? <AdminProfileScreen navigation={undefined} /> : <ProfileScreen />;
 };
 
-// Main App Content Component (needs to be inside ThemeProvider to use theme)
 function AppContent() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentScreen, setCurrentScreen] = useState("Home"); // Track current screen
   const [attRequested, setAttRequested] = useState(false);
-  const { isDark } = useTheme(); // Get theme state
+  const { isDark } = useTheme();
 
   useEffect(() => {
     // CRITICAL: Request ATT permission FIRST, before any SDK initialization
@@ -159,7 +158,7 @@ function AppContent() {
 
   return (
     <>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <StatusBar style={isDark ? "light" : "dark"} />
       <NavigationContainer
         onStateChange={(state) => {
           // Track current screen for tab indication:
@@ -224,7 +223,7 @@ function AppContent() {
   );
 }
 
-// Export wrapped with ThemeProvider
+// Main App export with ThemeProvider
 export default function App() {
   return (
     <ThemeProvider>

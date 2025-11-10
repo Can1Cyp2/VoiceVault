@@ -1,7 +1,6 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
-  ext.kotlinVersion = '2.1.20'
   repositories {
     google()
     mavenCentral()
@@ -9,7 +8,7 @@ buildscript {
   dependencies {
     classpath('com.android.tools.build:gradle')
     classpath('com.facebook.react:react-native-gradle-plugin')
-    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
+    classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
   }
 }
 
@@ -18,35 +17,6 @@ allprojects {
     google()
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
-  }
-  
-  // Force all subprojects to use Kotlin 2.1.20
-  configurations.all {
-    resolutionStrategy {
-      force "org.jetbrains.kotlin:kotlin-stdlib:2.1.20"
-      force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.1.20"
-      force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.1.20"
-      force "org.jetbrains.kotlin:kotlin-stdlib-common:2.1.20"
-      force "org.jetbrains.kotlin:kotlin-reflect:2.1.20"
-      
-      // Force Kotlin Gradle Plugin version
-      eachDependency { details ->
-        if (details.requested.group == 'org.jetbrains.kotlin') {
-          details.useVersion '2.1.20'
-        }
-      }
-    }
-  }
-  
-  // Apply Kotlin version to all subprojects
-  afterEvaluate { project ->
-    if (project.hasProperty('android')) {
-      project.android {
-        kotlinOptions {
-          jvmTarget = '17'
-        }
-      }
-    }
   }
 }
 

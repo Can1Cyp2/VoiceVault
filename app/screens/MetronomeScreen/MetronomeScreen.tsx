@@ -1,6 +1,6 @@
 // app/screens/MetronomeScreen/MetronomeScreen.tsx
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { Audio } from "expo-av";
 import { Picker } from "@react-native-picker/picker";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/StackNavigator";
+import { useTheme } from "../../contexts/ThemeContext";
 
 // Get screen dimensions
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -40,6 +41,7 @@ const moderateScale = (size: number, factor = 0.5) => {
 type MetronomeScreenProps = NativeStackScreenProps<RootStackParamList, "Metronome">;
 
 export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
+  const { colors } = useTheme();
   const [bpm, setBpm] = useState(120);
   const [bpmInput, setBpmInput] = useState("120");
   const [isPlaying, setIsPlaying] = useState(false);
@@ -54,6 +56,9 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
   const flashAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const [uniformSound, setUniformSound] = useState(false); // state for uniform click sound
+
+  // Create themed styles
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Setup audio on mount
   useEffect(() => {
@@ -137,11 +142,11 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
           }}
           style={{ paddingLeft: 10 }}
         >
-          <Ionicons name="arrow-back" size={24} color="#ff6600" />
+          <Ionicons name="arrow-back" size={24} color={colors.primaryDark} />
         </TouchableOpacity>
       ),
     });
-  }, [navigation]);
+  }, [navigation, colors]);
 
   const getBeatsPerMeasure = () => {
     switch (timeSignature) {
@@ -343,7 +348,7 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
       bounces={true}
     >
       <View style={styles.container}>
-        <Text style={styles.title}>Metronome</Text>
+        <Text style={[styles.title, { color: colors.primaryDark }]}>Metronome</Text>
         {isPlaying ? (
           <Animated.View
             style={[
@@ -351,8 +356,8 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
               {
                 opacity: flashAnim,
                 transform: [{ scale: scaleAnim }],
-                backgroundColor: beatCount === 1 ? "#ff6600" : "#32CD32",
-                shadowColor: beatCount === 1 ? "#ff6600" : "#32CD32",
+                backgroundColor: beatCount === 1 ? colors.primaryDark : colors.green,
+                shadowColor: beatCount === 1 ? colors.primaryDark : colors.green,
                 shadowOpacity: flashAnim,
               },
             ]}
@@ -368,8 +373,8 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
               style={[
                 styles.beatIndicator,
                 {
-                  backgroundColor: "#ff6600",
-                  shadowColor: "#ff6600",
+                  backgroundColor: colors.primaryDark,
+                  shadowColor: colors.primaryDark,
                   shadowOpacity: 0.5,
                   opacity: flashAnim.interpolate({
                     inputRange: [0, 1],
@@ -395,7 +400,7 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
             <Ionicons
               name="remove-circle-outline"
               size={moderateScale(30)}
-              color="#ff6600"
+              color={colors.primary}
             />
           </TouchableOpacity>
           <TextInput
@@ -407,7 +412,7 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
             keyboardType="numeric"
             returnKeyType="done"
             placeholder="BPM"
-            placeholderTextColor="#888"
+            placeholderTextColor={colors.textSecondary}
             accessible={true}
             accessibilityLabel="BPM Input"
             accessibilityHint="Enter a BPM value between 30 and 240"
@@ -421,7 +426,7 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
             <Ionicons
               name="add-circle-outline"
               size={moderateScale(30)}
-              color="#ff6600"
+              color={colors.primary}
             />
           </TouchableOpacity>
         </View>
@@ -436,13 +441,13 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
 
           style={[
             styles.playButton,
-            { backgroundColor: uniformSound ? "#ff6600" : "#808080", marginBottom: 20 },
+            { backgroundColor: uniformSound ? colors.primary : colors.textSecondary, marginBottom: 20 },
           ]}
         >
           <Ionicons
             name={uniformSound ? "checkmark-done" : "musical-notes"}
             size={moderateScale(20)}
-            color="#fff"
+            color={colors.textInverse}
           />
           <Text style={styles.playButtonText}>
             {uniformSound ? "Uniform Sound: On" : "Uniform Sound: Off"}
@@ -489,142 +494,143 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-  },
-  scrollContent: {
-    flexGrow: 1.5,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: verticalScale(20),
-  },
-  container: {
-    width: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: "5%",
-    paddingVertical: "3%",
-  },
-  title: {
-    fontSize: moderateScale(24),
-    fontWeight: "bold",
-    color: "#ff6600",
-    marginBottom: verticalScale(20),
-  },
-  beatIndicator: {
-    width: SCREEN_WIDTH * 0.3,
-    height: SCREEN_WIDTH * 0.3,
-    borderRadius: SCREEN_WIDTH * 0.15,
-    marginBottom: verticalScale(20),
-    shadowOffset: { width: 0, height: moderateScale(2) },
-    shadowRadius: moderateScale(4),
-    elevation: 4,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  tapIndicator: {
-    width: SCREEN_WIDTH * 0.3,
-    height: SCREEN_WIDTH * 0.3,
-    borderRadius: SCREEN_WIDTH * 0.15,
-    marginBottom: verticalScale(20),
-  },
-  tapText: {
-    fontSize: moderateScale(14),
-    fontWeight: "bold",
-    color: "#fff",
-    textAlign: "center",
-  },
-  beatText: {
-    fontSize: moderateScale(16),
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: verticalScale(20),
-  },
-  bpmContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: verticalScale(30),
-    width: "70%",
-  },
-  bpmButton: {
-    padding: moderateScale(8),
-    justifyContent: "center",
-  },
-  bpmInput: {
-    fontSize: moderateScale(20),
-    fontWeight: "bold",
-    color: "#333",
-    textAlign: "center",
-    width: SCREEN_WIDTH * 0.2,
-    marginHorizontal: SCREEN_WIDTH * 0.03,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: moderateScale(6),
-    backgroundColor: "#fff",
-    paddingVertical: verticalScale(3),
-    paddingHorizontal: scale(5),
-    textAlignVertical: "center",
-  },
-  pickerContainer: {
-    alignItems: "center",
-    marginBottom: verticalScale(30),
-    width: "50%",
-  },
-  label: {
-    fontSize: moderateScale(14),
-    fontWeight: "600",
-    color: "#555",
-    marginBottom: verticalScale(8),
-  },
-  pickerWrapper: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: moderateScale(6),
-    backgroundColor: "#fff",
-    overflow: "hidden",
-    width: "100%",
-  },
-  picker: {
-    width: "100%",
-    height: Platform.OS === "ios" ? verticalScale(50) : verticalScale(50), // Increased height to prevent clipping
-    color: "#333",
-  },
-  pickerItem: {
-    fontSize: Math.round(moderateScale(16)),
-    height: Platform.OS === "ios" ? Math.round(verticalScale(50)) : undefined,
-    textAlign: "center",
-  },
-  playButton: {
-    flexDirection: "row",
-    backgroundColor: "#ff6600",
-    paddingVertical: verticalScale(8),
-    paddingHorizontal: scale(20),
-    borderRadius: moderateScale(8),
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: moderateScale(2) },
-    shadowOpacity: 0.3,
-    shadowRadius: moderateScale(3),
-    elevation: 3,
-  },
-  playButtonActive: {
-    backgroundColor: "#cc6600",
-  },
-  playButtonText: {
-    color: "#fff",
-    fontSize: moderateScale(14),
-    fontWeight: "bold",
-    marginLeft: scale(8),
-  },
-  backButton: {
-    position: "absolute",
-    top: Platform.OS === "ios" ? 60 : 40, // iOS devices usually need a bit more padding
-    left: 20,
-    padding: 8,
-  },
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) =>
+  StyleSheet.create({
+    scrollView: {
+      flex: 1,
+      backgroundColor: colors.backgroundTertiary,
+    },
+    scrollContent: {
+      flexGrow: 1.5,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingVertical: verticalScale(20),
+    },
+    container: {
+      width: "100%",
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: "5%",
+      paddingVertical: "3%",
+    },
+    title: {
+      fontSize: moderateScale(24),
+      fontWeight: "bold",
+      color: colors.primary,
+      marginBottom: verticalScale(20),
+    },
+    beatIndicator: {
+      width: SCREEN_WIDTH * 0.3,
+      height: SCREEN_WIDTH * 0.3,
+      borderRadius: SCREEN_WIDTH * 0.15,
+      marginBottom: verticalScale(20),
+      shadowOffset: { width: 0, height: moderateScale(2) },
+      shadowRadius: moderateScale(4),
+      elevation: 4,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    tapIndicator: {
+      width: SCREEN_WIDTH * 0.3,
+      height: SCREEN_WIDTH * 0.3,
+      borderRadius: SCREEN_WIDTH * 0.15,
+      marginBottom: verticalScale(20),
+    },
+    tapText: {
+      fontSize: moderateScale(14),
+      fontWeight: "bold",
+      color: colors.textInverse,
+      textAlign: "center",
+    },
+    beatText: {
+      fontSize: moderateScale(16),
+      fontWeight: "600",
+      color: colors.textPrimary,
+      marginBottom: verticalScale(20),
+    },
+    bpmContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: verticalScale(30),
+      width: "70%",
+    },
+    bpmButton: {
+      padding: moderateScale(8),
+      justifyContent: "center",
+    },
+    bpmInput: {
+      fontSize: moderateScale(20),
+      fontWeight: "bold",
+      color: colors.textPrimary,
+      textAlign: "center",
+      width: SCREEN_WIDTH * 0.2,
+      marginHorizontal: SCREEN_WIDTH * 0.03,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: moderateScale(6),
+      backgroundColor: colors.backgroundCard,
+      paddingVertical: verticalScale(3),
+      paddingHorizontal: scale(5),
+      textAlignVertical: "center",
+    },
+    pickerContainer: {
+      alignItems: "center",
+      marginBottom: verticalScale(30),
+      width: "50%",
+    },
+    label: {
+      fontSize: moderateScale(14),
+      fontWeight: "600",
+      color: colors.textSecondary,
+      marginBottom: verticalScale(8),
+    },
+    pickerWrapper: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: moderateScale(6),
+      backgroundColor: colors.backgroundCard,
+      overflow: "hidden",
+      width: "100%",
+    },
+    picker: {
+      width: "100%",
+      height: Platform.OS === "ios" ? verticalScale(50) : verticalScale(50), // Increased height to prevent clipping
+      color: colors.textPrimary,
+    },
+    pickerItem: {
+      fontSize: Math.round(moderateScale(16)),
+      height: Platform.OS === "ios" ? Math.round(verticalScale(50)) : undefined,
+      textAlign: "center",
+    },
+    playButton: {
+      flexDirection: "row",
+      backgroundColor: colors.primary,
+      paddingVertical: verticalScale(8),
+      paddingHorizontal: scale(20),
+      borderRadius: moderateScale(8),
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: moderateScale(2) },
+      shadowOpacity: 0.3,
+      shadowRadius: moderateScale(3),
+      elevation: 3,
+    },
+    playButtonActive: {
+      backgroundColor: colors.primaryDark,
+    },
+    playButtonText: {
+      color: colors.textInverse,
+      fontSize: moderateScale(14),
+      fontWeight: "bold",
+      marginLeft: scale(8),
+    },
+    backButton: {
+      position: "absolute",
+      top: Platform.OS === "ios" ? 60 : 40, // iOS devices usually need a bit more padding
+      left: 20,
+      padding: 8,
+    },
 
-});
+  });

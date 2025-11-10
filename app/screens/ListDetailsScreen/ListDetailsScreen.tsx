@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   FlatList,
@@ -12,14 +12,11 @@ import {
 } from "react-native";
 import { supabase } from "../../util/supabase";
 import { Ionicons } from "@expo/vector-icons";
-import { FONTS } from "../../styles/theme";
-import { useTheme } from "../../contexts/ThemeContext";
+import { COLORS, FONTS } from "../../styles/theme";
 import { updateListIcon } from "../SavedListsScreen/SavedListsLogic";
 
 export default function ListDetailsScreen({ route, navigation }: any) {
   const { listName } = route.params;
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
   const [songs, setSongs] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [listIcon, setListIcon] = useState<string>("list");
@@ -103,12 +100,12 @@ export default function ListDetailsScreen({ route, navigation }: any) {
           <Ionicons
             name={isEditing ? "checkmark" : "create-outline"}
             size={24}
-            color={isEditing ? colors.success : colors.primary}
+            color={isEditing ? COLORS.success : COLORS.primary}
           />
         </TouchableOpacity>
       ),
     });
-  }, [isEditing, listName, navigation, colors]);
+  }, [isEditing, listName, navigation]);
 
   const handleDeleteSong = async (songId: number) => {
     Alert.alert(
@@ -165,7 +162,7 @@ export default function ListDetailsScreen({ route, navigation }: any) {
       >
         {/* Song Icon */}
         <View style={styles.songIcon}>
-          <Ionicons name="musical-note" size={24} color={colors.primary} />
+          <Ionicons name="musical-note" size={24} color={COLORS.primary} />
         </View>
 
         {/* Song Details */}
@@ -189,10 +186,10 @@ export default function ListDetailsScreen({ route, navigation }: any) {
             style={styles.deleteButton}
             onPress={() => handleDeleteSong(item.id)}
           >
-            <Ionicons name="trash-outline" size={20} color={colors.danger} />
+            <Ionicons name="trash-outline" size={20} color="#ff4444" />
           </TouchableOpacity>
         ) : (
-          <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
         )}
       </TouchableOpacity>
     </View>
@@ -204,7 +201,7 @@ export default function ListDetailsScreen({ route, navigation }: any) {
         <Ionicons 
           name={listName === "All Saved Songs" ? "bookmark-outline" : "list-outline"} 
           size={64} 
-          color={colors.textSecondary} 
+          color={COLORS.textLight} 
         />
       </View>
       <Text style={styles.emptyTitle}>
@@ -237,7 +234,7 @@ export default function ListDetailsScreen({ route, navigation }: any) {
           <Ionicons
             name={(listName === "All Saved Songs" ? "bookmark" : (listIcon || 'list')) as any}
             size={32}
-            color={listName === "All Saved Songs" ? colors.secondary : colors.primary}
+            color={listName === "All Saved Songs" ? COLORS.secondary : COLORS.primary}
           />
         </TouchableOpacity>
         <View style={styles.headerText}>
@@ -256,7 +253,7 @@ export default function ListDetailsScreen({ route, navigation }: any) {
       {/* Edit Mode Notice */}
       {isEditing && (
         <View style={styles.editNotice}>
-          <Ionicons name="information-circle-outline" size={16} color={colors.textSecondary} />
+          <Ionicons name="information-circle-outline" size={16} color={COLORS.textLight} />
           <Text style={styles.editNoticeText}>
             Tap the trash icon to remove songs from this list
           </Text>
@@ -307,7 +304,7 @@ export default function ListDetailsScreen({ route, navigation }: any) {
                                   setIconModalVisible(false);
                                 }}
                               >
-                                <Ionicons name={icon.name as any} size={28} color={colors.primary} />
+                                <Ionicons name={icon.name as any} size={28} color={COLORS.primary} />
                                 <Text style={styles.iconLabel}>{icon.label || icon.name}</Text>
                               </TouchableOpacity>
                             ))}
@@ -333,269 +330,268 @@ export default function ListDetailsScreen({ route, navigation }: any) {
   );
 }
 
-const createStyles = (colors: typeof import('../../styles/theme').LightColors) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.backgroundPrimary,
-    },
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
 
-    // Header Info
-    headerInfo: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: 20,
-      paddingBottom: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    listIconContainer: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: colors.backgroundCard,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: 16,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    headerText: {
-      flex: 1,
-    },
-    listTitle: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: colors.textPrimary,
-      fontFamily: FONTS.primary,
-    },
-    songCount: {
-      fontSize: 16,
-      color: colors.textSecondary,
-      fontFamily: FONTS.primary,
-      marginTop: 2,
-    },
-    editingBadge: {
-      backgroundColor: colors.primary,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 12,
-    },
-    editingText: {
-      color: colors.textInverse,
-      fontSize: 12,
-      fontWeight: '600',
-      fontFamily: FONTS.primary,
-    },
+  // Header Info
+  headerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  listIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  headerText: {
+    flex: 1,
+  },
+  listTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
+  },
+  songCount: {
+    fontSize: 16,
+    color: COLORS.textLight,
+    fontFamily: FONTS.primary,
+    marginTop: 2,
+  },
+  editingBadge: {
+    backgroundColor: '#ff6b35',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  editingText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: FONTS.primary,
+  },
 
-    // Edit Notice
-    editNotice: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 20,
-      paddingVertical: 12,
-      backgroundColor: colors.backgroundCard,
-      marginBottom: 8,
-    },
-    editNoticeText: {
-      fontSize: 14,
-      color: colors.textSecondary,
-      fontFamily: FONTS.primary,
-      marginLeft: 8,
-    },
+  // Edit Notice
+  editNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: COLORS.background,
+    marginBottom: 8,
+  },
+  editNoticeText: {
+    fontSize: 14,
+    color: COLORS.textLight,
+    fontFamily: FONTS.primary,
+    marginLeft: 8,
+  },
 
-    // List Container
-    listContainer: {
-      paddingHorizontal: 20,
-      paddingTop: 8,
-      flexGrow: 1,
-    },
+  // List Container
+  listContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    flexGrow: 1,
+  },
 
-    // Song Items
-    songItemContainer: {
-      marginBottom: 12,
-    },
-    songItemEditing: {
-      opacity: 0.9,
-    },
-    songItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.backgroundCard,
-      borderRadius: 16,
-      padding: 16,
-      borderWidth: 1,
-      borderColor: colors.border,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 3,
-      elevation: 2,
-    },
-    songIcon: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: colors.backgroundPrimary,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    songDetails: {
-      flex: 1,
-      marginRight: 12,
-    },
-    songName: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: colors.textPrimary,
-      fontFamily: FONTS.primary,
-      marginBottom: 2,
-    },
-    artistName: {
-      fontSize: 16,
-      color: colors.textSecondary,
-      fontFamily: FONTS.primary,
-      marginBottom: 4,
-    },
-    vocalRange: {
-      fontSize: 14,
-      color: colors.primary,
-      fontFamily: FONTS.primary,
-      fontWeight: '500',
-    },
-    deleteButton: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.dangerLight,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
+  // Song Items
+  songItemContainer: {
+    marginBottom: 12,
+  },
+  songItemEditing: {
+    opacity: 0.9,
+  },
+  songItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  songIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  songDetails: {
+    flex: 1,
+    marginRight: 12,
+  },
+  songName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
+    marginBottom: 2,
+  },
+  artistName: {
+    fontSize: 16,
+    color: COLORS.textLight,
+    fontFamily: FONTS.primary,
+    marginBottom: 4,
+  },
+  vocalRange: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontFamily: FONTS.primary,
+    fontWeight: '500',
+  },
+  deleteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#ffebee',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
-    // Empty State
-    emptyContainer: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 60,
-    },
-    emptyIcon: {
-      width: 96,
-      height: 96,
-      borderRadius: 48,
-      backgroundColor: colors.backgroundCard,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 24,
-      borderWidth: 2,
-      borderColor: colors.border,
-      borderStyle: 'dashed',
-    },
-    emptyTitle: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: colors.textPrimary,
-      fontFamily: FONTS.primary,
-      marginBottom: 8,
-    },
-    emptyText: {
-      fontSize: 16,
-      color: colors.textSecondary,
-      fontFamily: FONTS.primary,
-      textAlign: 'center',
-      lineHeight: 24,
-      marginBottom: 32,
-      paddingHorizontal: 40,
-    },
-    exploreButton: {
-      backgroundColor: colors.primary,
-      paddingHorizontal: 24,
-      paddingVertical: 12,
-      borderRadius: 8,
-    },
-    exploreButtonText: {
-      color: colors.textInverse,
-      fontSize: 16,
-      fontWeight: '600',
-      fontFamily: FONTS.primary,
-    },
-    // Icon picker modal
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: colors.overlay,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    iconModalContent: {
-      width: '90%',
-      maxWidth: 420,
-      backgroundColor: colors.backgroundCard,
-      borderRadius: 16,
-      padding: 20,
-      alignItems: 'center',
-      /* Constrain the modal height to 80% of screen height so it fits on smaller devices */
-      maxHeight: Math.round(Dimensions.get('window').height * 0.8),
-    },
-    modalTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: colors.textPrimary,
-      marginBottom: 12,
-      fontFamily: FONTS.primary,
-    },
-    iconGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'center',
-      marginBottom: 16,
-    },
-    iconScroll: {
-      width: '100%',
-    },
-    iconScrollContent: {
-      paddingBottom: 12,
-    },
-    iconChoice: {
-      width: 56,
-      height: 56,
-      borderRadius: 12,
-      backgroundColor: colors.backgroundPrimary,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
-      margin: 6,
-    },
-    modalCancelButton: {
-      paddingVertical: 10,
-    },
-    modalCancelText: {
-      color: colors.textSecondary,
-      fontFamily: FONTS.primary,
-    },
-    iconSections: {
-      width: '100%',
-      marginBottom: 12,
-    },
-    iconSection: {
-      marginBottom: 12,
-    },
-    iconSectionTitle: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: colors.textPrimary,
-      alignSelf: 'flex-start',
-      marginBottom: 8,
-      fontFamily: FONTS.primary,
-    },
-    iconLabel: {
-      fontSize: 10,
-      color: colors.textSecondary,
-      marginTop: 4,
-      textAlign: 'center',
-      fontFamily: FONTS.primary,
-    },
-  });
+  // Empty State
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyIcon: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: COLORS.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: COLORS.textLight,
+    fontFamily: FONTS.primary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+    paddingHorizontal: 40,
+  },
+  exploreButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  exploreButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: FONTS.primary,
+  },
+  // Icon picker modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconModalContent: {
+    width: '90%',
+    maxWidth: 420,
+    backgroundColor: COLORS.background,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    /* Constrain the modal height to 80% of screen height so it fits on smaller devices */
+    maxHeight: Math.round(Dimensions.get('window').height * 0.8),
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.textDark,
+    marginBottom: 12,
+    fontFamily: FONTS.primary,
+  },
+  iconGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  iconScroll: {
+    width: '100%',
+  },
+  iconScrollContent: {
+    paddingBottom: 12,
+  },
+  iconChoice: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: COLORS.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    margin: 6,
+  },
+  modalCancelButton: {
+    paddingVertical: 10,
+  },
+  modalCancelText: {
+    color: COLORS.textLight,
+    fontFamily: FONTS.primary,
+  },
+  iconSections: {
+    width: '100%',
+    marginBottom: 12,
+  },
+  iconSection: {
+    marginBottom: 12,
+  },
+  iconSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.textDark,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+    fontFamily: FONTS.primary,
+  },
+  iconLabel: {
+    fontSize: 10,
+    color: COLORS.textLight,
+    marginTop: 4,
+    textAlign: 'center',
+    fontFamily: FONTS.primary,
+  },
+});

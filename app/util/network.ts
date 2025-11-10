@@ -7,3 +7,4 @@ export const checkInternetConnection = async () => {
   const networkState = await Network.getNetworkStateAsync();
   return networkState.isConnected;
 };
+

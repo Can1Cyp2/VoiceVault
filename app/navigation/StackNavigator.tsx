@@ -2,6 +2,7 @@ import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons"; // icon library
 import { TouchableOpacity } from "react-native";
+import { useTheme } from "../contexts/ThemeContext";
 
 import { SongDetailsScreen } from "../screens/SongDetailsScreen/SongDetailsScreen";
 import { ArtistDetailsScreen } from "../screens/ArtistDetailsScreen/ArtistDetailsScreen";
@@ -37,8 +38,24 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function AppStack() {
+  const { colors } = useTheme();
+  
   return (
-    <Stack.Navigator initialRouteName="Search">
+    <Stack.Navigator 
+      initialRouteName="Search"
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: colors.backgroundCard,
+        },
+        headerTintColor: colors.textPrimary,
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
+        contentStyle: {
+          backgroundColor: colors.background,
+        },
+      }}
+    >
       {/* Search Screen */}
       <Stack.Screen
         name="Search"
@@ -51,7 +68,7 @@ export function AppStack() {
               onPress={() => navigation.navigate("SavedLists")} // Navigate to Saved Lists
               style={{ marginRight: 10 }}
             >
-              <Ionicons name="list" size={24} color="#007bff" />
+              <Ionicons name="list" size={24} color={colors.secondary} />
             </TouchableOpacity>
           ),
         })}
@@ -68,7 +85,7 @@ export function AppStack() {
               onPress={() => navigation.setParams({ showAddToListModal: true })}
               style={{ marginRight: 10 }}
             >
-              <Ionicons name="add-circle-outline" size={30} color="tomato" />
+              <Ionicons name="add-circle-outline" size={30} color={colors.primary} />
             </TouchableOpacity>
           ),
         })}
@@ -85,7 +102,7 @@ export function AppStack() {
               onPress={() => navigation.navigate("SavedLists")}
               style={{ marginRight: 10 }}
             >
-              <Ionicons name="list" size={24} color="#007bff" />
+              <Ionicons name="list" size={24} color={colors.secondary} />
             </TouchableOpacity>
           ),
         })}
@@ -119,7 +136,7 @@ export function AppStack() {
               onPress={() => navigation.navigate("SavedLists")}
               style={{ marginRight: 10 }}
             >
-              <Ionicons name="list" size={24} color="#007bff" />
+              <Ionicons name="list" size={24} color={colors.secondary} />
             </TouchableOpacity>
           ),
         })}
@@ -139,9 +156,6 @@ export function AppStack() {
       options={{
         title: "Admin Profile",
         headerShown: true,
-        headerStyle: { backgroundColor: "#f8f8f8" },
-        headerTintColor: "#333",
-        headerTitleStyle: { fontWeight: "bold" },
       }}
     />
      <Stack.Screen

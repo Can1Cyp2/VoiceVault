@@ -1,6 +1,6 @@
 // app/screens/SongDetailsScreen/SongDetailsScreen.tsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, FONTS } from "../../styles/theme";
+import { useTheme } from "../../contexts/ThemeContext";
 
 import {
   fetchUserLists,
@@ -36,6 +37,7 @@ const { width } = Dimensions.get('window');
 // Displays details of a song, including vocal range and options to save it to a list.
 export const SongDetailsScreen = ({ route, navigation }: any) => {
   const { name, artist, vocalRange } = route.params;
+  const { colors } = useTheme();
 
   const { male, female, maleOutOfRange, femaleOutOfRange } =
     findClosestVocalRangeFit(vocalRange);
@@ -46,6 +48,9 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isIssueModalVisible, setIssueModalVisible] = useState(false);
   const [issueText, setIssueText] = useState("");
+
+  // Create themed styles
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Parse vocal range to extract lowest and highest notes
   const parseVocalRange = (range: string) => {
@@ -446,10 +451,10 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: colors.background,
   },
   contentContainer: {
     flexGrow: 1,
@@ -465,11 +470,11 @@ const styles = StyleSheet.create({
   albumArt: {
     width: 280,
     height: 280,
-    backgroundColor: COLORS.textDark,
+    backgroundColor: colors.textPrimary,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -482,7 +487,7 @@ const styles = StyleSheet.create({
   albumTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: 'white',
+    color: colors.textInverse,
     fontFamily: FONTS.primary,
     textAlign: 'center',
     marginBottom: 8,
@@ -490,7 +495,7 @@ const styles = StyleSheet.create({
   },
   albumArtist: {
     fontSize: 16,
-    color: '#ccc',
+    color: colors.darkGray,
     fontFamily: FONTS.primary,
     textAlign: 'center',
     letterSpacing: 2,
@@ -500,7 +505,7 @@ const styles = StyleSheet.create({
   songTitle: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     fontFamily: FONTS.primary,
     textAlign: 'center',
     marginBottom: 8,
@@ -508,7 +513,7 @@ const styles = StyleSheet.create({
   },
   artistName: {
     fontSize: 24,
-    color: COLORS.textLight,
+    color: colors.textSecondary,
     fontFamily: FONTS.primary,
     textAlign: 'center',
     marginBottom: 20,
@@ -517,23 +522,23 @@ const styles = StyleSheet.create({
   // Status Badge
   statusBadge: {
     alignSelf: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.backgroundCard,
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     marginBottom: 30,
   },
   statusText: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textSecondary,
     fontFamily: FONTS.primary,
     fontWeight: 'bold',
   },
   statusTextVerified: {
     fontSize: 12,
-    color: COLORS.primary,
+    color: colors.primary,
     fontFamily: FONTS.primary,
     fontWeight: 'bold',
   },
@@ -552,7 +557,7 @@ const styles = StyleSheet.create({
   vocalRangeTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     fontFamily: FONTS.primary,
   },
 
@@ -568,18 +573,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   rangeLabel: {
     fontSize: 18,
-    color: COLORS.textLight,
+    color: colors.textSecondary,
     fontFamily: FONTS.primary,
     flex: 1,
   },
   rangeValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     fontFamily: FONTS.primary,
   },
 
@@ -591,34 +596,34 @@ const styles = StyleSheet.create({
   bestFitTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     fontFamily: FONTS.primary,
     marginBottom: 15,
   },
   bestFitCard: {
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.backgroundCard,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   bestFitLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     fontFamily: FONTS.primary,
     marginBottom: 4,
   },
   bestFitValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.primary,
+    color: colors.primary,
     fontFamily: FONTS.primary,
   },
   outOfRangeText: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textSecondary,
     fontFamily: FONTS.primary,
     marginTop: 4,
     fontStyle: 'italic',
@@ -630,17 +635,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     gap: 15,
     marginBottom: 20,
-    marginTop: 20, // Add this line
+    marginTop: 20,
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
   },
   primaryButtonText: {
-    color: 'white',
+    color: colors.textInverse,
     fontSize: 14,
     fontWeight: 'bold',
     fontFamily: FONTS.primary,
@@ -655,11 +660,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: COLORS.textLight,
+    borderColor: colors.textSecondary,
     marginBottom: 20,
   },
   shareButtonText: {
-    color: COLORS.textLight,
+    color: colors.textSecondary,
     fontSize: 16,
     fontWeight: 'bold',
     fontFamily: FONTS.primary,
@@ -675,7 +680,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   reportButtonText: {
-    color: COLORS.primary,
+    color: colors.primary,
     fontSize: 14,
     fontFamily: FONTS.primary,
     marginLeft: 8,
@@ -684,12 +689,12 @@ const styles = StyleSheet.create({
   // Modal Styles
   modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundCard,
     borderRadius: 20,
     padding: 25,
     width: '90%',
@@ -698,13 +703,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     textAlign: 'center',
     marginBottom: 20,
     fontFamily: FONTS.primary,
   },
   listOptionAlwaysSaved: {
-    backgroundColor: COLORS.secondary,
+    backgroundColor: colors.secondary,
     padding: 14,
     borderRadius: 8,
     marginVertical: 4,
@@ -712,12 +717,12 @@ const styles = StyleSheet.create({
   },
   listOptionTextAlwaysSaved: {
     fontSize: 16,
-    color: 'white',
+    color: colors.textInverse,
     fontWeight: 'bold',
     fontFamily: FONTS.primary,
   },
   listOption: {
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.backgroundCard,
     padding: 14,
     borderRadius: 8,
     marginVertical: 4,
@@ -725,34 +730,36 @@ const styles = StyleSheet.create({
   },
   listOptionText: {
     fontSize: 16,
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     fontFamily: FONTS.primary,
   },
   noListText: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginVertical: 20,
     fontFamily: FONTS.primary,
   },
   input: {
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     borderRadius: 8,
     padding: 12,
     marginVertical: 10,
     fontSize: 16,
     fontFamily: FONTS.primary,
+    color: colors.textPrimary,
+    backgroundColor: colors.inputBackground,
   },
   modalButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
   },
   modalButtonText: {
-    color: 'white',
+    color: colors.textInverse,
     fontSize: 16,
     fontWeight: 'bold',
     fontFamily: FONTS.primary,
@@ -765,13 +772,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   modalCancelText: {
-    color: COLORS.textLight,
+    color: colors.textSecondary,
     fontSize: 16,
     fontFamily: FONTS.primary,
   },
   issueInput: {
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     borderRadius: 8,
     padding: 12,
     height: 120,
@@ -779,5 +786,7 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     fontSize: 16,
     fontFamily: FONTS.primary,
+    color: colors.textPrimary,
+    backgroundColor: colors.inputBackground,
   },
 });

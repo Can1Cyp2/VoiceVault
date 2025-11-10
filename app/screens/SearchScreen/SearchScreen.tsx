@@ -150,7 +150,7 @@ export default function SearchScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.backgroundTertiary }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.searchBarContainer}>
         <SearchBar onSearch={setQuery} />
       </View>

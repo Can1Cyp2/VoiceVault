@@ -10,7 +10,6 @@ import {
   Modal,
   ActivityIndicator,
   GestureResponderEvent,
-  Switch,
 } from "react-native";
 import ProfileMenu from "./ProfileMenu";
 import { supabase } from "../../util/supabase";
@@ -19,6 +18,9 @@ import { useAdminStatus } from "../../util/adminUtils";
 import { useTheme } from "../../contexts/ThemeContext";
 
 export default function ProfileScreen({ navigation }: any) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  
   const [isMenuVisible, setMenuVisible] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const [vocalRange, setVocalRange] = useState<string | null>(null);
@@ -26,9 +28,6 @@ export default function ProfileScreen({ navigation }: any) {
   const [isHelpVisible, setHelpVisible] = useState(false);
   const [updateTrigger, setUpdateTrigger] = useState(0); // Triggers refresh
   const [coinBalance, setCoinBalance] = useState<number | null>(null);
-
-  // Theme hook
-  const { colors, isDark, mode, setMode } = useTheme();
 
   // Admin status hook
   const { isAdmin, loading: adminLoading, adminDetails } = useAdminStatus();
@@ -104,9 +103,6 @@ export default function ProfileScreen({ navigation }: any) {
     };
   }, [updateTrigger]); // Refresh on updates
 
-  // Create styles with theme colors using useMemo
-  const styles = useMemo(() => createStyles(colors), [colors]);
-
   // Handle logout
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -123,9 +119,9 @@ export default function ProfileScreen({ navigation }: any) {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.link} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
   }
@@ -150,17 +146,6 @@ export default function ProfileScreen({ navigation }: any) {
 
       {/* Display Vocal Range */}
       <Text style={styles.vocalRange}>{vocalRange}</Text>
-
-      {/* Dark Mode Toggle */}
-      <View style={styles.settingRow}>
-        <Text style={styles.settingLabel}>🌙 Dark Mode</Text>
-        <Switch
-          value={isDark}
-          onValueChange={(value) => setMode(value ? 'dark' : 'light')}
-          trackColor={{ false: colors.border, true: colors.primary }}
-          thumbColor={isDark ? colors.backgroundCard : colors.backgroundTertiary}
-        />
-      </View>
 
       <TouchableOpacity
         style={styles.button}
@@ -242,7 +227,7 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.background,
     padding: 20,
   },
   title: {
@@ -270,30 +255,8 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     fontWeight: "600",
     marginBottom: 10,
   },
-  settingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '80%',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: 15,
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  settingLabel: {
-    fontSize: 16,
-    color: colors.textPrimary,
-    fontWeight: '500',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-  },
   button: {
-    backgroundColor: colors.link,
+    backgroundColor: colors.secondary,
     padding: 15,
     borderRadius: 5,
     marginBottom: 10,
@@ -303,9 +266,10 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   buttonText: {
     color: colors.buttonText,
     fontSize: 16,
+    fontWeight: "600",
   },
   menuButton: {
-    backgroundColor: colors.greenDark,
+    backgroundColor: colors.green,
     padding: 15,
     borderRadius: 5,
     marginBottom: 10,
@@ -315,12 +279,13 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   menuButtonText: {
     color: colors.buttonText,
     fontSize: 16,
+    fontWeight: "600",
   },
-  // Admin Section Styles
+  // Admin Section Styles - Enhanced contrast
   adminSection: {
     marginTop: 20,
     padding: 20,
-    backgroundColor: colors.highlight,
+    backgroundColor: colors.highlightAlt,
     borderRadius: 12,
     borderLeftWidth: 4,
     borderLeftColor: colors.danger,
@@ -400,7 +365,7 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     marginBottom: 20,
   },
   modalCloseButton: {
-    backgroundColor: colors.link,
+    backgroundColor: colors.secondary,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 5,
@@ -408,5 +373,12 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   modalCloseText: {
     color: colors.buttonText,
     fontSize: 16,
+    fontWeight: "600",
+  },
+  loadingText: {
+    fontSize: 18,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginTop: 10,
   },
 });

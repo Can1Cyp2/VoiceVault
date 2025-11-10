@@ -36,8 +36,10 @@ const { width } = Dimensions.get('window');
 // SongDetailsScreen component:
 // Displays details of a song, including vocal range and options to save it to a list.
 export const SongDetailsScreen = ({ route, navigation }: any) => {
-  const { name, artist, vocalRange } = route.params;
   const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  
+  const { name, artist, vocalRange } = route.params;
 
   const { male, female, maleOutOfRange, femaleOutOfRange } =
     findClosestVocalRangeFit(vocalRange);
@@ -48,9 +50,6 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isIssueModalVisible, setIssueModalVisible] = useState(false);
   const [issueText, setIssueText] = useState("");
-
-  // Create themed styles
-  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Parse vocal range to extract lowest and highest notes
   const parseVocalRange = (range: string) => {
@@ -470,7 +469,7 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   albumArt: {
     width: 280,
     height: 280,
-    backgroundColor: colors.textPrimary,
+    backgroundColor: colors.backgroundCard,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
@@ -487,7 +486,7 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   albumTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: colors.textInverse,
+    color: colors.buttonText,
     fontFamily: FONTS.primary,
     textAlign: 'center',
     marginBottom: 8,
@@ -495,7 +494,7 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   },
   albumArtist: {
     fontSize: 16,
-    color: colors.darkGray,
+    color: colors.textSecondary,
     fontFamily: FONTS.primary,
     textAlign: 'center',
     letterSpacing: 2,
@@ -522,7 +521,7 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   // Status Badge
   statusBadge: {
     alignSelf: 'center',
-    backgroundColor: colors.backgroundCard,
+    backgroundColor: colors.backgroundTertiary,
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 20,
@@ -601,7 +600,7 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     marginBottom: 15,
   },
   bestFitCard: {
-    backgroundColor: colors.backgroundCard,
+    backgroundColor: colors.backgroundTertiary,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -623,7 +622,7 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   },
   outOfRangeText: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: colors.textTertiary,
     fontFamily: FONTS.primary,
     marginTop: 4,
     fontStyle: 'italic',
@@ -635,7 +634,7 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     paddingHorizontal: 20,
     gap: 15,
     marginBottom: 20,
-    marginTop: 20,
+    marginTop: 20, // Add this line
   },
   primaryButton: {
     flex: 1,
@@ -645,7 +644,7 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     alignItems: 'center',
   },
   primaryButtonText: {
-    color: colors.textInverse,
+    color: colors.buttonText,
     fontSize: 14,
     fontWeight: 'bold',
     fontFamily: FONTS.primary,
@@ -717,12 +716,12 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   },
   listOptionTextAlwaysSaved: {
     fontSize: 16,
-    color: colors.textInverse,
+    color: colors.buttonText,
     fontWeight: 'bold',
     fontFamily: FONTS.primary,
   },
   listOption: {
-    backgroundColor: colors.backgroundCard,
+    backgroundColor: colors.backgroundTertiary,
     padding: 14,
     borderRadius: 8,
     marginVertical: 4,
@@ -748,8 +747,8 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     marginVertical: 10,
     fontSize: 16,
     fontFamily: FONTS.primary,
-    color: colors.textPrimary,
     backgroundColor: colors.inputBackground,
+    color: colors.textPrimary,
   },
   modalButton: {
     backgroundColor: colors.primary,
@@ -759,7 +758,7 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     marginTop: 10,
   },
   modalButtonText: {
-    color: colors.textInverse,
+    color: colors.buttonText,
     fontSize: 16,
     fontWeight: 'bold',
     fontFamily: FONTS.primary,
@@ -786,7 +785,5 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     marginVertical: 10,
     fontSize: 16,
     fontFamily: FONTS.primary,
-    color: colors.textPrimary,
-    backgroundColor: colors.inputBackground,
   },
 });

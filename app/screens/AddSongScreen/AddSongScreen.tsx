@@ -1,6 +1,6 @@
 // File location: app/screens/AddSongScreen/AddSongScreen.tsx
 
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import {
   View,
   TextInput,
@@ -16,7 +16,6 @@ import {
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../../util/supabase";
 import { addSong, checkForSimilarSong } from "../../util/api";
-import { useTheme } from "../../contexts/ThemeContext";
 
 // Define all notes on a piano (sharps, no flats):
 const NOTES = [
@@ -111,8 +110,6 @@ const NOTES = [
 ];
 
 export default function AddSongScreen({ navigation }: any) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
   const [name, setName] = useState("");
   const [artist, setArtist] = useState("");
   const [startNote, setStartNote] = useState<string>("C4");
@@ -333,13 +330,13 @@ export default function AddSongScreen({ navigation }: any) {
               </Text>
               <View style={styles.modalButtonContainer}>
                 <TouchableOpacity
-                  style={[styles.modalButton, { backgroundColor: colors.danger }]}
+                  style={[styles.modalButton, { backgroundColor: "tomato" }]}
                   onPress={handleAddAnyway}
                 >
                   <Text style={styles.modalButtonText}>Submit Anyway</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.modalButton, { backgroundColor: colors.textSecondary }]}
+                  style={[styles.modalButton, { backgroundColor: "#ccc" }]}
                   onPress={handleCancel}
                 >
                   <Text style={styles.modalButtonText}>Cancel</Text>
@@ -382,113 +379,105 @@ export default function AddSongScreen({ navigation }: any) {
   );
 }
 
-const createStyles = (colors: typeof import('../../styles/theme').LightColors) =>
-  StyleSheet.create({
-    scrollContainer: {
-      padding: 20,
-      backgroundColor: colors.backgroundPrimary,
-      paddingBottom: 100,
-    },
-    container: {
-      flex: 1,
-      padding: 20,
-      backgroundColor: colors.backgroundPrimary,
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: "bold",
-      marginBottom: 10,
-      color: colors.textPrimary,
-    },
-    subtitle: {
-      fontSize: 14,
-      color: colors.textSecondary,
-      marginBottom: 20,
-      fontStyle: "italic",
-    },
-    input: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: 10,
-      marginVertical: 10,
-      borderRadius: 5,
-      backgroundColor: colors.backgroundCard,
-      color: colors.textPrimary,
-    },
-    errorText: {
-      color: colors.danger,
-      marginBottom: 10,
-    },
-    rangeContainer: {
-      marginVertical: 10,
-    },
-    rangeLabel: {
-      fontSize: 16,
-      marginBottom: 5,
-      color: colors.textPrimary,
-    },
-    picker: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 5,
-      backgroundColor: colors.backgroundCard,
-      color: colors.textPrimary,
-    },
-    submitButton: {
-      backgroundColor: colors.primary,
-      padding: 15,
-      borderRadius: 10,
-      alignItems: "center",
-      marginVertical: 20,
-    },
-    submitButtonText: {
-      color: colors.textInverse,
-      fontWeight: "bold",
-      fontSize: 16,
-    },
-    // Modal styles
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: colors.overlay,
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    modalContainer: {
-      backgroundColor: colors.backgroundCard,
-      padding: 20,
-      borderRadius: 10,
-      width: "80%",
-      alignItems: "center",
-    },
-    modalTitle: {
-      fontSize: 18,
-      fontWeight: "bold",
-      marginBottom: 10,
-      textAlign: "center",
-      color: colors.textPrimary,
-    },
-    modalText: {
-      fontSize: 16,
-      marginBottom: 10,
-      textAlign: "center",
-      color: colors.textPrimary,
-    },
-    modalButtonContainer: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      width: "100%",
-      marginTop: 20,
-    },
-    modalButton: {
-      flex: 1,
-      padding: 10,
-      borderRadius: 5,
-      marginHorizontal: 5,
-      alignItems: "center",
-    },
-    modalButtonText: {
-      color: colors.textInverse,
-      fontWeight: "bold",
-      fontSize: 16,
-    },
-  });
+const styles = StyleSheet.create({
+  scrollContainer: {
+    padding: 20,
+    backgroundColor: "#fff",
+    paddingBottom: 100,
+  },
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: "#fff"
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 10
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 20,
+    fontStyle: "italic",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 10,
+    marginVertical: 10,
+    borderRadius: 5,
+  },
+  errorText: {
+    color: "red",
+    marginBottom: 10
+  },
+  rangeContainer: {
+    marginVertical: 10,
+  },
+  rangeLabel: {
+    fontSize: 16,
+    marginBottom: 5,
+  },
+  picker: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    backgroundColor: "#f9f9f9",
+  },
+  submitButton: {
+    backgroundColor: "tomato",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginVertical: 20,
+  },
+  submitButtonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContainer: {
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 10,
+    width: "80%",
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  modalText: {
+    fontSize: 16,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  modalButtonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    marginTop: 20,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 5,
+    marginHorizontal: 5,
+    alignItems: "center",
+  },
+  modalButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+});

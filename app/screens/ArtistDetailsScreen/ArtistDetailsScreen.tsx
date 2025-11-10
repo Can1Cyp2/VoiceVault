@@ -1,7 +1,7 @@
 // app/screens/ArtistDetailsScreen/ArtistDetailsScreen.tsx
 
 import { useNavigation, NavigationProp } from "@react-navigation/native";
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -11,15 +11,12 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { supabase } from "../../util/supabase";
-import { FONTS } from "../../styles/theme";
-import { useTheme } from "../../contexts/ThemeContext";
+import { COLORS, FONTS } from "../../styles/theme";
 import { noteToValue } from "../SongDetailsScreen/RangeBestFit";
 import { RootStackParamList } from "../../navigation/StackNavigator";
 
 export const ArtistDetailsScreen = ({ route }: any) => {
   const { name } = route.params;
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
   const [songs, setSongs] = useState<any[]>([]);
   const [overallRange, setOverallRange] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -249,7 +246,7 @@ export const ArtistDetailsScreen = ({ route }: any) => {
   return (
     <View style={styles.container}>
       {loading ? (
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color="tomato" />
       ) : (
         <FlatList
           data={songs}
@@ -269,120 +266,119 @@ export const ArtistDetailsScreen = ({ route }: any) => {
   );
 };
 
-const createStyles = (colors: typeof import('../../styles/theme').LightColors) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.backgroundPrimary,
-    },
-    headerContainer: {
-      paddingBottom: 20,
-    },
-    title: {
-      fontSize: 32,
-      fontWeight: 'bold',
-      color: colors.primary,
-      marginBottom: 10,
-      paddingHorizontal: 20,
-      paddingTop: 20,
-      fontFamily: FONTS.primary,
-    },
-    subtitle: {
-      fontSize: 24,
-      color: colors.textPrimary,
-      marginVertical: 10,
-      paddingHorizontal: 20,
-      fontFamily: FONTS.primary,
-    },
-    card: {
-      backgroundColor: colors.backgroundCard,
-      padding: 20,
-      borderRadius: 12,
-      marginHorizontal: 20,
-      marginBottom: 20,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    overallRange: {
-      fontSize: 20,
-      color: colors.textPrimary,
-      marginBottom: 10,
-      fontFamily: FONTS.primary,
-    },
-    personalRange: {
-      fontSize: 18,
-      color: colors.primary,
-      fontWeight: '600',
-      fontFamily: FONTS.primary,
-    },
-    rangeContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      position: 'relative',
-    },
-    rangeIndicator: {
-      width: 15,
-      height: 15,
-      borderRadius: 7.5,
-      marginLeft: 10,
-    },
-    tooltip: {
-      position: 'absolute',
-      top: 25,
-      left: -10,
-      backgroundColor: colors.backgroundCard,
-      padding: 10,
-      borderRadius: 5,
-      borderWidth: 1,
-      borderColor: colors.border,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 5,
-      zIndex: 100,
-    },
-    tooltipText: {
-      fontSize: 14,
-      color: colors.textPrimary,
-      fontFamily: FONTS.primary,
-    },
-    tooltipArrow: {
-      position: 'absolute',
-      top: -6,
-      right: 10,
-      width: 0,
-      height: 0,
-      borderLeftWidth: 6,
-      borderRightWidth: 6,
-      borderBottomWidth: 6,
-      borderStyle: 'solid',
-      borderLeftColor: 'transparent',
-      borderRightColor: 'transparent',
-      borderBottomColor: colors.primary,
-    },
-    songCard: {
-      backgroundColor: colors.backgroundCard,
-      padding: 20,
-      marginHorizontal: 20,
-      marginBottom: 15,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    songTitle: {
-      fontSize: 18,
-      color: colors.textPrimary,
-      fontFamily: FONTS.primary,
-      flexShrink: 1,
-      marginRight: 10,
-    },
-    songRange: {
-      fontSize: 16,
-      color: colors.primary,
-      fontFamily: FONTS.primary,
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  headerContainer: {
+    paddingBottom: 20,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    marginBottom: 10,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    fontFamily: FONTS.primary,
+  },
+  subtitle: {
+    fontSize: 24,
+    color: COLORS.textDark,
+    marginVertical: 10,
+    paddingHorizontal: 20,
+    fontFamily: FONTS.primary,
+  },
+  card: {
+    backgroundColor: COLORS.background,
+    padding: 20,
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  overallRange: {
+    fontSize: 20,
+    color: COLORS.textDark,
+    marginBottom: 10,
+    fontFamily: FONTS.primary,
+  },
+  personalRange: {
+    fontSize: 18,
+    color: COLORS.primary,
+    fontWeight: '600',
+    fontFamily: FONTS.primary,
+  },
+  rangeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  rangeIndicator: {
+    width: 15,
+    height: 15,
+    borderRadius: 7.5,
+    marginLeft: 10,
+  },
+  tooltip: {
+    position: 'absolute',
+    top: 25,
+    left: -10,
+    backgroundColor: 'white',
+    padding: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 100,
+  },
+  tooltipText: {
+    fontSize: 14,
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
+  },
+  tooltipArrow: {
+    position: 'absolute',
+    top: -6,
+    right: 10,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderBottomWidth: 6,
+    borderStyle: 'solid',
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: COLORS.primary,
+  },
+  songCard: {
+    backgroundColor: 'white',
+    padding: 20,
+    marginHorizontal: 20,
+    marginBottom: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  songTitle: {
+    fontSize: 18,
+    color: COLORS.textDark,
+    fontFamily: FONTS.primary,
+    flexShrink: 1,
+    marginRight: 10,
+  },
+  songRange: {
+    fontSize: 16,
+    color: COLORS.primary,
+    fontFamily: FONTS.primary,
   },
 });

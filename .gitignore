@@ -17,6 +17,10 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Android signing
+android/keystore.properties
+android/local.properties
+
 # Metro
 .metro-health-check*
 

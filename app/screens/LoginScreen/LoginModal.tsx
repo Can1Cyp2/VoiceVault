@@ -1,6 +1,6 @@
 // File location: app/screens/LoginScreen/LoginModal.tsx
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,8 +10,12 @@ import {
   Alert,
 } from "react-native";
 import { supabase } from "../../util/supabase";
+import { useTheme } from "../../contexts/ThemeContext";
 
 export default function LoginModal({ onClose }: { onClose: () => void }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -80,7 +84,7 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor="#777"
+          placeholderTextColor={colors.textPlaceholder}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -88,7 +92,7 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
         <TextInput
           style={styles.input}
           placeholder="Password"
-          placeholderTextColor="#777"
+          placeholderTextColor={colors.textPlaceholder}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -108,17 +112,17 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: colors.overlay,
   },
   modal: {
     width: "80%",
     padding: 20,
-    backgroundColor: "#fff",
+    backgroundColor: colors.backgroundCard,
     borderRadius: 10,
     alignItems: "center",
   },
@@ -126,36 +130,38 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     marginBottom: 20,
+    color: colors.textPrimary,
   },
   input: {
     width: "100%",
     padding: 10,
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: colors.border,
     borderRadius: 5,
     marginBottom: 15,
-    color: "#000",
+    color: colors.textPrimary,
+    backgroundColor: colors.inputBackground,
   },
   button: {
-    backgroundColor: "#ff6600",
+    backgroundColor: colors.primary,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 5,
     marginBottom: 10,
   },
   buttonText: {
-    color: "#fff",
+    color: colors.buttonText,
     fontWeight: "bold",
     fontSize: 16,
   },
   forgotPasswordText: {
-    color: "#007bff",
+    color: colors.link,
     fontSize: 14,
     marginBottom: 10,
     textDecorationLine: "underline",
   },
   cancelText: {
-    color: "#007bff",
+    color: colors.link,
     fontSize: 16,
     marginTop: 10,
   },

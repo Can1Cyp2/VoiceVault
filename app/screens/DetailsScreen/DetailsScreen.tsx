@@ -1,10 +1,14 @@
 // app\screens\DetailsScreen\DetailsScreen.tsx
 
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
+import { useTheme } from "../../contexts/ThemeContext";
 
 // This screen displays the details of a selected item, such as a song or artist:
 export const DetailsScreen = ({ route }: any) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  
   const { name, vocalRange, type, artist } = route.params;
 
   return (
@@ -20,15 +24,27 @@ export const DetailsScreen = ({ route }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     padding: 20,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background,
   },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 10 },
-  subtitle: { fontSize: 18, color: "gray", marginBottom: 10 },
-  vocalRange: { fontSize: 20, color: "tomato" },
+  title: { 
+    fontSize: 24, 
+    fontWeight: "bold", 
+    marginBottom: 10,
+    color: colors.textPrimary,
+  },
+  subtitle: { 
+    fontSize: 18, 
+    color: colors.textSecondary, 
+    marginBottom: 10,
+  },
+  vocalRange: { 
+    fontSize: 20, 
+    color: colors.primary,
+  },
 });

@@ -1,10 +1,14 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity } from 'react-native';
 import { supabase } from '../../util/supabase';
 import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const ForgotPasswordScreen = () => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
@@ -32,6 +36,7 @@ const ForgotPasswordScreen = () => {
       <TextInput
         style={styles.input}
         placeholder="Enter your email"
+        placeholderTextColor={colors.textPlaceholder}
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
@@ -45,29 +50,34 @@ const ForgotPasswordScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
     padding: 20,
+    backgroundColor: colors.background,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
+    color: colors.textPrimary,
   },
   input: {
     height: 40,
-    borderColor: 'gray',
+    borderColor: colors.border,
     borderWidth: 1,
     marginBottom: 20,
     paddingHorizontal: 10,
+    backgroundColor: colors.inputBackground,
+    color: colors.textPrimary,
+    borderRadius: 5,
   },
   backToLogin: {
     marginTop: 20,
     textAlign: 'center',
-    color: 'blue',
+    color: colors.link,
   },
 });
 

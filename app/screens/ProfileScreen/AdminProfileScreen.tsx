@@ -1,6 +1,6 @@
 // File: app/screens/ProfileScreen/AdminScreen.tsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
     View,
     Text,
@@ -14,6 +14,7 @@ import {
 import { supabase } from "../../util/supabase";
 import { checkAdminStatus } from "../../util/adminUtils";
 import { adService } from "../../components/SupportModal/AdService"; // Import your ad service
+import { useTheme } from "../../contexts/ThemeContext";
 
 import Constants from "expo-constants";
 import * as Updates from "expo-updates";
@@ -117,6 +118,9 @@ interface AdDebugInfo {
 }
 
 export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+    
     const [adminDetails, setAdminDetails] = useState<AdminDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [userStats, setUserStats] = useState({

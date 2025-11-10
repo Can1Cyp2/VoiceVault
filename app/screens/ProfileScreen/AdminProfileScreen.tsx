@@ -613,43 +613,43 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#f5f5f5",
+        backgroundColor: colors.background,
     },
     loadingContainer: {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "#f5f5f5",
+        backgroundColor: colors.background,
     },
     loadingText: {
         marginTop: 10,
         fontSize: 16,
-        color: "#666",
+        color: colors.textSecondary,
     },
     header: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
         padding: 20,
-        backgroundColor: "white",
+        backgroundColor: colors.backgroundCard,
         borderBottomWidth: 1,
-        borderBottomColor: "#e0e0e0",
+        borderBottomColor: colors.border,
     },
     backButton: {
         padding: 10,
     },
     backButtonText: {
         fontSize: 16,
-        color: "#ff4757",
+        color: colors.primary,
         fontWeight: "600",
     },
     title: {
         fontSize: 20,
         fontWeight: "bold",
-        color: "#333",
+        color: colors.textPrimary,
     },
     placeholder: {
         width: 50,
@@ -657,10 +657,10 @@ const styles = StyleSheet.create({
     adminCard: {
         margin: 20,
         padding: 20,
-        backgroundColor: "white",
+        backgroundColor: colors.backgroundCard,
         borderRadius: 12,
         borderLeftWidth: 4,
-        borderLeftColor: "#ff4757",
+        borderLeftColor: colors.primary,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
@@ -670,7 +670,7 @@ const styles = StyleSheet.create({
     adminCardTitle: {
         fontSize: 18,
         fontWeight: "bold",
-        color: "#333",
+        color: colors.textPrimary,
         marginBottom: 15,
     },
     adminInfo: {
@@ -680,12 +680,12 @@ const styles = StyleSheet.create({
     },
     infoLabel: {
         fontSize: 14,
-        color: "#666",
+        color: colors.textSecondary,
         fontWeight: "500",
     },
     infoValue: {
         fontSize: 14,
-        color: "#333",
+        color: colors.textPrimary,
         fontWeight: "600",
     },
     debugSection: {
@@ -693,12 +693,12 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     debugCard: {
-        backgroundColor: "white",
+        backgroundColor: colors.backgroundCard,
         padding: 20,
         marginBottom: 12,
         borderRadius: 12,
         borderLeftWidth: 4,
-        borderLeftColor: "#2196F3",
+        borderLeftColor: colors.secondary,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
@@ -708,7 +708,7 @@ const styles = StyleSheet.create({
     debugCardTitle: {
         fontSize: 16,
         fontWeight: "bold",
-        color: "#333",
+        color: colors.textPrimary,
         marginBottom: 12,
     },
     statusItem: {
@@ -718,25 +718,25 @@ const styles = StyleSheet.create({
     },
     statusLabel: {
         fontSize: 14,
-        color: "#666",
+        color: colors.textSecondary,
         fontWeight: "500",
     },
     statusValue: {
         fontSize: 14,
-        color: "#333",
+        color: colors.textPrimary,
         fontWeight: "600",
         flex: 1,
         textAlign: "right",
     },
     testButton: {
-        backgroundColor: "#2196F3",
+        backgroundColor: colors.secondary,
         padding: 12,
         borderRadius: 8,
         marginBottom: 8,
         alignItems: "center",
     },
     testButtonText: {
-        color: "white",
+        color: colors.buttonText,
         fontWeight: "600",
         fontSize: 14,
     },
@@ -747,31 +747,31 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     clearButton: {
-        backgroundColor: "#FF9800",
+        backgroundColor: colors.warning,
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 6,
     },
     clearButtonText: {
-        color: "white",
+        color: colors.buttonText,
         fontSize: 12,
         fontWeight: "600",
     },
     logsContainer: {
         maxHeight: 200,
-        backgroundColor: "#f8f8f8",
+        backgroundColor: colors.backgroundTertiary,
         borderRadius: 8,
         padding: 12,
     },
     noLogsText: {
-        color: "#999",
+        color: colors.textTertiary,
         fontStyle: "italic",
         textAlign: "center",
         padding: 20,
     },
     logText: {
         fontSize: 12,
-        color: "#333",
+        color: colors.textPrimary,
         marginBottom: 4,
         fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     },
@@ -782,7 +782,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         fontWeight: "bold",
-        color: "#333",
+        color: colors.textPrimary,
         marginBottom: 15,
     },
     statsRow: {
@@ -791,7 +791,7 @@ const styles = StyleSheet.create({
     },
     statCard: {
         flex: 1,
-        backgroundColor: "white",
+        backgroundColor: colors.backgroundCard,
         padding: 20,
         marginHorizontal: 5,
         borderRadius: 12,
@@ -805,12 +805,12 @@ const styles = StyleSheet.create({
     statNumber: {
         fontSize: 24,
         fontWeight: "bold",
-        color: "#ff4757",
+        color: colors.primary,
         marginBottom: 5,
     },
     statLabel: {
         fontSize: 12,
-        color: "#666",
+        color: colors.textSecondary,
         textAlign: "center",
     },
     actionsSection: {
@@ -820,7 +820,7 @@ const styles = StyleSheet.create({
     actionButton: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "white",
+        backgroundColor: colors.backgroundCard,
         padding: 20,
         marginBottom: 12,
         borderRadius: 12,
@@ -840,27 +840,27 @@ const styles = StyleSheet.create({
     actionTitle: {
         fontSize: 16,
         fontWeight: "600",
-        color: "#333",
+        color: colors.textPrimary,
         marginBottom: 4,
     },
     actionDescription: {
         fontSize: 14,
-        color: "#666",
+        color: colors.textSecondary,
     },
     actionArrow: {
         fontSize: 20,
-        color: "#ccc",
+        color: colors.border,
     },
     errorText: {
         fontSize: 24,
         fontWeight: "bold",
-        color: "#ff4757",
+        color: colors.danger,
         textAlign: "center",
         marginBottom: 10,
     },
     errorSubtext: {
         fontSize: 16,
-        color: "#666",
+        color: colors.textSecondary,
         textAlign: "center",
         marginBottom: 30,
     },

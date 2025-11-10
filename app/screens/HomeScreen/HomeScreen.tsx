@@ -134,7 +134,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
   // Handle login and signup button presses
   return (
-    <View style={[styles.container, { backgroundColor: colors.backgroundSecondary }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Top Button Row */}
       <View style={styles.topButtonRow}>
         {/* Tools Button in Top Left */}

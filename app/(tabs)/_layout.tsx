@@ -1,6 +1,6 @@
 // import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import React, { useMemo } from "react";
+import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -12,15 +12,30 @@ import { useTheme } from "../contexts/ThemeContext";
 const Tab = createBottomTabNavigator<RootStackParamList>();
 
 export default function Layout() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  
+  // Create custom navigation theme
+  const navigationTheme = useMemo(() => ({
+    dark: isDark,
+    colors: {
+      primary: colors.primary,
+      background: colors.background,
+      card: colors.backgroundCard,
+      text: colors.textPrimary,
+      border: colors.border,
+      notification: colors.primary,
+    },
+    fonts: DefaultTheme.fonts, // Use default fonts
+  }), [colors, isDark]);
   
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navigationTheme}>
       <Tab.Navigator
         screenOptions={{
           tabBarStyle: {
             backgroundColor: colors.backgroundCard,
             borderTopColor: colors.border,
+            borderTopWidth: 1,
           },
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textSecondary,

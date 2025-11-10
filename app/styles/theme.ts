@@ -55,22 +55,22 @@ export const LightColors = {
 
 // Dark theme colors
 export const DarkColors = {
-  // Backgrounds
-  background: '#051629',
-  backgroundSecondary: '#051629',
-  backgroundTertiary: '#0a2540',
-  backgroundCard: '#0a2540',
+  // Backgrounds - improved contrast
+  background: '#0a0f1a',           // Darker base
+  backgroundSecondary: '#0f1419',
+  backgroundTertiary: '#1a2332',   // Lighter tertiary for better card visibility
+  backgroundCard: '#162238',       // More visible cards
   
-  // Text
-  textPrimary: '#e0e0e0',
-  textSecondary: '#b0b0b0',
-  textTertiary: '#808080',
-  textPlaceholder: '#666',
+  // Text - improved readability
+  textPrimary: '#f0f0f0',          // Brighter primary text
+  textSecondary: '#c5c5c5',        // Brighter secondary text
+  textTertiary: '#999999',         // More visible tertiary
+  textPlaceholder: '#888888',      // More visible placeholders
   textInverse: '#121212',
   
-  // Borders
-  border: '#404040',
-  borderLight: '#333333',
+  // Borders - more visible
+  border: '#2d3748',               // More visible borders
+  borderLight: '#374151',
   
   // Brand colors (slightly adjusted for dark mode)
   primary: '#ff6b52',
@@ -93,7 +93,7 @@ export const DarkColors = {
   highlightAlt: '#3a2622',
   
   // Specific UI colors
-  inputBackground: '#2a2a2a',
+  inputBackground: '#1e293b',      // More visible input backgrounds
   buttonText: '#fff',
   tabSelected: '#2a1a1a',
   tabDisabled: '#555',
@@ -102,7 +102,7 @@ export const DarkColors = {
   greenDark: '#66bb6a',
   gold: '#ffc107',
   gray: '#999',
-  lightGray: '#333',
+  lightGray: '#2d3748',            // Adjusted for dark mode
   darkGray: '#555',
 };
 

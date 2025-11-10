@@ -25,6 +25,27 @@ allprojects {
     resolutionStrategy {
       force "org.jetbrains.kotlin:kotlin-stdlib:2.0.21"
       force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.0.21"
+      force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.0.21"
+      force "org.jetbrains.kotlin:kotlin-stdlib-common:2.0.21"
+      force "org.jetbrains.kotlin:kotlin-reflect:2.0.21"
+      
+      // Force Kotlin Gradle Plugin version
+      eachDependency { details ->
+        if (details.requested.group == 'org.jetbrains.kotlin') {
+          details.useVersion '2.0.21'
+        }
+      }
+    }
+  }
+  
+  // Apply Kotlin version to all subprojects
+  afterEvaluate { project ->
+    if (project.hasProperty('android')) {
+      project.android {
+        kotlinOptions {
+          jvmTarget = '17'
+        }
+      }
     }
   }
 }

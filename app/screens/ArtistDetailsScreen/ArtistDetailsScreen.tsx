@@ -1,7 +1,7 @@
 // app/screens/ArtistDetailsScreen/ArtistDetailsScreen.tsx
 
 import { useNavigation, NavigationProp } from "@react-navigation/native";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -12,10 +12,14 @@ import {
 } from "react-native";
 import { supabase } from "../../util/supabase";
 import { COLORS, FONTS } from "../../styles/theme";
+import { useTheme } from "../../contexts/ThemeContext";
 import { noteToValue } from "../SongDetailsScreen/RangeBestFit";
 import { RootStackParamList } from "../../navigation/StackNavigator";
 
 export const ArtistDetailsScreen = ({ route }: any) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  
   const { name } = route.params;
   const [songs, setSongs] = useState<any[]>([]);
   const [overallRange, setOverallRange] = useState<string | null>(null);
@@ -266,10 +270,10 @@ export const ArtistDetailsScreen = ({ route }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: colors.background,
   },
   headerContainer: {
     paddingBottom: 20,
@@ -277,7 +281,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: COLORS.primary,
+    color: colors.primary,
     marginBottom: 10,
     paddingHorizontal: 20,
     paddingTop: 20,
@@ -285,29 +289,29 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 24,
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     marginVertical: 10,
     paddingHorizontal: 20,
     fontFamily: FONTS.primary,
   },
   card: {
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.backgroundCard,
     padding: 20,
     borderRadius: 12,
     marginHorizontal: 20,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   overallRange: {
     fontSize: 20,
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     marginBottom: 10,
     fontFamily: FONTS.primary,
   },
   personalRange: {
     fontSize: 18,
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '600',
     fontFamily: FONTS.primary,
   },
@@ -326,12 +330,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 25,
     left: -10,
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundCard,
     padding: 10,
     borderRadius: 5,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: '#000',
+    borderColor: colors.border,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -340,7 +344,7 @@ const styles = StyleSheet.create({
   },
   tooltipText: {
     fontSize: 14,
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     fontFamily: FONTS.primary,
   },
   tooltipArrow: {
@@ -355,30 +359,30 @@ const styles = StyleSheet.create({
     borderStyle: 'solid',
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderBottomColor: COLORS.primary,
+    borderBottomColor: colors.primary,
   },
   songCard: {
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundCard,
     padding: 20,
     marginHorizontal: 20,
     marginBottom: 15,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   songTitle: {
     fontSize: 18,
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     fontFamily: FONTS.primary,
     flexShrink: 1,
     marginRight: 10,
   },
   songRange: {
     fontSize: 16,
-    color: COLORS.primary,
+    color: colors.primary,
     fontFamily: FONTS.primary,
   },
 });

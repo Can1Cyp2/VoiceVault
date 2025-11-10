@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   View,
   FlatList,
@@ -13,9 +13,13 @@ import {
 import { supabase } from "../../util/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, FONTS } from "../../styles/theme";
+import { useTheme } from "../../contexts/ThemeContext";
 import { updateListIcon } from "../SavedListsScreen/SavedListsLogic";
 
 export default function ListDetailsScreen({ route, navigation }: any) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  
   const { listName } = route.params;
   const [songs, setSongs] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
@@ -330,10 +334,10 @@ export default function ListDetailsScreen({ route, navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
 
   // Header Info
@@ -343,18 +347,18 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   listIconContainer: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.backgroundTertiary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   headerText: {
     flex: 1,
@@ -362,23 +366,23 @@ const styles = StyleSheet.create({
   listTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     fontFamily: FONTS.primary,
   },
   songCount: {
     fontSize: 16,
-    color: COLORS.textLight,
+    color: colors.textSecondary,
     fontFamily: FONTS.primary,
     marginTop: 2,
   },
   editingBadge: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: colors.warning,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
   },
   editingText: {
-    color: 'white',
+    color: colors.buttonText,
     fontSize: 12,
     fontWeight: '600',
     fontFamily: FONTS.primary,
@@ -390,12 +394,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.backgroundTertiary,
     marginBottom: 8,
   },
   editNoticeText: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textSecondary,
     fontFamily: FONTS.primary,
     marginLeft: 8,
   },
@@ -417,12 +421,12 @@ const styles = StyleSheet.create({
   songItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.backgroundCard,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: '#000',
+    borderColor: colors.border,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
@@ -432,12 +436,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundTertiary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   songDetails: {
     flex: 1,
@@ -446,19 +450,19 @@ const styles = StyleSheet.create({
   songName: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     fontFamily: FONTS.primary,
     marginBottom: 2,
   },
   artistName: {
     fontSize: 16,
-    color: COLORS.textLight,
+    color: colors.textSecondary,
     fontFamily: FONTS.primary,
     marginBottom: 4,
   },
   vocalRange: {
     fontSize: 14,
-    color: COLORS.primary,
+    color: colors.primary,
     fontFamily: FONTS.primary,
     fontWeight: '500',
   },
@@ -466,7 +470,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#ffebee',
+    backgroundColor: colors.highlightAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -482,24 +486,24 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.backgroundTertiary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     borderStyle: 'dashed',
   },
   emptyTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     fontFamily: FONTS.primary,
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 16,
-    color: COLORS.textLight,
+    color: colors.textSecondary,
     fontFamily: FONTS.primary,
     textAlign: 'center',
     lineHeight: 24,
@@ -507,13 +511,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   exploreButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   exploreButtonText: {
-    color: 'white',
+    color: colors.buttonText,
     fontSize: 16,
     fontWeight: '600',
     fontFamily: FONTS.primary,
@@ -521,14 +525,14 @@ const styles = StyleSheet.create({
   // Icon picker modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
   iconModalContent: {
     width: '90%',
     maxWidth: 420,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.backgroundCard,
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
@@ -538,7 +542,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     marginBottom: 12,
     fontFamily: FONTS.primary,
   },
@@ -558,18 +562,18 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 12,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.backgroundTertiary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     margin: 6,
   },
   modalCancelButton: {
     paddingVertical: 10,
   },
   modalCancelText: {
-    color: COLORS.textLight,
+    color: colors.textSecondary,
     fontFamily: FONTS.primary,
   },
   iconSections: {
@@ -582,14 +586,14 @@ const styles = StyleSheet.create({
   iconSectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     alignSelf: 'flex-start',
     marginBottom: 8,
     fontFamily: FONTS.primary,
   },
   iconLabel: {
     fontSize: 10,
-    color: COLORS.textLight,
+    color: colors.textTertiary,
     marginTop: 4,
     textAlign: 'center',
     fontFamily: FONTS.primary,

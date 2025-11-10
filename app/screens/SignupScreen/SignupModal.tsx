@@ -59,6 +59,7 @@ export default function SignupModal({ onClose }: { onClose: () => void }) {
         <TextInput
           style={styles.input}
           placeholder="Email"
+          placeholderTextColor={colors.textPlaceholder}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -66,6 +67,7 @@ export default function SignupModal({ onClose }: { onClose: () => void }) {
         <TextInput
           style={styles.input}
           placeholder="Password"
+          placeholderTextColor={colors.textPlaceholder}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -73,6 +75,7 @@ export default function SignupModal({ onClose }: { onClose: () => void }) {
         <TextInput
           style={styles.input}
           placeholder="Confirm Password"
+          placeholderTextColor={colors.textPlaceholder}
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry

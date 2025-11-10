@@ -411,7 +411,7 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
             keyboardType="numeric"
             returnKeyType="done"
             placeholder="BPM"
-            placeholderTextColor="#888"
+            placeholderTextColor={colors.textPlaceholder}
             accessible={true}
             accessibilityLabel="BPM Input"
             accessibilityHint="Enter a BPM value between 30 and 240"

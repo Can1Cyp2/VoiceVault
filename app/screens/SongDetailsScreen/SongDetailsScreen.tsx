@@ -396,7 +396,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
                   placeholder="Custom List Name"
                   value={customListName}
                   onChangeText={setCustomListName}
-                  placeholderTextColor={COLORS.textLight}
+                  placeholderTextColor={colors.textPlaceholder}
                 />
 
                 <TouchableOpacity
@@ -429,7 +429,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
               value={issueText}
               onChangeText={setIssueText}
               multiline
-              placeholderTextColor={COLORS.textLight}
+              placeholderTextColor={colors.textPlaceholder}
             />
             <TouchableOpacity 
               style={styles.modalButton}
@@ -486,7 +486,7 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   albumTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: colors.buttonText,
+    color: colors.textPrimary,
     fontFamily: FONTS.primary,
     textAlign: 'center',
     marginBottom: 8,

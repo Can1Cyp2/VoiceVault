@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   Modal,
   Alert,
   Animated,
-  Platform,
 } from "react-native";
 import { supabase } from "../../util/supabase";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -21,6 +20,7 @@ import { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import { TabParamList } from "../../../App";
 import { SupportModal } from "../../components/SupportModal/SupportModal";
 import { getLoginGlow, setLoginGlow } from "../../util/loginPrompt";
+import { useTheme } from "../../contexts/ThemeContext";
 
 // Combined navigation props for tab and stack navigators
 type HomeScreenProps = CompositeScreenProps<
@@ -33,6 +33,9 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [isSignupVisible, setSignupVisible] = useState(false);
   const [isLoggedIn, setLoggedIn] = useState(false);
   const [isSupportVisible, setSupportVisible] = useState(false);
+
+  // Theme hook
+  const { colors, isDark, setMode } = useTheme();
 
   // State for login glow for users not logged in and clicking on the profile screen, and then choosing to log in
   const [shouldGlow, setShouldGlow] = useState(false);
@@ -58,47 +61,23 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
   // Set the header options
   useEffect(() => {
-    navigation.setOptions({
-      headerLeft: () => (
-        <TouchableOpacity
-          style={{ marginLeft: 15, flexDirection: 'row', alignItems: 'center' }}
-          onPress={() => {
-            // @ts-ignore - Navigate to nested screen
-            navigation.navigate("Search", { 
-              screen: "Metronome",
-              initial: false 
-            });
-          }}
-        >
-          <Ionicons name="cog-outline" size={26} color="#ff6600" />
-          <Text style={{ fontSize: 16, color: "#ff6600", marginLeft: 5, fontWeight: "bold" }}>
-            Tools
-          </Text>
-        </TouchableOpacity>
-      ),
-      headerRight: () => (
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity
-            style={{ marginRight: 15 }}
-            onPress={() => setSupportVisible(true)}
-          >
-            <Ionicons name="heart-outline" size={26} color="#e91e63" />
-          </TouchableOpacity>
-          {isLoggedIn && (
-            <TouchableOpacity 
+    if (isLoggedIn) {
+      navigation.setOptions({
+        headerRight: () => (
+          <TouchableOpacity onPress={() => navigation.navigate("SavedLists")}>
+            <Ionicons
+              name="list-circle-outline"
+              size={30}
+              thickness={2}
+              color="#32CD32" // Green color
               style={{ marginRight: 15 }}
-              onPress={() => navigation.navigate("SavedLists")}
-            >
-              <Ionicons
-                name="list-circle-outline"
-                size={26}
-                color="#32CD32"
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-      ),
-    });
+            />
+          </TouchableOpacity>
+        ),
+      });
+    } else {
+      navigation.setOptions({ headerRight: undefined });
+    }
   }, [isLoggedIn, navigation]);
 
   // Check for login glow flag
@@ -155,27 +134,76 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
   // Handle login and signup button presses
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.backgroundSecondary }]}>
+      {/* Top Button Row */}
+      <View style={styles.topButtonRow}>
+        {/* Tools Button in Top Left */}
+        <View style={styles.leftSection}>
+          <TouchableOpacity
+            style={styles.toolsButton}
+            onPress={() => {
+              // @ts-ignore - Navigate to nested screen
+              navigation.navigate("Search", { 
+                screen: "Metronome",
+                initial: false 
+              });
+            }}
+          >
+            <Ionicons name="cog-outline" size={30} color={colors.primaryDark} />
+            <Text style={[styles.toolsText, { color: colors.primaryDark }]}>Tools</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Support Button in Top Right */}
+        <View style={styles.rightSection}>
+          <TouchableOpacity
+            style={styles.supportButton}
+            onPress={() => setSupportVisible(true)}
+          >
+            <Ionicons name="heart-outline" size={30} color={colors.accent} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Theme Toggle Button - Absolutely Centered */}
+      <View style={styles.centerButtonContainer}>
+        <TouchableOpacity
+          style={styles.themeButton}
+          onPress={() => setMode(isDark ? 'light' : 'dark')}
+        >
+          <Ionicons 
+            name={isDark ? "moon" : "sunny"} 
+            size={32} 
+            color={isDark ? "#fbbf24" : "#f59e0b"} 
+          />
+        </TouchableOpacity>
+      </View>
+
       {/* Logo Section */}
       <Image
-        source={require("../../../assets/transparent-icon.png")}
+        source={
+          isDark
+            ? require("../../../assets/transparent-icon-dark.png")
+            : require("../../../assets/transparent-icon.png")
+        }
         style={styles.logo}
         resizeMode="contain"
       />
-      <Text style={styles.title}>Welcome to VoiceVault!</Text>
-      <Text style={styles.subtitle}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>Welcome to VoiceVault!</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         Explore the world of vocal ranges and discover music like never before,
         with over 30,000 songs!
       </Text>
       {isLoggedIn ? (
-        <TouchableOpacity style={styles.button} onPress={handleLogout}>
-          <Text style={styles.buttonText}>Logout</Text>
+        <TouchableOpacity style={[styles.button, { backgroundColor: colors.link }]} onPress={handleLogout}>
+          <Text style={[styles.buttonText, { color: colors.buttonText }]}>Logout</Text>
         </TouchableOpacity>
       ) : (
         <>
           <Animated.View
             style={[
               styles.button,
+              { backgroundColor: colors.primaryDark },
               shouldGlow && styles.glowButton,
               shouldGlow && { opacity: blinkAnimation } // Add animated opacity
             ]}
@@ -184,14 +212,14 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               style={styles.buttonInner}
               onPress={() => setLoginVisible(true)}
             >
-              <Text style={styles.buttonText}>Login</Text>
+              <Text style={[styles.buttonText, { color: colors.buttonText }]}>Login</Text>
             </TouchableOpacity>
           </Animated.View>
           <TouchableOpacity
-            style={[styles.button, styles.signupButton]}
+            style={[styles.button, styles.signupButton, { backgroundColor: colors.link }]}
             onPress={() => setSignupVisible(true)}
           >
-            <Text style={styles.buttonText}>Sign Up</Text>
+            <Text style={[styles.buttonText, { color: colors.buttonText }]}>Sign Up</Text>
           </TouchableOpacity>
         </>
       )}
@@ -213,8 +241,36 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff",
     padding: 20,
+  },
+  topButtonRow: {
+    position: "absolute",
+    top: 60,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    zIndex: 10,
+  },
+  leftSection: {
+    width: 100,
+    alignItems: "flex-start",
+  },
+  centerButtonContainer: {
+    position: "absolute",
+    top: 60,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 11, // Above the top button row
+    pointerEvents: "box-none", // Allow clicks to pass through the container
+  },
+  rightSection: {
+    width: 100,
+    alignItems: "flex-end",
   },
   logo: {
     width: 150,
@@ -224,19 +280,16 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#ff6600",
     marginBottom: 10,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
-    color: "#555",
     textAlign: "center",
     lineHeight: 22,
     marginBottom: 30,
   },
   button: {
-    backgroundColor: "#ff6600",
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 5,
@@ -245,18 +298,36 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   signupButton: {
-    backgroundColor: "#007bff",
+    // backgroundColor will be set inline with theme
   },
   buttonText: {
-    color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
   },
   versionText: {
     fontSize: 12,
-    color: "#888",
     paddingTop: 0,
     opacity: 0.5,
+  },
+  toolsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  toolsText: {
+    fontSize: 16,
+    marginLeft: 5,
+    fontWeight: "bold",
+  },
+  themeButton: {
+    padding: 8,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    pointerEvents: "auto", // Ensure the button itself is clickable
+  },
+  supportButton: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   glowButton: {
     shadowColor: "#ff6600",

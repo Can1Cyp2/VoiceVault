@@ -139,38 +139,43 @@ class AdService {
         this.interstitialAd = null;
       }
 
-      this.interstitialAd.addAdEventListener(AdEventType.LOADED, () => {
-        console.log("✅ Interstitial ad loaded successfully");
-      });
+      // ✅ CRITICAL FIX: Only add listeners if interstitial ad was created successfully
+      if (this.interstitialAd) {
+        this.interstitialAd.addAdEventListener(AdEventType.LOADED, () => {
+          console.log("✅ Interstitial ad loaded successfully");
+        });
 
-      this.interstitialAd.addAdEventListener(
-        AdEventType.ERROR,
-        (error: any) => {
-          console.error("❌ Interstitial ad error during preload:", error);
-          console.error("Error code:", error?.code);
-          console.error("Error message:", error?.message);
-        }
-      );
+        this.interstitialAd.addAdEventListener(
+          AdEventType.ERROR,
+          (error: any) => {
+            console.error("❌ Interstitial ad error during preload:", error);
+            console.error("Error code:", error?.code);
+            console.error("Error message:", error?.message);
+          }
+        );
 
-      // Track when ad is actually shown (impression)
-      this.interstitialAd.addAdEventListener(AdEventType.OPENED, () => {
-        console.log("✅ Interstitial ad opened/shown");
-        this.interstitialWasShown = true;
-      });
+        // Track when ad is actually shown (impression)
+        this.interstitialAd.addAdEventListener(AdEventType.OPENED, () => {
+          console.log("✅ Interstitial ad opened/shown");
+          this.interstitialWasShown = true;
+        });
 
-      this.interstitialAd.addAdEventListener(AdEventType.CLOSED, () => {
-        console.log("Interstitial ad closed");
-        // Only give reward if ad was actually shown (not closed before showing)
-        if (this.interstitialWasShown) {
-          console.log("Ad was shown - giving reward");
-          this.onAdReward("interstitial");
-          this.interstitialWasShown = false; // Reset flag
-        } else {
-          console.log("Ad was not shown - no reward");
-        }
-        // Add delay to prevent immediate reload issues
-        setTimeout(() => this.preloadInterstitialAd(), 2000);
-      });
+        this.interstitialAd.addAdEventListener(AdEventType.CLOSED, () => {
+          console.log("Interstitial ad closed");
+          // Only give reward if ad was actually shown (not closed before showing)
+          if (this.interstitialWasShown) {
+            console.log("Ad was shown - giving reward");
+            this.onAdReward("interstitial");
+            this.interstitialWasShown = false; // Reset flag
+          } else {
+            console.log("Ad was not shown - no reward");
+          }
+          // Add delay to prevent immediate reload issues
+          setTimeout(() => this.preloadInterstitialAd(), 2000);
+        });
+      } else {
+        console.warn("⚠️ Interstitial ad instance is null, skipping event listener setup");
+      }
 
       // Wait a moment before initial preload to ensure ads are fully set up
       setTimeout(() => {
@@ -373,12 +378,31 @@ class AdService {
         Alert.alert("Loading Ad", "Please wait a moment while the ad loads...");
         const options = await this.currentRequestOptions();
         console.log("Loading ad with options:", options);
-        await this.rewardedAd.load(options);
 
-        // ✅ FIXED: Wait for load with proper event handling
+        // ✅ FIXED: Attach listeners BEFORE calling load
         await new Promise((resolve, reject) => {
+          let loadedListenerRef: any = null;
+          let errorListenerRef: any = null;
+          
           const timeout = setTimeout(() => {
             console.error("❌ Ad load timeout after 10 seconds");
+            // Clean up listeners on timeout
+            try {
+              if (this.rewardedAd && loadedListenerRef && this.RewardedAdEventType) {
+                this.rewardedAd.removeAdEventListener(
+                  this.RewardedAdEventType.LOADED,
+                  loadedListenerRef
+                );
+              }
+              if (this.rewardedAd && errorListenerRef && this.AdEventType) {
+                this.rewardedAd.removeAdEventListener(
+                  this.AdEventType.ERROR,
+                  errorListenerRef
+                );
+              }
+            } catch (cleanupError) {
+              console.warn("Error cleaning up listeners:", cleanupError);
+            }
             reject(new Error("Load timeout"));
           }, 10000);
 
@@ -386,11 +410,21 @@ class AdService {
             console.log("✅ Ad loaded successfully");
             clearTimeout(timeout);
             // ✅ FIXED: Safe event listener removal - Use RewardedAdEventType for RewardedAd
-            if (this.rewardedAd && this.RewardedAdEventType) {
-              this.rewardedAd.removeAdEventListener(
-                this.RewardedAdEventType.LOADED,
-                loadedListener
-              );
+            try {
+              if (this.rewardedAd && this.RewardedAdEventType) {
+                this.rewardedAd.removeAdEventListener(
+                  this.RewardedAdEventType.LOADED,
+                  loadedListener
+                );
+              }
+              if (this.rewardedAd && errorListenerRef && this.AdEventType) {
+                this.rewardedAd.removeAdEventListener(
+                  this.AdEventType.ERROR,
+                  errorListenerRef
+                );
+              }
+            } catch (cleanupError) {
+              console.warn("Error removing listeners:", cleanupError);
             }
             resolve(true);
           };
@@ -401,27 +435,70 @@ class AdService {
             console.error("Error message:", error?.message);
             clearTimeout(timeout);
             // ✅ FIXED: Use AdEventType for ERROR event
-            if (this.rewardedAd && this.AdEventType) {
-              this.rewardedAd.removeAdEventListener(
-                this.AdEventType.ERROR,
-                errorListener
-              );
+            try {
+              if (this.rewardedAd && this.AdEventType) {
+                this.rewardedAd.removeAdEventListener(
+                  this.AdEventType.ERROR,
+                  errorListener
+                );
+              }
+              if (this.rewardedAd && loadedListenerRef && this.RewardedAdEventType) {
+                this.rewardedAd.removeAdEventListener(
+                  this.RewardedAdEventType.LOADED,
+                  loadedListenerRef
+                );
+              }
+            } catch (cleanupError) {
+              console.warn("Error removing listeners:", cleanupError);
             }
             reject(error);
           };
 
-          // ✅ FIXED: Use RewardedAdEventType for LOADED, AdEventType for ERROR
-          if (this.rewardedAd && this.RewardedAdEventType && this.AdEventType) {
-            this.rewardedAd.addAdEventListener(
-              this.RewardedAdEventType.LOADED,
-              loadedListener
-            );
-            this.rewardedAd.addAdEventListener(
-              this.AdEventType.ERROR,
-              errorListener
-            );
-          } else {
-            reject(new Error("Ad instance or event types not available"));
+          loadedListenerRef = loadedListener;
+          errorListenerRef = errorListener;
+
+          // ✅ FIXED: Attach listeners FIRST, then call load
+          try {
+            if (this.rewardedAd && this.RewardedAdEventType && this.AdEventType) {
+              this.rewardedAd.addAdEventListener(
+                this.RewardedAdEventType.LOADED,
+                loadedListener
+              );
+              this.rewardedAd.addAdEventListener(
+                this.AdEventType.ERROR,
+                errorListener
+              );
+              
+              // Now call load after listeners are attached
+              this.rewardedAd.load(options).catch((loadError: any) => {
+                console.error("❌ Load call failed:", loadError);
+                clearTimeout(timeout);
+                // Clean up listeners
+                try {
+                  if (this.rewardedAd && this.RewardedAdEventType) {
+                    this.rewardedAd.removeAdEventListener(
+                      this.RewardedAdEventType.LOADED,
+                      loadedListener
+                    );
+                  }
+                  if (this.rewardedAd && this.AdEventType) {
+                    this.rewardedAd.removeAdEventListener(
+                      this.AdEventType.ERROR,
+                      errorListener
+                    );
+                  }
+                } catch (cleanupError) {
+                  console.warn("Error cleaning up after load failure:", cleanupError);
+                }
+                reject(loadError);
+              });
+            } else {
+              clearTimeout(timeout);
+              reject(new Error("Ad instance or event types not available"));
+            }
+          } catch (error) {
+            clearTimeout(timeout);
+            reject(error);
           }
         });
       }
@@ -490,13 +567,31 @@ class AdService {
         console.log("Interstitial ad not loaded, loading now...");
         const options = await this.currentRequestOptions();
         console.log("Loading interstitial ad with options:", options);
-        console.log("Loading interstitial ad with options:", options);
-        await this.interstitialAd.load(options);
 
-        // ✅ FIXED: Wait for load with proper error handling
+        // ✅ FIXED: Attach listeners BEFORE calling load
         await new Promise((resolve, reject) => {
+          let loadedListenerRef: any = null;
+          let errorListenerRef: any = null;
+          
           const timeout = setTimeout(() => {
             console.error("❌ Interstitial ad load timeout after 10 seconds");
+            // Clean up listeners on timeout
+            try {
+              if (this.interstitialAd && loadedListenerRef && this.AdEventType) {
+                this.interstitialAd.removeAdEventListener(
+                  this.AdEventType.LOADED,
+                  loadedListenerRef
+                );
+              }
+              if (this.interstitialAd && errorListenerRef && this.AdEventType) {
+                this.interstitialAd.removeAdEventListener(
+                  this.AdEventType.ERROR,
+                  errorListenerRef
+                );
+              }
+            } catch (cleanupError) {
+              console.warn("Error cleaning up listeners:", cleanupError);
+            }
             reject(new Error("Load timeout"));
           }, 10000);
 
@@ -504,11 +599,21 @@ class AdService {
             console.log("✅ Interstitial ad loaded successfully");
             clearTimeout(timeout);
             // ✅ FIXED: Safe event listener removal
-            if (this.interstitialAd && this.AdEventType) {
-              this.interstitialAd.removeAdEventListener(
-                this.AdEventType.LOADED,
-                loadedListener
-              );
+            try {
+              if (this.interstitialAd && this.AdEventType) {
+                this.interstitialAd.removeAdEventListener(
+                  this.AdEventType.LOADED,
+                  loadedListener
+                );
+              }
+              if (this.interstitialAd && errorListenerRef && this.AdEventType) {
+                this.interstitialAd.removeAdEventListener(
+                  this.AdEventType.ERROR,
+                  errorListenerRef
+                );
+              }
+            } catch (cleanupError) {
+              console.warn("Error removing listeners:", cleanupError);
             }
             resolve(true);
           };
@@ -519,27 +624,68 @@ class AdService {
             console.error("Error message:", error?.message);
             clearTimeout(timeout);
             // ✅ FIXED: Safe event listener removal
-            if (this.interstitialAd && this.AdEventType) {
-              this.interstitialAd.removeAdEventListener(
-                this.AdEventType.ERROR,
-                errorListener
-              );
+            try {
+              if (this.interstitialAd && this.AdEventType) {
+                this.interstitialAd.removeAdEventListener(
+                  this.AdEventType.ERROR,
+                  errorListener
+                );
+              }
+              if (this.interstitialAd && loadedListenerRef && this.AdEventType) {
+                this.interstitialAd.removeAdEventListener(
+                  this.AdEventType.LOADED,
+                  loadedListenerRef
+                );
+              }
+            } catch (cleanupError) {
+              console.warn("Error removing listeners:", cleanupError);
             }
             reject(error);
           };
 
-          // ✅ FIXED: Check if instances exist before adding listeners
-          if (this.interstitialAd && this.AdEventType) {
-            this.interstitialAd.addAdEventListener(
-              this.AdEventType.LOADED,
-              loadedListener
-            );
-            this.interstitialAd.addAdEventListener(
-              this.AdEventType.ERROR,
-              errorListener
-            );
-          } else {
-            reject(new Error("Ad instance or event types not available"));
+          loadedListenerRef = loadedListener;
+          errorListenerRef = errorListener;
+
+          // ✅ FIXED: Attach listeners FIRST, then call load
+          try {
+            if (this.interstitialAd && this.AdEventType) {
+              this.interstitialAd.addAdEventListener(
+                this.AdEventType.LOADED,
+                loadedListener
+              );
+              this.interstitialAd.addAdEventListener(
+                this.AdEventType.ERROR,
+                errorListener
+              );
+              
+              // Now call load after listeners are attached
+              this.interstitialAd.load(options).catch((loadError: any) => {
+                console.error("❌ Load call failed:", loadError);
+                clearTimeout(timeout);
+                // Clean up listeners
+                try {
+                  if (this.interstitialAd && this.AdEventType) {
+                    this.interstitialAd.removeAdEventListener(
+                      this.AdEventType.LOADED,
+                      loadedListener
+                    );
+                    this.interstitialAd.removeAdEventListener(
+                      this.AdEventType.ERROR,
+                      errorListener
+                    );
+                  }
+                } catch (cleanupError) {
+                  console.warn("Error cleaning up after load failure:", cleanupError);
+                }
+                reject(loadError);
+              });
+            } else {
+              clearTimeout(timeout);
+              reject(new Error("Ad instance or event types not available"));
+            }
+          } catch (error) {
+            clearTimeout(timeout);
+            reject(error);
           }
         });
       }

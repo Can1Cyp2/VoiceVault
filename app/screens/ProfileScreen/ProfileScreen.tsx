@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   GestureResponderEvent,
 } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
 import ProfileMenu from "./ProfileMenu";
 import { supabase } from "../../util/supabase";
 import { fetchUserVocalRange } from "../../util/api";
@@ -18,7 +19,7 @@ import { useAdminStatus } from "../../util/adminUtils";
 import { useTheme } from "../../contexts/ThemeContext";
 
 export default function ProfileScreen({ navigation }: any) {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark, setMode } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   
   const [isMenuVisible, setMenuVisible] = useState(false);
@@ -196,6 +197,19 @@ export default function ProfileScreen({ navigation }: any) {
       >
         <Text style={styles.helpButtonText}>!</Text>
       </TouchableOpacity>
+
+      {/* Theme Toggle Button */}
+      <TouchableOpacity
+        style={styles.themeButton}
+        onPress={() => setMode(isDark ? 'light' : 'dark')}
+      >
+        <Ionicons 
+          name={isDark ? "moon" : "sunny"} 
+          size={28} 
+          color={isDark ? "#fbbf24" : "#f59e0b"} 
+        />
+      </TouchableOpacity>
+
       <Modal
         visible={isHelpVisible}
         transparent
@@ -338,6 +352,19 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     color: colors.buttonText,
     fontSize: 35,
     fontWeight: "bold",
+  },
+  themeButton: {
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    backgroundColor: colors.backgroundCard,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: colors.border,
   },
   modalOverlay: {
     flex: 1,

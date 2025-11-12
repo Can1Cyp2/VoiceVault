@@ -12,7 +12,8 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { fetchUserVocalRange } from "../../util/api";
-import { COLORS, FONTS } from "../../styles/theme";
+import { FONTS } from "../../styles/theme";
+import { useTheme } from "../../contexts/ThemeContext";
 
 // All musical notes in order from C0 to C7
 export const NOTES = [
@@ -115,6 +116,7 @@ const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
   isLoggedIn,
 }) => {
   const navigation = useNavigation();
+  const { colors } = useTheme();
   const [userMinRange, setUserMinRange] = useState<string | null>(null);
   const [userMaxRange, setUserMaxRange] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -227,36 +229,36 @@ const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.backgroundCard, borderColor: colors.border }]}>
       <TouchableOpacity onPress={toggleExpand} style={styles.header}>
-        <Text style={styles.title}>Personalized Recommendation</Text>
-        <Text style={styles.expandText}>{isExpanded ? "▲" : "▼"}</Text>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>Personalized Recommendation</Text>
+        <Text style={[styles.expandText, { color: colors.textSecondary }]}>{isExpanded ? "▲" : "▼"}</Text>
       </TouchableOpacity>
       {isExpanded && rangeFeedback && (
         <View style={styles.content}>
           {rangeFeedback.showSetupMessage ? (
             <>
-              <Text style={styles.setupMessage}>
+              <Text style={[styles.setupMessage, { color: colors.textSecondary }]}>
                 Set your vocal range for a personalized recommendation.
               </Text>
-              <TouchableOpacity style={styles.setupButton} onPress={handleSetupPress}>
+              <TouchableOpacity style={[styles.setupButton, { backgroundColor: colors.primary }]} onPress={handleSetupPress}>
                 <Text style={styles.setupButtonText}>Set Your Range</Text>
               </TouchableOpacity>
             </>
           ) : (
             <>
-              <Text style={styles.userRangeText}>
+              <Text style={[styles.userRangeText, { color: colors.textPrimary }]}>
                 Your Vocal Range: {userMinRange} - {userMaxRange}
               </Text>
               <View style={styles.feedbackItem}>
-                <Text style={styles.feedbackLabel}>Low:</Text>
-                <Text style={[styles.feedbackText, rangeFeedback.low.includes('In range') ? styles.inRange : styles.outOfRange]}>
+                <Text style={[styles.feedbackLabel, { color: colors.textSecondary }]}>Low:</Text>
+                <Text style={[styles.feedbackText, rangeFeedback.low.includes('In range') ? { color: colors.primary } : { color: colors.danger }]}>
                   {rangeFeedback.low}
                 </Text>
               </View>
               <View style={styles.feedbackItem}>
-                <Text style={styles.feedbackLabel}>High:</Text>
-                <Text style={[styles.feedbackText, rangeFeedback.high.includes('In range') ? styles.inRange : styles.outOfRange]}>
+                <Text style={[styles.feedbackLabel, { color: colors.textSecondary }]}>High:</Text>
+                <Text style={[styles.feedbackText, rangeFeedback.high.includes('In range') ? { color: colors.primary } : { color: colors.danger }]}>
                   {rangeFeedback.high}
                 </Text>
               </View>
@@ -272,10 +274,8 @@ const styles = StyleSheet.create({
   container: {
     marginHorizontal: 20,
     marginTop: 20,
-    backgroundColor: COLORS.background,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
     overflow: 'hidden',
   },
   header: {
@@ -287,12 +287,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.textDark,
     fontFamily: FONTS.primary,
   },
   expandText: {
     fontSize: 20,
-    color: COLORS.textLight,
     fontFamily: FONTS.primary,
   },
   content: {
@@ -302,7 +300,6 @@ const styles = StyleSheet.create({
   userRangeText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.textDark,
     fontFamily: FONTS.primary,
     marginBottom: 12,
     textAlign: 'center',
@@ -314,7 +311,6 @@ const styles = StyleSheet.create({
   },
   feedbackLabel: {
     fontSize: 16,
-    color: COLORS.textLight,
     fontFamily: FONTS.primary,
     width: 60,
   },
@@ -324,21 +320,13 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.primary,
     flex: 1,
   },
-  inRange: {
-    color: COLORS.primary,
-  },
-  outOfRange: {
-    color: COLORS.danger,
-  },
   setupMessage: {
     fontSize: 16,
-    color: COLORS.textLight,
     fontFamily: FONTS.primary,
     textAlign: 'center',
     marginVertical: 10,
   },
   setupButton: {
-    backgroundColor: COLORS.primary,
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',

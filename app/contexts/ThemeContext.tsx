@@ -58,13 +58,14 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
   }, []);
 
   // Save theme preference when it changes
-  const setMode = async (newMode: ThemeMode) => {
-    try {
-      setModeState(newMode);
-      await AsyncStorage.setItem('theme', newMode);
-    } catch (error) {
+  const setMode = (newMode: ThemeMode) => {
+    // Update state immediately for instant UI response
+    setModeState(newMode);
+    
+    // Save to AsyncStorage in background (don't await)
+    AsyncStorage.setItem('theme', newMode).catch((error) => {
       console.error('Failed to save theme preference:', error);
-    }
+    });
   };
 
   // Don't render until theme is loaded to prevent flash

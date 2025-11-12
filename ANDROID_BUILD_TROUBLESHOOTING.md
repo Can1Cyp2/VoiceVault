@@ -184,21 +184,6 @@ XXX actionable tasks: XX executed, XX up-to-date
 
 ---
 
-## EAS Build Credits Exhausted?
-
-If you run out of EAS free tier builds:
-1. **Wait** until monthly reset (1st of month)
-2. **Upgrade** to paid EAS plan
-3. **Build locally** using this guide (free!)
-
-Local builds give you:
-- ✅ Unlimited builds
-- ✅ Faster iteration
-- ✅ Full control over configuration
-- ❌ Need to manage SDK components yourself
-
----
-
 ## Environment Info
 
 This guide was created for:
@@ -221,5 +206,6 @@ If issues persist:
 
 **Remember:** The keys to success are:
 - Exact SDK versions (especially CMake 3.22.1)
+- Exact ndk version
 - Sufficient memory allocation
 - Proper keystore configuration

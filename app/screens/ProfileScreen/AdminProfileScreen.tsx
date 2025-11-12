@@ -1,5 +1,42 @@
 // File: app/screens/ProfileScreen/AdminScreen.tsx
 
+/**
+ * ADMIN SECURITY IMPLEMENTATION
+ * 
+ * This screen implements multiple layers of security to prevent unauthorized access:
+ * 
+ * 1. DATABASE LEVEL (Supabase):
+ *    - RLS (Row Level Security) policies on admin tables
+ *    - Server-side RPC function 'check_user_admin_status' verifies admin status
+ *    - Admin table only accessible to authenticated admins
+ * 
+ * 2. UI LEVEL (ProfileScreen):
+ *    - Admin button only visible when useAdminStatus() returns isAdmin=true
+ *    - Double-verification before navigation via checkAdminStatus()
+ *    - Alert shown if verification fails
+ * 
+ * 3. COMPONENT LEVEL (this screen):
+ *    - Initial verification on mount via checkAdminStatus()
+ *    - Periodic re-verification every 30 seconds
+ *    - Auth state monitoring - kicks user out on sign-out or privilege revocation
+ *    - isVerified flag blocks rendering until admin status confirmed
+ *    - Early return with "Access Denied" if adminDetails is null
+ *    - Navigation uses replace() to prevent back-button bypass
+ * 
+ * 4. SESSION LEVEL:
+ *    - Monitors auth state changes (sign out, token refresh)
+ *    - Re-verifies admin status on token refresh
+ *    - Automatically redirects non-admins away from screen
+ * 
+ * An attacker would need to:
+ *    - Bypass database RLS policies (requires database exploit)
+ *    - Mock the RPC function response (requires server compromise)
+ *    - Defeat multiple client-side checks (all referencing server truth)
+ *    - Maintain admin flag during periodic re-verification
+ * 
+ * This defense-in-depth approach ensures only legitimate admins can access this panel.
+ */
+
 import React, { useState, useEffect, useMemo } from "react";
 import {
     View,
@@ -123,6 +160,7 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
     
     const [adminDetails, setAdminDetails] = useState<AdminDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isVerified, setIsVerified] = useState(false);
     const [userStats, setUserStats] = useState({
         totalUsers: 0,
         activeUsers: 0,
@@ -140,9 +178,71 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
     });
     const [debugLogs, setDebugLogs] = useState<string[]>([]);
 
+    // Security: Verify admin status on mount and periodically
     useEffect(() => {
-        fetchAdminData();
-        setupAdDebugMonitoring();
+        let verificationInterval: NodeJS.Timeout;
+        
+        const verifyAdminAccess = async () => {
+            const { isAdmin } = await checkAdminStatus();
+            if (!isAdmin) {
+                Alert.alert(
+                    "Access Denied",
+                    "You don't have admin privileges or your session has expired.",
+                    [{ text: "OK", onPress: () => navigation.replace('Profile') }]
+                );
+                setIsVerified(false);
+                return false;
+            }
+            setIsVerified(true);
+            return true;
+        };
+
+        // Initial verification
+        verifyAdminAccess().then(verified => {
+            if (verified) {
+                fetchAdminData();
+                setupAdDebugMonitoring();
+                
+                // Re-verify every 30 seconds to ensure continued admin access
+                verificationInterval = setInterval(async () => {
+                    const stillAdmin = await verifyAdminAccess();
+                    if (!stillAdmin) {
+                        clearInterval(verificationInterval);
+                    }
+                }, 30000);
+            }
+        });
+
+        return () => {
+            if (verificationInterval) {
+                clearInterval(verificationInterval);
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        // Additional auth state monitoring
+        const { data: subscription } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_OUT' || !session) {
+                Alert.alert(
+                    "Session Expired",
+                    "You have been signed out.",
+                    [{ text: "OK", onPress: () => navigation.replace('Home') }]
+                );
+            } else if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
+                // Re-verify admin status on token refresh
+                const { isAdmin } = await checkAdminStatus();
+                if (!isAdmin) {
+                    Alert.alert(
+                        "Access Denied",
+                        "Admin privileges have been revoked.",
+                        [{ text: "OK", onPress: () => navigation.replace('Profile') }]
+                    );
+                }
+            }
+        });
+
+        return () => subscription?.unsubscribe();
     }, []);
 
     // userStats are now provided by a dedicated component (AdminQuickStats)
@@ -446,11 +546,14 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
 
     const isExpoGo = Constants.appOwnership === "expo";
 
-    if (isLoading) {
+    // Security: Block rendering until verified
+    if (isLoading || !isVerified) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#ff4757" />
-                <Text style={styles.loadingText}>Loading Admin Panel...</Text>
+                <Text style={styles.loadingText}>
+                    {isLoading ? "Loading Admin Panel..." : "Verifying Access..."}
+                </Text>
             </View>
         );
     }
@@ -460,7 +563,7 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
             <View style={styles.container}>
                 <Text style={styles.errorText}>Access Denied</Text>
                 <Text style={styles.errorSubtext}>You don't have admin privileges.</Text>
-                <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                <TouchableOpacity style={styles.backButton} onPress={() => navigation.replace('Profile')}>
                     <Text style={styles.backButtonText}>Go Back</Text>
                 </TouchableOpacity>
             </View>

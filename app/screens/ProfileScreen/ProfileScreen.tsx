@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import ProfileMenu from "./ProfileMenu";
 import { supabase } from "../../util/supabase";
 import { fetchUserVocalRange } from "../../util/api";
-import { useAdminStatus } from "../../util/adminUtils";
+import { useAdminStatus, checkAdminStatus } from "../../util/adminUtils";
 import { useTheme } from "../../contexts/ThemeContext";
 
 export default function ProfileScreen({ navigation }: any) {
@@ -128,7 +128,19 @@ export default function ProfileScreen({ navigation }: any) {
     );
   }
 
-  function handleAdminAccess(event: GestureResponderEvent): void {
+  async function handleAdminAccess(event: GestureResponderEvent): Promise<void> {
+    // Double-check admin status before navigation
+    const { isAdmin: adminVerified } = await checkAdminStatus();
+    
+    if (!adminVerified) {
+      Alert.alert(
+        "Access Denied",
+        "You don't have admin privileges.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+    
     navigation.navigate("Search", { screen: "AdminProfileScreen" });
   }
 

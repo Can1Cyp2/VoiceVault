@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import { TabParamList } from "../../../App";
 import { SupportModal } from "../../components/SupportModal/SupportModal";
 import { getLoginGlow, setLoginGlow } from "../../util/loginPrompt";
+import { useTheme } from "../../contexts/ThemeContext";
 
 // Combined navigation props for tab and stack navigators
 type HomeScreenProps = CompositeScreenProps<
@@ -32,6 +33,9 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [isSignupVisible, setSignupVisible] = useState(false);
   const [isLoggedIn, setLoggedIn] = useState(false);
   const [isSupportVisible, setSupportVisible] = useState(false);
+
+  // Theme hook
+  const { colors, isDark, setMode } = useTheme();
 
   // State for login glow for users not logged in and clicking on the profile screen, and then choosing to log in
   const [shouldGlow, setShouldGlow] = useState(false);
@@ -130,50 +134,72 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
   // Handle login and signup button presses
   return (
-    <View style={styles.container}>
-      {/* Tools Button in Top Left */}
-      <TouchableOpacity
-        style={styles.toolsButton}
-        onPress={() => {
-          // @ts-ignore - Navigate to nested screen
-          navigation.navigate("Search", { 
-            screen: "Metronome",
-            initial: false 
-          });
-        }}
-      >
-        <Ionicons name="cog-outline" size={30} color="#ff6600" />
-        <Text style={styles.toolsText}>Tools</Text>
-      </TouchableOpacity>
+    <View style={[styles.container, { backgroundColor: colors.backgroundSecondary }]}>
+      {/* Top Button Row */}
+      <View style={styles.topButtonRow}>
+        {/* Tools Button in Top Left */}
+        <TouchableOpacity
+          style={styles.toolsButton}
+          onPress={() => {
+            // @ts-ignore - Navigate to nested screen
+            navigation.navigate("Search", { 
+              screen: "Metronome",
+              initial: false 
+            });
+          }}
+        >
+          <Ionicons name="cog-outline" size={30} color={colors.primaryDark} />
+          <Text style={[styles.toolsText, { color: colors.primaryDark }]}>Tools</Text>
+        </TouchableOpacity>
 
-      {/* Support Button in Top Right */}
-      <TouchableOpacity
-        style={styles.supportButton}
-        onPress={() => setSupportVisible(true)}
-      >
-        <Ionicons name="heart-outline" size={30} color="#e91e63" />
-      </TouchableOpacity>
+        {/* Support Button in Top Right */}
+        <TouchableOpacity
+          style={styles.supportButton}
+          onPress={() => setSupportVisible(true)}
+        >
+          <Ionicons name="heart-outline" size={30} color={colors.accent} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Theme Toggle Button - Absolutely Centered */}
+      <View style={styles.centerButtonContainer}>
+        <TouchableOpacity
+          style={styles.themeButton}
+          onPress={() => setMode(isDark ? 'light' : 'dark')}
+        >
+          <Ionicons 
+            name={isDark ? "moon" : "sunny"} 
+            size={32} 
+            color={isDark ? "#fbbf24" : "#f59e0b"} 
+          />
+        </TouchableOpacity>
+      </View>
 
       {/* Logo Section */}
       <Image
-        source={require("../../../assets/transparent-icon.png")}
+        source={
+          isDark
+            ? require("../../../assets/transparent-icon-dark.png")
+            : require("../../../assets/transparent-icon.png")
+        }
         style={styles.logo}
         resizeMode="contain"
       />
-      <Text style={styles.title}>Welcome to VoiceVault!</Text>
-      <Text style={styles.subtitle}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>Welcome to VoiceVault!</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         Explore the world of vocal ranges and discover music like never before,
         with over 30,000 songs!
       </Text>
       {isLoggedIn ? (
-        <TouchableOpacity style={styles.button} onPress={handleLogout}>
-          <Text style={styles.buttonText}>Logout</Text>
+        <TouchableOpacity style={[styles.button, { backgroundColor: colors.link }]} onPress={handleLogout}>
+          <Text style={[styles.buttonText, { color: colors.buttonText }]}>Logout</Text>
         </TouchableOpacity>
       ) : (
         <>
           <Animated.View
             style={[
               styles.button,
+              { backgroundColor: colors.primaryDark },
               shouldGlow && styles.glowButton,
               shouldGlow && { opacity: blinkAnimation } // Add animated opacity
             ]}
@@ -182,14 +208,14 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               style={styles.buttonInner}
               onPress={() => setLoginVisible(true)}
             >
-              <Text style={styles.buttonText}>Login</Text>
+              <Text style={[styles.buttonText, { color: colors.buttonText }]}>Login</Text>
             </TouchableOpacity>
           </Animated.View>
           <TouchableOpacity
-            style={[styles.button, styles.signupButton]}
+            style={[styles.button, styles.signupButton, { backgroundColor: colors.link }]}
             onPress={() => setSignupVisible(true)}
           >
-            <Text style={styles.buttonText}>Sign Up</Text>
+            <Text style={[styles.buttonText, { color: colors.buttonText }]}>Sign Up</Text>
           </TouchableOpacity>
         </>
       )}
@@ -211,8 +237,28 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff",
     padding: 20,
+  },
+  topButtonRow: {
+    position: "absolute",
+    top: 60,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    zIndex: 10,
+  },
+  centerButtonContainer: {
+    position: "absolute",
+    top: 60,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 11, // Above the top button row
+    pointerEvents: "box-none", // Allow clicks to pass through the container
   },
   logo: {
     width: 150,
@@ -222,19 +268,16 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#ff6600",
     marginBottom: 10,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
-    color: "#555",
     textAlign: "center",
     lineHeight: 22,
     marginBottom: 30,
   },
   button: {
-    backgroundColor: "#ff6600",
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 5,
@@ -243,36 +286,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   signupButton: {
-    backgroundColor: "#007bff",
+    // backgroundColor will be set inline with theme
   },
   buttonText: {
-    color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
   },
   versionText: {
     fontSize: 12,
-    color: "#888",
     paddingTop: 0,
     opacity: 0.5,
   },
   toolsButton: {
-    position: "absolute",
-    top: 60,
-    left: 20,
     flexDirection: "row",
     alignItems: "center",
   },
   toolsText: {
     fontSize: 16,
-    color: "#ff6600",
     marginLeft: 5,
     fontWeight: "bold",
   },
+  themeButton: {
+    padding: 8,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    pointerEvents: "auto", // Ensure the button itself is clickable
+  },
   supportButton: {
-    position: "absolute",
-    top: 60,
-    right: 20,
     flexDirection: "row",
     alignItems: "center",
   },

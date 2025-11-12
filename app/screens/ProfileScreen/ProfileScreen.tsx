@@ -10,6 +10,7 @@ import {
   Modal,
   ActivityIndicator,
   GestureResponderEvent,
+  Image,
 } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import ProfileMenu from "./ProfileMenu";
@@ -140,9 +141,14 @@ export default function ProfileScreen({ navigation }: any) {
           : `Username: ${username}`}
       </Text>
       {coinBalance !== null && (
-        <Text style={styles.coinBalance}>
-          Coins: 🪙 {coinBalance}
-        </Text>
+        <View style={styles.coinBalanceContainer}>
+          <Text style={styles.coinBalance}>Coins: </Text>
+          <Image 
+            source={require('../../../assets/coin-icon.png')} 
+            style={styles.coinIcon}
+          />
+          <Text style={styles.coinBalance}> {coinBalance}</Text>
+        </View>
       )}
 
       {/* Display Vocal Range */}
@@ -263,11 +269,20 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     marginBottom: 20,
     textAlign: "center",
   },
+  coinBalanceContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
   coinBalance: {
     fontSize: 16,
     color: colors.gold,
     fontWeight: "600",
-    marginBottom: 10,
+  },
+  coinIcon: {
+    width: 20,
+    height: 20,
+    resizeMode: "contain",
   },
   button: {
     backgroundColor: colors.secondary,

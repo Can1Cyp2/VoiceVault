@@ -262,6 +262,7 @@ export default function AddSongScreen({ navigation }: any) {
         <TextInput
           style={styles.input}
           placeholder="Song Name"
+          placeholderTextColor={colors.textPlaceholder}
           value={name}
           onChangeText={setName}
           editable={!isSubmitting}
@@ -269,6 +270,7 @@ export default function AddSongScreen({ navigation }: any) {
         <TextInput
           style={styles.input}
           placeholder="Artist Name"
+          placeholderTextColor={colors.textPlaceholder}
           value={artist}
           onChangeText={setArtist}
           editable={!isSubmitting}

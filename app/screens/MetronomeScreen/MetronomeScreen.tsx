@@ -374,10 +374,10 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
                 {
                   backgroundColor: "#ff6600",
                   shadowColor: "#ff6600",
-                  shadowOpacity: 0.5,
+                  shadowOpacity: 0.8,
                   opacity: flashAnim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [0.5, 1],
+                    outputRange: [0.8, 1],
                   }),
                 },
               ]}
@@ -411,7 +411,7 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
             keyboardType="numeric"
             returnKeyType="done"
             placeholder="BPM"
-            placeholderTextColor="#888"
+            placeholderTextColor={colors.textPlaceholder}
             accessible={true}
             accessibilityLabel="BPM Input"
             accessibilityHint="Enter a BPM value between 30 and 240"

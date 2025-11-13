@@ -1,9 +1,9 @@
 
 // app/components/Piano/Piano.tsx
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { COLORS, FONTS } from '../../styles/theme';
 import { noteToValue } from '../../util/vocalRange';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const { width } = Dimensions.get('window');
 const WHITE_KEY_WIDTH = width / 15;
@@ -22,6 +22,8 @@ const NOTES = [
 ];
 
 const Piano = ({ vocalRange }: { vocalRange: string }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const scrollViewRef = useRef<ScrollView>(null);
   const [lowNote, highNote] = vocalRange.split(' - ');
 
@@ -93,7 +95,7 @@ const Piano = ({ vocalRange }: { vocalRange: string }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
   pianoContainer: {
     height: 150,
     marginVertical: 20,
@@ -105,9 +107,9 @@ const styles = StyleSheet.create({
   whiteKey: {
     width: WHITE_KEY_WIDTH,
     height: 150,
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundCard,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     justifyContent: 'flex-end',
     alignItems: 'center',
     paddingBottom: 10,
@@ -116,25 +118,25 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: BLACK_KEY_WIDTH,
     height: 90,
-    backgroundColor: COLORS.textDark,
+    backgroundColor: colors.textPrimary,
     zIndex: 1,
     justifyContent: 'flex-end',
     alignItems: 'center',
     paddingBottom: 5,
   },
   whiteKeyLabel: {
-    color: COLORS.textDark,
+    color: colors.textPrimary,
     fontSize: 12,
   },
   blackKeyLabel: {
-    color: 'white',
+    color: colors.buttonText,
     fontSize: 10,
   },
   highlightedWhiteKey: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   highlightedBlackKey: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
 });
 

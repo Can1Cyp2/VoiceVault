@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   View,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAds } from './AdService';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface Props {
   visible: boolean;
@@ -28,6 +29,8 @@ const showSupportInfo = () => {
 };
 
 export const SupportModal = ({ visible, onClose }: Props) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { 
     adsWatched, 
     canWatchMore, 
@@ -75,7 +78,7 @@ export const SupportModal = ({ visible, onClose }: Props) => {
               <Ionicons 
                 name="information-circle-outline" 
                 size={24} 
-                color="#666"
+                color={colors.textSecondary}
               />
             </Pressable>
           </View>
@@ -149,15 +152,15 @@ export const SupportModal = ({ visible, onClose }: Props) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modal: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.backgroundCard,
     padding: 20,
     borderRadius: 12,
     width: '80%',
@@ -173,6 +176,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
+    color: colors.textPrimary,
   },
   infoButton: {
     padding: 4,
@@ -180,17 +184,18 @@ const styles = StyleSheet.create({
   note: {
     marginTop: 10,
     fontSize: 12,
-    color: '#888',
+    color: colors.textTertiary,
     textAlign: 'center',
   },
   subheader: {
     fontSize: 13,
     fontWeight: '300',
+    color: colors.textSecondary,
     marginBottom: 16,
     textAlign: 'center',
   },
   statsContainer: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.backgroundTertiary,
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,
@@ -199,34 +204,35 @@ const styles = StyleSheet.create({
   statsText: {
     fontSize: 16,
     fontWeight: '600',
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   remainingText: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 4,
   },
   adButton: {
-    backgroundColor: '#007bff',
+    backgroundColor: colors.secondary,
     padding: 12,
     borderRadius: 8,
     width: '100%',
     alignItems: 'center',
   },
   quickAdButton: {
-    backgroundColor: '#17a2b8',
+    backgroundColor: colors.link,
     padding: 12,
     borderRadius: 8,
     width: '100%',
     alignItems: 'center',
   },
   disabledButton: {
-    backgroundColor: '#ccc',
+    backgroundColor: colors.border,
     opacity: 0.6,
   },
   adButtonText: {
-    color: 'white',
+    color: colors.buttonText,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -238,9 +244,9 @@ const styles = StyleSheet.create({
   limitText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#856404',
+    color: colors.warning,
     textAlign: 'center',
-    backgroundColor: '#fff3cd',
+    backgroundColor: colors.backgroundTertiary,
     padding: 8,
     borderRadius: 6,
   },

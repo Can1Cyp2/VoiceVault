@@ -278,7 +278,7 @@ export default function SavedListsScreen({ navigation }: any) {
                   placeholder="Enter list name"
                   value={newListName}
                   onChangeText={setNewListName}
-                  placeholderTextColor={COLORS.textLight}
+                  placeholderTextColor={colors.textPlaceholder}
                   autoFocus
                 />
 

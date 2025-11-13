@@ -134,7 +134,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
   // Handle login and signup button presses
   return (
-    <View style={[styles.container, { backgroundColor: colors.backgroundSecondary }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Top Button Row */}
       <View style={styles.topButtonRow}>
         {/* Tools Button in Top Left */}
@@ -231,7 +231,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       </Modal>
 
       <SupportModal visible={isSupportVisible} onClose={() => setSupportVisible(false)} />
-      <Text style={styles.versionText}>Version 1.2.9</Text>
+      <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.2.9</Text>
     </View>
   );
 }

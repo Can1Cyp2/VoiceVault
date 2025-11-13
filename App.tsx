@@ -92,6 +92,7 @@ const ProfileScreenWrapper = () => {
 };
 
 function AppContent() {
+  const { colors } = useTheme();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentScreen, setCurrentScreen] = useState("Home"); // Track current screen
   const [attRequested, setAttRequested] = useState(false);
@@ -174,6 +175,9 @@ function AppContent() {
             tabBarStyle: {
               height: 90,
               paddingBottom: 10,
+              backgroundColor: colors.background,  // Add theme background color
+              borderTopColor: colors.border,        // Add theme border color
+              borderTopWidth: 1,
             },
           }}
         >
@@ -234,6 +238,7 @@ export default function App() {
 
 // Custom Tab Button for Home and other tabs
 const CustomTabButton = ({ onPress, accessibilityState, label, icon, isCurrentScreen }: any) => {
+  const { colors } = useTheme();
   // Use isCurrentScreen prop instead of accessibilityState for more reliable indication
   const isSelected = isCurrentScreen ?? (accessibilityState?.selected ?? false);
 
@@ -242,7 +247,12 @@ const CustomTabButton = ({ onPress, accessibilityState, label, icon, isCurrentSc
       onPress={onPress}
       style={[
         styles.tabButtonContainer,
-        isSelected && styles.selectedTabContainer // Add selected style
+        { backgroundColor: colors.background }, // Use theme background
+        isSelected && {
+          backgroundColor: colors.backgroundTertiary, // Slightly lighter for selected
+          borderTopWidth: 3,
+          borderTopColor: colors.primary,
+        }
       ]}
     >
       <Ionicons
@@ -252,12 +262,12 @@ const CustomTabButton = ({ onPress, accessibilityState, label, icon, isCurrentSc
             : (`${icon}-outline` as keyof typeof Ionicons.glyphMap)
         }
         size={30}
-        color={isSelected ? "tomato" : "darkgray"}
+        color={isSelected ? colors.primary : colors.textSecondary}
       />
       <Text
         style={[
           styles.tabButtonText,
-          { color: isSelected ? "tomato" : "darkgray" },
+          { color: isSelected ? colors.primary : colors.textSecondary },
         ]}
       >
         {label}
@@ -273,6 +283,7 @@ const CustomProfileButton = ({
   isLoggedIn,
   isCurrentScreen,
 }: any) => {
+  const { colors } = useTheme();
   // Use isCurrentScreen prop for more reliable indication
   const isSelected = isCurrentScreen ?? (accessibilityState?.selected ?? false);
   const navigation = useNavigation();
@@ -302,21 +313,29 @@ const CustomProfileButton = ({
       }}
       style={[
         styles.tabButtonContainer,
-        { backgroundColor: !isLoggedIn ? "gray" : "white" },
-        isSelected && !isLoggedIn && styles.selectedDisabledTab, // Special style for selected disabled tab
-        isSelected && isLoggedIn && styles.selectedTabContainer, // Selected enabled tab
+        { backgroundColor: !isLoggedIn ? colors.disabled : colors.background },
+        isSelected && !isLoggedIn && {
+          backgroundColor: colors.disabled,
+          borderTopWidth: 3,
+          borderTopColor: colors.tabBorder,
+        },
+        isSelected && isLoggedIn && {
+          backgroundColor: colors.backgroundTertiary,
+          borderTopWidth: 3,
+          borderTopColor: colors.primary,
+        }
       ]}
     >
       <Ionicons
         name={isSelected ? "person" : "person-outline"}
         size={28}
-        color={!isLoggedIn ? "white" : isSelected ? "tomato" : "darkgray"}
+        color={!isLoggedIn ? colors.buttonText : isSelected ? colors.primary : colors.textSecondary}
       />
       <Text
         style={[
           styles.tabButtonText,
           {
-            color: !isLoggedIn ? "white" : isSelected ? "tomato" : "darkgray",
+            color: !isLoggedIn ? colors.buttonText : isSelected ? colors.primary : colors.textSecondary,
           },
         ]}
       >
@@ -374,17 +393,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingTop: -5,
-    backgroundColor: "white", // Default background for all tabs
+    // backgroundColor removed - now using theme colors inline
   },
   selectedTabContainer: {
-    backgroundColor: "#fff5f5", // Light red/pink background for selected tabs
-    borderTopWidth: 3,
-    borderTopColor: "tomato",
+    // Deprecated - now using inline theme colors
   },
   selectedDisabledTab: {
-    backgroundColor: "#555", // Darker gray for selected disabled tab
-    borderTopWidth: 3,
-    borderTopColor: "#777",
+    // Deprecated - now using inline theme colors
   },
   tabButtonText: {
     fontSize: 12,

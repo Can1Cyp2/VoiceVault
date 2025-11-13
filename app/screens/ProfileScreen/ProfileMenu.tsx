@@ -1,5 +1,5 @@
 // File: app/screens/ProfileScreen/ProfileMenu.tsx
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { supabase } from "../../util/supabase";
 import EditProfileModal from "./EditProfileModal";
+import { useTheme } from "../../contexts/ThemeContext";
 
 // This component renders a menu for the user profile with options to edit profile, reset password, delete account, and logout.
 export default function ProfileMenu({
@@ -20,6 +21,8 @@ export default function ProfileMenu({
   onClose: () => void;
   onLogout: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [isEditProfileVisible, setEditProfileVisible] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -152,12 +155,12 @@ export default function ProfileMenu({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
   overlay: {},
   modal: {
     width: "80%",
     padding: 20,
-    backgroundColor: "#fff",
+    backgroundColor: colors.backgroundCard,
     borderRadius: 10,
     alignItems: "center",
   },
@@ -166,17 +169,17 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     borderBottomWidth: 1,
-    borderBottomColor: "#ddd",
+    borderBottomColor: colors.border,
   },
   optionText: {
     fontSize: 16,
-    color: "#555",
+    color: colors.textPrimary,
   },
   closeText: {
     fontSize: 16,
-    color: "#007bff",
+    color: colors.link,
     marginTop: 20,
-    backgroundColor: "#d9d9d9",
+    backgroundColor: colors.backgroundTertiary,
     padding: 5,
     borderRadius: 5,
   },

@@ -1,9 +1,9 @@
 
 // app/components/Piano/Piano.tsx
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { noteToValue } from '../../util/vocalRange';
-import { useTheme } from '../../contexts/ThemeContext';
+import { LightColors } from '../../styles/theme';
 
 const { width } = Dimensions.get('window');
 const WHITE_KEY_WIDTH = width / 15;
@@ -22,8 +22,6 @@ const NOTES = [
 ];
 
 const Piano = ({ vocalRange }: { vocalRange: string }) => {
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
   const scrollViewRef = useRef<ScrollView>(null);
   const [lowNote, highNote] = vocalRange.split(' - ');
 
@@ -95,7 +93,8 @@ const Piano = ({ vocalRange }: { vocalRange: string }) => {
   );
 };
 
-const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
+// Always use light mode colors for the piano keyboard
+const styles = StyleSheet.create({
   pianoContainer: {
     height: 150,
     marginVertical: 20,
@@ -107,9 +106,9 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   whiteKey: {
     width: WHITE_KEY_WIDTH,
     height: 150,
-    backgroundColor: colors.backgroundCard,
+    backgroundColor: LightColors.backgroundCard,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: LightColors.border,
     justifyContent: 'flex-end',
     alignItems: 'center',
     paddingBottom: 10,
@@ -118,25 +117,25 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     position: 'absolute',
     width: BLACK_KEY_WIDTH,
     height: 90,
-    backgroundColor: colors.textPrimary,
+    backgroundColor: LightColors.textPrimary,
     zIndex: 1,
     justifyContent: 'flex-end',
     alignItems: 'center',
     paddingBottom: 5,
   },
   whiteKeyLabel: {
-    color: colors.textPrimary,
+    color: LightColors.textPrimary,
     fontSize: 12,
   },
   blackKeyLabel: {
-    color: colors.buttonText,
+    color: LightColors.buttonText,
     fontSize: 10,
   },
   highlightedWhiteKey: {
-    backgroundColor: colors.primary,
+    backgroundColor: LightColors.primary,
   },
   highlightedBlackKey: {
-    backgroundColor: colors.primary,
+    backgroundColor: LightColors.primary,
   },
 });
 

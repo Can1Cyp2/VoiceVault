@@ -284,7 +284,7 @@ export default function AddSongScreen({ navigation }: any) {
             enabled={!isSubmitting}
           >
             {NOTES.map((note) => (
-              <Picker.Item key={note} label={note} value={note} />
+              <Picker.Item key={note} label={note} value={note} color={colors.textPrimary} />
             ))}
           </Picker>
         </View>
@@ -297,7 +297,7 @@ export default function AddSongScreen({ navigation }: any) {
             enabled={!isSubmitting}
           >
             {NOTES.map((note) => (
-              <Picker.Item key={note} label={note} value={note} />
+              <Picker.Item key={note} label={note} value={note} color={colors.textPrimary} />
             ))}
           </Picker>
         </View>

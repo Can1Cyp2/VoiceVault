@@ -179,16 +179,19 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         </TouchableOpacity>
       </View>
 
-      {/* Logo Section */}
-      <Image
-        source={
-          isDark
-            ? require("../../../assets/transparent-icon-dark.png")
-            : require("../../../assets/transparent-icon.png")
-        }
-        style={styles.logo}
-        resizeMode="contain"
-      />
+      {/* Logo Section - Two images layered, toggle visibility instantly */}
+      <View style={styles.logoContainer}>
+        <Image
+          source={require("../../../assets/transparent-icon.png")}
+          style={[styles.logo, { opacity: isDark ? 0 : 1 }]}
+          resizeMode="contain"
+        />
+        <Image
+          source={require("../../../assets/transparent-icon-dark.png")}
+          style={[styles.logo, { opacity: isDark ? 1 : 0, position: 'absolute' }]}
+          resizeMode="contain"
+        />
+      </View>
       <Text style={[styles.title, { color: colors.textPrimary }]}>Welcome to VoiceVault!</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         Explore the world of vocal ranges and discover music like never before,
@@ -231,7 +234,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       </Modal>
 
       <SupportModal visible={isSupportVisible} onClose={() => setSupportVisible(false)} />
-      <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.2.9</Text>
+      <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.3.0</Text>
     </View>
   );
 }
@@ -272,10 +275,14 @@ const styles = StyleSheet.create({
     width: 100,
     alignItems: "flex-end",
   },
-  logo: {
+  logoContainer: {
     width: 150,
     height: 150,
     marginBottom: 20,
+  },
+  logo: {
+    width: 150,
+    height: 150,
   },
   title: {
     fontSize: 28,

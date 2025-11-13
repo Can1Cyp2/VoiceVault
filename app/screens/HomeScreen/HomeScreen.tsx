@@ -138,27 +138,31 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       {/* Top Button Row */}
       <View style={styles.topButtonRow}>
         {/* Tools Button in Top Left */}
-        <TouchableOpacity
-          style={styles.toolsButton}
-          onPress={() => {
-            // @ts-ignore - Navigate to nested screen
-            navigation.navigate("Search", { 
-              screen: "Metronome",
-              initial: false 
-            });
-          }}
-        >
-          <Ionicons name="cog-outline" size={30} color={colors.primaryDark} />
-          <Text style={[styles.toolsText, { color: colors.primaryDark }]}>Tools</Text>
-        </TouchableOpacity>
+        <View style={styles.leftSection}>
+          <TouchableOpacity
+            style={styles.toolsButton}
+            onPress={() => {
+              // @ts-ignore - Navigate to nested screen
+              navigation.navigate("Search", { 
+                screen: "Metronome",
+                initial: false 
+              });
+            }}
+          >
+            <Ionicons name="cog-outline" size={30} color={colors.primaryDark} />
+            <Text style={[styles.toolsText, { color: colors.primaryDark }]}>Tools</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Support Button in Top Right */}
-        <TouchableOpacity
-          style={styles.supportButton}
-          onPress={() => setSupportVisible(true)}
-        >
-          <Ionicons name="heart-outline" size={30} color={colors.accent} />
-        </TouchableOpacity>
+        <View style={styles.rightSection}>
+          <TouchableOpacity
+            style={styles.supportButton}
+            onPress={() => setSupportVisible(true)}
+          >
+            <Ionicons name="heart-outline" size={30} color={colors.accent} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Theme Toggle Button - Absolutely Centered */}
@@ -250,6 +254,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     zIndex: 10,
   },
+  leftSection: {
+    width: 100,
+    alignItems: "flex-start",
+  },
   centerButtonContainer: {
     position: "absolute",
     top: 60,
@@ -259,6 +267,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     zIndex: 11, // Above the top button row
     pointerEvents: "box-none", // Allow clicks to pass through the container
+  },
+  rightSection: {
+    width: 100,
+    alignItems: "flex-end",
   },
   logo: {
     width: 150,

@@ -1,11 +1,14 @@
 // File location: app/screens/LoginScreen/LoginScreen.tsx
 
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useTheme } from "../../contexts/ThemeContext";
 
 export default function LoginScreen() {
   const navigation = useNavigation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={styles.container}>
@@ -18,21 +21,21 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: colors.background,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#ff6600",
+    color: colors.primary,
   },
   forgotPasswordText: {
     marginTop: 15,
-    color: "blue",
+    color: colors.link,
     textDecorationLine: "underline",
   },
 });

@@ -1,10 +1,14 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet } from 'react-native';
 import { supabase } from '../../util/supabase';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const ResetPasswordScreen = () => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -42,6 +46,7 @@ const ResetPasswordScreen = () => {
       <TextInput
         style={styles.input}
         placeholder="New Password"
+        placeholderTextColor={colors.textPlaceholder}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -49,6 +54,7 @@ const ResetPasswordScreen = () => {
       <TextInput
         style={styles.input}
         placeholder="Confirm New Password"
+        placeholderTextColor={colors.textPlaceholder}
         value={confirmPassword}
         onChangeText={setConfirmPassword}
         secureTextEntry
@@ -58,24 +64,29 @@ const ResetPasswordScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
     padding: 20,
+    backgroundColor: colors.background,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
+    color: colors.textPrimary,
   },
   input: {
     height: 40,
-    borderColor: 'gray',
+    borderColor: colors.border,
     borderWidth: 1,
     marginBottom: 20,
     paddingHorizontal: 10,
+    backgroundColor: colors.inputBackground,
+    color: colors.textPrimary,
+    borderRadius: 5,
   },
 });
 

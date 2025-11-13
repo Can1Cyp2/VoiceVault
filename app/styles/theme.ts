@@ -98,16 +98,24 @@ export const DarkColors = {
   tabSelected: '#2a1a1a',
   tabDisabled: '#555',
   tabBorder: '#666',
-  green: '#4ade80',
+  green: '#4caf50',
   greenDark: '#66bb6a',
-  gold: '#fbbf24',
-  gray: '#888',
+  gold: '#ffc107',
+  gray: '#999',
   lightGray: '#333',
   darkGray: '#555',
 };
 
-// Legacy COLORS export for backwards compatibility during migration
-export const COLORS = LightColors;
+// Legacy exports for backward compatibility
+export const COLORS = {
+  primary: "tomato",
+  secondary: "#1e90ff",
+  background: "#f9f9f9",
+  textDark: "#333",
+  textLight: "#666",
+  border: "#ddd",
+  success: "#4CAF50",
+};
 
 export const FONTS = {
   primary: "Roboto", // might change later
@@ -121,6 +129,6 @@ export const SHARED_STYLES = {
   },
   text: {
     fontSize: 16,
-    color: COLORS.textPrimary,
+    color: COLORS.textDark,
   },
 };

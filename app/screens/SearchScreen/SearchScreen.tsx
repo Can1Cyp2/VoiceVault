@@ -1,5 +1,5 @@
 // File location: app/screens/SearchScreen/SearchScreen.tsx
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   FlatList,
@@ -17,12 +17,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { SearchBar } from "../../components/SearchBar/SearchBar";
 import { supabase } from "../../util/supabase";
 import { useSearch } from "../../util/useSearch";
+import { useTheme } from "../../contexts/ThemeContext";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Search">;
 
 // This component renders a search screen with a search bar, filter buttons, and a list of results (songs or artists):
 export default function SearchScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const { colors } = useTheme();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"songs" | "artists">("songs");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -50,6 +52,9 @@ export default function SearchScreen() {
     initialFetchDone,
     setInitialFetchDone,
   });
+
+  // Create themed styles
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Fetch the user's vocal range when the component mounts
   React.useEffect(() => {
@@ -145,32 +150,40 @@ export default function SearchScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.backgroundTertiary }]}>
       <View style={styles.searchBarContainer}>
         <SearchBar onSearch={setQuery} />
       </View>
       <View style={styles.filterContainer}>
         <TouchableOpacity style={styles.addButton} onPress={handleAddPress}>
-          <Ionicons name="add-circle" size={36} color="tomato" />
+          <Ionicons name="add-circle" size={36} color={colors.primary} />
         </TouchableOpacity>
         <View style={styles.filterButtonsWrapper}>
           <TouchableOpacity
-            style={[styles.filterButton, filter === "songs" && styles.activeFilter]}
+            style={[
+              styles.filterButton,
+              { borderColor: colors.border, backgroundColor: colors.backgroundCard },
+              filter === "songs" && [styles.activeFilter, { backgroundColor: colors.primary, borderColor: colors.primary }]
+            ]}
             onPress={() => {
               setQuery("");
               setFilter("songs");
             }}
           >
-            <Text style={[styles.filterText, filter === "songs" && { color: "#fff" }]}>Songs</Text>
+            <Text style={[styles.filterText, { color: colors.textPrimary }, filter === "songs" && { color: colors.textInverse }]}>Songs</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.filterButton, filter === "artists" && styles.activeFilter]}
+            style={[
+              styles.filterButton,
+              { borderColor: colors.border, backgroundColor: colors.backgroundCard },
+              filter === "artists" && [styles.activeFilter, { backgroundColor: colors.primary, borderColor: colors.primary }]
+            ]}
             onPress={() => {
               setQuery("");
               setFilter("artists");
             }}
           >
-            <Text style={[styles.filterText, filter === "artists" && { color: "#fff" }]}>Artists</Text>
+            <Text style={[styles.filterText, { color: colors.textPrimary }, filter === "artists" && { color: colors.textInverse }]}>Artists</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.filterButtonRight} onPress={handleInRangePress}>
             <Ionicons
@@ -178,10 +191,10 @@ export default function SearchScreen() {
               size={30}
               color={
                 !vocalRange || vocalRange.min_range === "C0" || vocalRange.max_range === "C0"
-                  ? "gray"
+                  ? colors.gray
                   : vocalRangeFilterActive
-                    ? "tomato"
-                    : "gray"
+                    ? colors.primary
+                    : colors.gray
               }
               style={styles.filterIcon}
             />
@@ -193,10 +206,10 @@ export default function SearchScreen() {
                   bottom: 3,
                   color:
                     !vocalRange || vocalRange.min_range === "C0" || vocalRange.max_range === "C0"
-                      ? "gray"
+                      ? colors.gray
                       : vocalRangeFilterActive
-                        ? "tomato"
-                        : "grey",
+                        ? colors.primary
+                        : colors.gray,
                 },
               ]}
             >
@@ -208,22 +221,22 @@ export default function SearchScreen() {
 
       {error && (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={handleRetry} style={styles.retryButton}>
-            <Text style={styles.retryButtonText}>Retry</Text>
+          <Text style={[styles.errorText, { color: colors.textPrimary }]}>{error}</Text>
+          <TouchableOpacity onPress={handleRetry} style={[styles.retryButton, { backgroundColor: colors.lightGray }]}>
+            <Text style={[styles.retryButtonText, { color: colors.textPrimary }]}>Retry</Text>
           </TouchableOpacity>
         </View>
       )}
       {(songsLoading || (filter === "artists" && artistsLoading)) && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="tomato" />
-          <Text style={styles.loadingText}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textPrimary }]}>
             {filter === "songs" ? "Loading songs..." : "Loading artists..."}
           </Text>
         </View>
       )}
       {!songsLoading && !artistsLoading && initialFetchDone && results.length === 0 && !error && (
-        <Text style={styles.noResultsText}>No results found.</Text>
+        <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>No results found.</Text>
       )}
       {filter === "artists" &&
         !artistsLoading &&
@@ -231,8 +244,8 @@ export default function SearchScreen() {
         vocalRange &&
         vocalRange.min_range !== "C0" &&
         vocalRange.max_range !== "C0" && (
-          <View style={styles.inRangeExplanationContainer}>
-            <Text style={styles.inRangeExplanationText}>
+          <View style={[styles.inRangeExplanationContainer, { backgroundColor: colors.highlightAlt }]}>
+            <Text style={[styles.inRangeExplanationText, { color: colors.textPrimary }]}>
               You may not have artists in your range. Keep refreshing to load more artists.
             </Text>
           </View>
@@ -256,18 +269,18 @@ export default function SearchScreen() {
             if (filter === "artists" && !item.name) return null;
             return (
               <TouchableOpacity onPress={() => handlePress(item)}>
-                <View style={styles.resultItem}>
-                  <View style={styles.resultIcon}>
+                <View style={[styles.resultItem, { backgroundColor: colors.backgroundCard, shadowColor: colors.shadow }]}>
+                  <View style={[styles.resultIcon, { backgroundColor: colors.highlightAlt }]}>
                     <Ionicons
                       name={filter === "songs" ? "musical-notes" : "person"}
                       size={25}
-                      color="#FF6347"
+                      color={colors.primary}
                     />
                   </View>
                   <View style={styles.resultTextContainer}>
-                    <Text style={styles.resultText}>{item.name}</Text>
+                    <Text style={[styles.resultText, { color: colors.textPrimary }]}>{item.name}</Text>
                     {filter === "songs" && (
-                      <Text style={styles.resultSubText}>
+                      <Text style={[styles.resultSubText, { color: colors.textSecondary }]}>
                         {item.artist} • {item.vocalRange}
                       </Text>
                     )}
@@ -287,11 +300,11 @@ export default function SearchScreen() {
                       color={
                         filter === "songs"
                           ? isSongInRange(item.vocalRange)
-                            ? "#FF6347"
-                            : "#CCC"
+                            ? colors.primary
+                            : colors.darkGray
                           : isArtistInRange(item)
-                            ? "#FF6347"
-                            : "#CCC"
+                            ? colors.primary
+                            : colors.darkGray
                       }
                       style={styles.inRangeIcon}
                     />
@@ -303,12 +316,12 @@ export default function SearchScreen() {
           ListFooterComponent={
             filter === "songs" && endReachedLoading ? (
               <View style={styles.loadingFooter}>
-                <ActivityIndicator size="small" color="tomato" />
-                <Text style={styles.loadingText}>Loading more...</Text>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.loadingText, { color: colors.textPrimary }]}>Loading more...</Text>
               </View>
             ) : filter === "artists" && query.length === 0 ? (
-              <View style={styles.swipeMessageContainer}>
-                <Text style={styles.swipeMessageText}>
+              <View style={[styles.swipeMessageContainer, { backgroundColor: colors.lightGray }]}>
+                <Text style={[styles.swipeMessageText, { color: colors.textPrimary }]}>
                   Swipe down from top to cycle artists:
                 </Text>
               </View>
@@ -320,7 +333,7 @@ export default function SearchScreen() {
             <RefreshControl
               refreshing={filter === "songs" ? songsLoading : artistsLoading}
               onRefresh={handleRefresh}
-              colors={["tomato"]}
+              colors={[colors.primary]}
             />
           }
           overScrollMode="always" // Enable overscroll on Android
@@ -331,13 +344,13 @@ export default function SearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F5F5F5", paddingTop: 30 },
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
+  container: { flex: 1, paddingTop: 30 },
   searchBarContainer: {
     marginTop: 20,
     paddingHorizontal: 16,
   },
-  loadingText: { textAlign: "center", marginVertical: 10, color: "gray" },
+  loadingText: { textAlign: "center", marginVertical: 10 },
   filterContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -360,22 +373,17 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#ddd",
-    backgroundColor: "#fff",
   },
   activeFilter: { 
-    backgroundColor: "#FF6347", 
-    borderColor: "#FF6347",
+    // Colors applied inline
   },
   resultItem: {
     padding: 17,
     marginVertical: 6,
     marginHorizontal: 16,
-    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -387,11 +395,9 @@ const styles = StyleSheet.create({
   resultText: {
     fontSize: 17.5,
     fontWeight: "600",
-    color: "#1A1A1A",
   },
   resultSubText: {
     fontSize: 13.5,
-    color: "#666",
     marginTop: 3,
   },
   errorContainer: {
@@ -405,16 +411,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   retryButton: {
-    backgroundColor: "tomato",
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 5,
   },
   retryButtonText: {
-    color: "#fff",
     fontWeight: "bold",
   },
-  noResultsText: { textAlign: "center", color: "#555", marginVertical: 20 },
+  noResultsText: { textAlign: "center", marginVertical: 20 },
   inRangeIcon: {
     marginLeft: "auto",
   },
@@ -422,7 +426,6 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
     borderRadius: 22.5,
-    backgroundColor: "#FFF0ED",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -441,7 +444,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     textAlign: "center",
-    color: "#1A1A1A",
   },
   loadingFooter: {
     paddingVertical: 10,
@@ -449,12 +451,10 @@ const styles = StyleSheet.create({
   inRangeExplanationContainer: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    backgroundColor: "#f0f0f0",
     marginBottom: 5,
   },
   inRangeExplanationText: {
     fontSize: 14,
-    color: "#333",
     textAlign: "center",
   },
   loadingContainer: {
@@ -465,12 +465,10 @@ const styles = StyleSheet.create({
   swipeMessageContainer: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    backgroundColor: "#f0f0f0",
     marginBottom: 5,
   },
   swipeMessageText: {
     fontSize: 14,
-    color: "#333",
     textAlign: "center",
   },
 });

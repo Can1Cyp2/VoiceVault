@@ -1,6 +1,6 @@
 // app/screens/MetronomeScreen/MetronomeScreen.tsx
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { Audio } from "expo-av";
 import { Picker } from "@react-native-picker/picker";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/StackNavigator";
+import { useTheme } from "../../contexts/ThemeContext";
 
 // Get screen dimensions
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -40,6 +41,9 @@ const moderateScale = (size: number, factor = 0.5) => {
 type MetronomeScreenProps = NativeStackScreenProps<RootStackParamList, "Metronome">;
 
 export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  
   const [bpm, setBpm] = useState(120);
   const [bpmInput, setBpmInput] = useState("120");
   const [isPlaying, setIsPlaying] = useState(false);
@@ -137,7 +141,7 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
           }}
           style={{ paddingLeft: 10 }}
         >
-          <Ionicons name="arrow-back" size={24} color="#ff6600" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
       ),
     });
@@ -489,10 +493,10 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
   scrollView: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: colors.background,
   },
   scrollContent: {
     flexGrow: 1.5,
@@ -510,7 +514,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: moderateScale(24),
     fontWeight: "bold",
-    color: "#ff6600",
+    color: colors.primary,
     marginBottom: verticalScale(20),
   },
   beatIndicator: {
@@ -533,13 +537,13 @@ const styles = StyleSheet.create({
   tapText: {
     fontSize: moderateScale(14),
     fontWeight: "bold",
-    color: "#fff",
+    color: colors.buttonText,
     textAlign: "center",
   },
   beatText: {
     fontSize: moderateScale(16),
     fontWeight: "600",
-    color: "#333",
+    color: colors.textPrimary,
     marginBottom: verticalScale(20),
   },
   bpmContainer: {
@@ -556,14 +560,14 @@ const styles = StyleSheet.create({
   bpmInput: {
     fontSize: moderateScale(20),
     fontWeight: "bold",
-    color: "#333",
+    color: colors.textPrimary,
     textAlign: "center",
     width: SCREEN_WIDTH * 0.2,
     marginHorizontal: SCREEN_WIDTH * 0.03,
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: colors.border,
     borderRadius: moderateScale(6),
-    backgroundColor: "#fff",
+    backgroundColor: colors.inputBackground,
     paddingVertical: verticalScale(3),
     paddingHorizontal: scale(5),
     textAlignVertical: "center",
@@ -576,46 +580,47 @@ const styles = StyleSheet.create({
   label: {
     fontSize: moderateScale(14),
     fontWeight: "600",
-    color: "#555",
+    color: colors.textSecondary,
     marginBottom: verticalScale(8),
   },
   pickerWrapper: {
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: colors.border,
     borderRadius: moderateScale(6),
-    backgroundColor: "#fff",
+    backgroundColor: colors.backgroundCard,
     overflow: "hidden",
     width: "100%",
   },
   picker: {
     width: "100%",
     height: Platform.OS === "ios" ? verticalScale(50) : verticalScale(50), // Increased height to prevent clipping
-    color: "#333",
+    color: colors.textPrimary,
   },
   pickerItem: {
     fontSize: Math.round(moderateScale(16)),
     height: Platform.OS === "ios" ? Math.round(verticalScale(50)) : undefined,
     textAlign: "center",
+    color: colors.textPrimary,
   },
   playButton: {
     flexDirection: "row",
-    backgroundColor: "#ff6600",
+    backgroundColor: colors.primary,
     paddingVertical: verticalScale(8),
     paddingHorizontal: scale(20),
     borderRadius: moderateScale(8),
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: moderateScale(2) },
     shadowOpacity: 0.3,
     shadowRadius: moderateScale(3),
     elevation: 3,
   },
   playButtonActive: {
-    backgroundColor: "#cc6600",
+    backgroundColor: colors.primaryDark,
   },
   playButtonText: {
-    color: "#fff",
+    color: colors.buttonText,
     fontSize: moderateScale(14),
     fontWeight: "bold",
     marginLeft: scale(8),

@@ -8,21 +8,21 @@ module.exports = () => {
   return {
     name: "VoiceVault",
     slug: "VoiceVault",
-    version: "1.3.0",
+    version: "1.3.1",
     orientation: "portrait",
-    icon: "./assets/icon.png",
+    icon: "./assets/dark-glow-nontransparent-icon2.png",
     userInterfaceStyle: "light",
     newArchEnabled: false, // temp
 
     splash: {
-      image: "./assets/icon.png",
+      image: "./assets/dark-glow-nontransparent-icon2.png",
       resizeMode: "contain",
       backgroundColor: "#ffffff",
     },
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.can1cyp2.VoiceVault",
-      buildNumber: "1.3.0",
+      buildNumber: "1.3.1",
       infoPlist: {
         // CRITICAL: AdMob App ID (required by Google Mobile Ads SDK)
         GADApplicationIdentifier: "ca-app-pub-7846050438990670~3247720022",

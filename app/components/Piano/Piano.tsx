@@ -5,8 +5,11 @@ import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { noteToValue } from '../../util/vocalRange';
 import { LightColors } from '../../styles/theme';
 
+
 const { width } = Dimensions.get('window');
-const WHITE_KEY_WIDTH = width / 15;
+const MAX_PIANO_WIDTH = 600; // Cap piano width for tablets
+const pianoWidth = Math.min(width, MAX_PIANO_WIDTH);
+const WHITE_KEY_WIDTH = pianoWidth / 15;
 const BLACK_KEY_WIDTH = WHITE_KEY_WIDTH * 0.6;
 
 const NOTES = [
@@ -31,14 +34,24 @@ const Piano = ({ vocalRange }: { vocalRange: string }) => {
   const whiteKeys = NOTES.filter(note => !note.includes('#'));
 
   useEffect(() => {
-    if (scrollViewRef.current && lowNoteValue) {
+    if (scrollViewRef.current && lowNoteValue && highNoteValue) {
       const lowNoteIndex = whiteKeys.findIndex(note => noteToValue(note) >= lowNoteValue);
+      const highNoteIndex = whiteKeys.findIndex(note => noteToValue(note) >= highNoteValue);
       if (lowNoteIndex !== -1) {
-        const xOffset = lowNoteIndex * WHITE_KEY_WIDTH - WHITE_KEY_WIDTH * 2; // Center the key
-        scrollViewRef.current.scrollTo({ x: xOffset, animated: true });
+        const visibleKeys = Math.floor(pianoWidth / WHITE_KEY_WIDTH);
+        // If both notes fit in view, center them
+        if (highNoteIndex - lowNoteIndex + 1 <= visibleKeys) {
+          const centerIndex = (lowNoteIndex + highNoteIndex) / 2;
+          const xOffset = centerIndex * WHITE_KEY_WIDTH - pianoWidth / 2 + WHITE_KEY_WIDTH / 2;
+          scrollViewRef.current.scrollTo({ x: Math.max(xOffset, 0), animated: true });
+        } else {
+          // Otherwise, show the low note at the start
+          const xOffset = lowNoteIndex * WHITE_KEY_WIDTH;
+          scrollViewRef.current.scrollTo({ x: Math.max(xOffset, 0), animated: true });
+        }
       }
     }
-  }, [lowNoteValue, whiteKeys]);
+  }, [lowNoteValue, highNoteValue, whiteKeys, pianoWidth]);
 
   const renderKeys = () => {
     let whiteKeyIndex = 0;
@@ -98,10 +111,13 @@ const styles = StyleSheet.create({
   pianoContainer: {
     height: 150,
     marginVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   piano: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    justifyContent: 'center',
   },
   whiteKey: {
     width: WHITE_KEY_WIDTH,

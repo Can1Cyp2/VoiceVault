@@ -1,5 +1,10 @@
 import { supabase } from "./supabase";
 
+// Helper function to escape single quotes for PostgreSQL queries
+const escapeQueryString = (query: string): string => {
+  return query.replace(/'/g, "''");
+};
+
 export const NOTES = [
     'C0', 'C#0', 'D0', 'D#0', 'E0', 'F0', 'F#0', 'G0', 'G#0', 'A0', 'A#0', 'B0',
     'C1', 'C#1', 'D1', 'D#1', 'E1', 'F1', 'F#1', 'G1', 'G#1', 'A1', 'A#1', 'B1',
@@ -18,10 +23,11 @@ export const noteToValue = (note: string): number => {
 // Fetch all songs by a given artist
 export const getSongsByArtist = async (artistName: string): Promise<any[]> => {
     try {
+        const escapedArtistName = escapeQueryString(artistName);
         const { data, error } = await supabase
             .from('songs')
             .select('*')
-            .eq('artist', artistName);
+            .eq('artist', escapedArtistName);
 
         if (error) {
             console.error('Error fetching songs by artist:', error.message);

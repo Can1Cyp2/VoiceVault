@@ -56,6 +56,31 @@ export default function SearchScreen() {
   // Create themed styles
   const styles = useMemo(() => createStyles(colors), [colors]);
 
+  // Deduplicate and filter results
+  const displayData = useMemo(() => {
+    let filteredResults = results;
+    
+    // Apply vocal range filter if active
+    if (vocalRangeFilterActive) {
+      filteredResults = filter === "songs"
+        ? results.filter((item) => isSongInRange(item.vocalRange))
+        : results.filter((item) => isArtistInRange(item));
+    }
+    
+    // Deduplicate by ID (for songs) or name (for artists)
+    const seen = new Set();
+    const uniqueResults = filteredResults.filter((item) => {
+      const key = filter === "songs" ? item.id : item.name;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+    
+    return uniqueResults;
+  }, [results, filter, vocalRangeFilterActive, isSongInRange, isArtistInRange]);
+
   // Fetch the user's vocal range when the component mounts
   React.useEffect(() => {
     const fetchUserVocalRange = async () => {
@@ -256,14 +281,8 @@ export default function SearchScreen() {
           contentContainerStyle={{
             paddingBottom: 90
           }}
-
-          data={
-            vocalRangeFilterActive
-              ? filter === "songs"
-                ? results.filter((item) => isSongInRange(item.vocalRange))
-                : results.filter((item) => isArtistInRange(item))
-              : results
-          }
+          keyExtractor={(item) => filter === "songs" ? `song-${item.id}` : `artist-${item.name}`}
+          data={displayData}
           renderItem={({ item }) => {
             if (filter === "songs" && (!item.name || !item.artist || !item.vocalRange)) return null;
             if (filter === "artists" && !item.name) return null;

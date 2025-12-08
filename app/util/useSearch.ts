@@ -362,7 +362,11 @@ export const useSearch = ({
   useEffect(() => {
     if (query.trim() === "") {
       if (filter === "songs") {
-        setState((prev) => ({ ...prev, results: prev.allSongs }));
+        setState((prev) => ({ 
+          ...prev, 
+          results: prev.randomSongs,
+          allSongs: prev.randomSongs 
+        }));
       } else {
         setState((prev) => ({ ...prev, results: prev.allArtists }));
       }

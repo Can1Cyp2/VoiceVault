@@ -140,10 +140,10 @@ export const useSearch = ({
     const artistNames = Array.from(artistMap.keys());
     const artistDetails: any[] = [];
 
-    // Batch fetch songs for all artists in one query
-    for (const name of artistNames) {
+    // Batch fetch songs for all artists in parallel
+    const fetchPromises = artistNames.map(async (name) => {
       if (artistCache.has(name)) {
-        artistDetails.push(artistCache.get(name));
+        return artistCache.get(name);
       } else {
         const songs = await getSongsByArtist(name);
         const artistData = {
@@ -152,9 +152,12 @@ export const useSearch = ({
           songCount: artistMap.get(name)!.songCount,
         };
         artistCache.set(name, artistData);
-        artistDetails.push(artistData);
+        return artistData;
       }
-    }
+    });
+
+    const results = await Promise.all(fetchPromises);
+    artistDetails.push(...results);
 
     // Fuzzy search for query matching
     let filteredArtists = artistDetails.filter(
@@ -337,19 +340,24 @@ export const useSearch = ({
           allSongs: songs,
           results: songs,
           error: null,
+          songsLoading: false,
         }));
+        setInitialFetchDone(true);
 
-        const artists = await deriveArtistsFromSongs(songs, 20);
-        setState((prev) => ({ ...prev, allArtists: artists }));
+        // Fetch artists in background after showing songs
+        deriveArtistsFromSongs(songs, 20).then((artists) => {
+          setState((prev) => ({ ...prev, allArtists: artists }));
+        }).catch((err) => {
+          console.error("Error loading artists:", err);
+        });
       } catch (err) {
         setState((prev) => ({
           ...prev,
           error:
             "Failed to load songs: " +
             (err instanceof Error ? err.message : "Unknown error"),
+          songsLoading: false,
         }));
-      } finally {
-        setState((prev) => ({ ...prev, songsLoading: false }));
         setInitialFetchDone(true);
       }
     };
@@ -362,7 +370,11 @@ export const useSearch = ({
   useEffect(() => {
     if (query.trim() === "") {
       if (filter === "songs") {
-        setState((prev) => ({ ...prev, results: prev.allSongs }));
+        setState((prev) => ({ 
+          ...prev, 
+          results: prev.randomSongs,
+          allSongs: prev.randomSongs 
+        }));
       } else {
         setState((prev) => ({ ...prev, results: prev.allArtists }));
       }

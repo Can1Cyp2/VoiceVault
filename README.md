@@ -8,8 +8,11 @@
 
 ### 1. Search & Discovery
 - **Dynamic Search**: Search for songs and artists with real-time filtering.
+- **Smart Search**: Advanced search algorithm with support for apostrophes and special characters.
+- **Optimized Performance**: Parallel data fetching for faster load times.
 - **Vocal Range Data**: View the lowest and highest notes an artist has sung, fetched from a Supabase database.
 - **Range-Based Categorization**: Easily find songs and artists that match your vocal range.
+- **Duplicate Prevention**: Intelligent deduplication ensures clean search results.
 
 ### 2. Vocal Range Comparison
 - **Personalized Range**: Logged-in users can set their vocal range (lowest and highest notes).
@@ -118,7 +121,9 @@ VoiceVault is the perfect tool for vocalists, music students, and karaoke enthus
 ---
 
 ## 🐞 Known Issues
+**THERE ARE NO MAJOR KNOWN ISSUES**
 
+Past example issue:
 ### Network Connectivity on Android (Play Store)
 - **Issue**: On some Android devices (e.g., Samsung Galaxy S22, Google Pixel, more), the app fails to connect to the Supabase backend when installed via the Play Store, resulting in a "TypeError: Network request failed" error. No requests are logged in Supabase, indicating the issue occurs before the request leaves the device.
 - **Devices Affected**:
@@ -133,7 +138,7 @@ VoiceVault is the perfect tool for vocalists, music students, and karaoke enthus
 
 ## 🤝 Contributing
 
-Contributions are welcome! If you can help resolve the network connectivity issue on Android or have ideas for new features, please contribute.
+Contributions are welcome! If you can help resolve any issues or have ideas for new features, please contribute.
 
 ### How to Contribute
 1. Fork the repository.
@@ -152,7 +157,6 @@ Contributions are welcome! If you can help resolve the network connectivity issu
 5. Open a pull request with a detailed description of your changes.
 
 ### Areas for Contribution
-- **Network Issue Resolution**: Help debug and fix the "TypeError: Network request failed" issue on Android devices when installed via the Play Store.
 - **Feature Enhancements**: Contribute to planned features like song difficulty ratings, recording integration, or AI vocal coaching.
 - **Bug Fixes**: Address any other bugs or improve performance.
 
@@ -161,13 +165,22 @@ Contributions are welcome! If you can help resolve the network connectivity issu
 ## 🔮 Future Enhancements
 
 - **Song Difficulty Ratings**: Add difficulty levels (e.g., beginner, intermediate, advanced) based on vocal range, technique, and style.
-- **Recording Integration**: Allow users to record their singing sessions and compare them to the song’s vocal range.
+- **Recording Integration**: Allow users to record their singing sessions and compare them to the song's vocal range.
 - **AI Vocal Coaching**: Integrate AI to provide real-time feedback on pitch, tone, and technique during practice.
-- **Improved Network Reliability**: Resolve the Android network connectivity issue by:
-  - Implementing a `fetch` polyfill if the issue is with React Native’s `fetch` implementation.
-  - Exploring Play Store app signing configurations to ensure network requests work consistently.
 - **Expanded Database**: Add more songs, artists, and vocal range data to the Supabase database.
 - **Offline Mode**: Cache song and artist data for offline access.
+
+---
+
+## 📝 Changelog
+
+### Version 1.3.3 (December 2025)
+- **Fixed**: Apostrophe search bug - songs with apostrophes (e.g., "Don't Stop Believin'") now appear in search results
+- **Fixed**: Duplicate key errors in search results
+- **Fixed**: Search now properly resets to random songs when query is cleared
+- **Improved**: Optimized initial load performance with parallel artist data fetching
+- **Improved**: Non-blocking artist data loading for faster perceived load times
+- **Enhanced**: SQL query escaping for PostgreSQL compatibility
 
 ---
 

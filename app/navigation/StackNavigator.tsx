@@ -12,6 +12,7 @@ import SavedListsScreen from "../screens/SavedListsScreen/SavedListsScreen";
 import ListDetailsScreen from "../screens/ListDetailsScreen/ListDetailsScreen";
 import MetronomeScreen from "../screens/MetronomeScreen/MetronomeScreen";
 import AdminProfileScreen from "../screens/ProfileScreen/AdminProfileScreen";
+import AdminAnalyticsScreen from "../screens/AdminAnalyticsScreen/AdminAnalyticsScreen";
 import ForgotPasswordScreen from "../screens/ForgotPasswordScreen/ForgotPasswordScreen";
 import ResetPasswordScreen from "../screens/ResetPasswordScreen/ResetPasswordScreen";
 
@@ -32,6 +33,7 @@ export type RootStackParamList = {
   SongDetails: { name: string; artist: string; vocalRange: string };
   Metronome: undefined;
   AdminProfileScreen: undefined;
+  AdminAnalyticsScreen: undefined;
   ForgotPassword: undefined;
 };
 
@@ -155,6 +157,14 @@ export function AppStack() {
       component={AdminProfileScreen}
       options={{
         title: "Admin Profile",
+        headerShown: true,
+      }}
+    />
+      <Stack.Screen
+      name="AdminAnalyticsScreen"
+      component={AdminAnalyticsScreen}
+      options={{
+        title: "Admin Analytics",
         headerShown: true,
       }}
     />

@@ -2,11 +2,28 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { supabase } from '../../util/supabase';
 
+/**
+ * AdminQuickStats Component
+ * 
+ * SECURITY: This component uses RLS-protected RPC functions to fetch admin stats.
+ * Only users in the 'admins' table with status='active' can access this data.
+ * The RPC function 'admin_get_stats' validates admin status server-side.
+ * 
+ * Even if an attacker modifies this client code, they cannot bypass RLS.
+ */
+
+interface AdminStats {
+    total_users: number;
+    new_today: number;
+    total_songs: number;
+    pending_songs: number;
+    total_issues: number;
+    open_issues: number;
+}
+
 export default function AdminQuickStats() {
     const [loading, setLoading] = useState(true);
-    const [totalUsers, setTotalUsers] = useState<number | null>(null);
-    const [activeUsers, setActiveUsers] = useState<number | null>(null);
-    const [newToday, setNewToday] = useState<number | null>(null);
+    const [stats, setStats] = useState<AdminStats | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     useEffect(() => {
@@ -15,28 +32,29 @@ export default function AdminQuickStats() {
 
     const fetchStats = async () => {
         setLoading(true);
-        setErrorMsg(null); // Clear previous errors
+        setErrorMsg(null);
+        
         try {
-            // Call the secure RPC function
-            const { data: rpcData, error: rpcError } = await supabase.rpc('admin_get_stats');
+            // Use the secure admin_get_stats RPC function
+            // This function checks admin status server-side via is_admin()
+            const { data, error } = await supabase.rpc('admin_get_stats');
             
-            if (rpcError) {
-                console.error('admin_get_stats error:', rpcError);
-                setErrorMsg(rpcError.message || 'Failed to fetch admin stats');
-                setLoading(false);
+            if (error) {
+                console.error('Error fetching admin stats:', error);
+                setErrorMsg(error.message || 'Failed to load stats');
+                setStats(null);
                 return;
             }
-
-            if (rpcData) {
-                // Handle both single object and array response
-                const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
-                setTotalUsers(row?.total_users ?? null);
-                setActiveUsers(row?.active_users ?? null);
-                setNewToday(row?.new_today ?? null);
+            
+            if (data && data.length > 0) {
+                setStats(data[0]);
+            } else {
+                setErrorMsg('No stats data returned');
             }
         } catch (error) {
-            console.error('Error fetching admin quick stats:', error);
+            console.error('Unexpected error fetching stats:', error);
             setErrorMsg('An unexpected error occurred');
+            setStats(null);
         } finally {
             setLoading(false);
         }
@@ -51,7 +69,7 @@ export default function AdminQuickStats() {
                 </View>
                 <View style={styles.card}>
                     <ActivityIndicator color="#ff4757" />
-                    <Text style={styles.label}>Active Users</Text>
+                    <Text style={styles.label}>Total Songs</Text>
                 </View>
                 <View style={styles.card}>
                     <ActivityIndicator color="#ff4757" />
@@ -65,34 +83,27 @@ export default function AdminQuickStats() {
         <>
             <View style={styles.row}>
                 <View style={styles.card}>
-                    <Text style={styles.number}>{totalUsers ?? '—'}</Text>
+                    <Text style={styles.number}>{stats?.total_users ?? '—'}</Text>
                     <Text style={styles.label}>Total Users</Text>
                 </View>
                 <View style={styles.card}>
-                    <Text style={styles.number}>{activeUsers ?? '—'}</Text>
-                    <Text style={styles.label}>Active Users</Text>
-                    <Text style={styles.sublabel}>(Last 7 days)</Text>
+                    <Text style={styles.number}>{stats?.total_songs ?? '—'}</Text>
+                    <Text style={styles.label}>Total Songs</Text>
                 </View>
                 <View style={styles.card}>
-                    <Text style={styles.number}>{newToday ?? '—'}</Text>
+                    <Text style={styles.number}>{stats?.new_today ?? '—'}</Text>
                     <Text style={styles.label}>New Today</Text>
                 </View>
             </View>
-            <AdminQuickStatsFooter errorMsg={errorMsg} onRetry={fetchStats} />
+            {errorMsg && (
+                <View style={styles.footer}>
+                    <Text style={styles.errorText}>{errorMsg}</Text>
+                    <TouchableOpacity style={styles.retryBtn} onPress={fetchStats}>
+                        <Text style={styles.retryText}>Retry</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
         </>
-    );
-}
-
-// Show error message and retry below the stats
-export function AdminQuickStatsFooter({ errorMsg, onRetry }: { errorMsg: string | null; onRetry: () => void }) {
-    if (!errorMsg) return null;
-    return (
-        <View style={styles.footer}>
-            <Text style={styles.errorText}>{errorMsg}</Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={onRetry}>
-                <Text style={styles.retryText}>Retry</Text>
-            </TouchableOpacity>
-        </View>
     );
 }
 
@@ -100,12 +111,13 @@ const styles = StyleSheet.create({
     row: {
         flexDirection: 'row',
         justifyContent: 'space-between',
+        marginBottom: 10,
     },
     card: {
         flex: 1,
         backgroundColor: 'white',
-        padding: 20,
-        marginHorizontal: 5,
+        padding: 16,
+        marginHorizontal: 4,
         borderRadius: 12,
         alignItems: 'center',
         shadowColor: '#000',
@@ -125,12 +137,6 @@ const styles = StyleSheet.create({
         color: '#666',
         textAlign: 'center',
     },
-    sublabel: {
-        fontSize: 10,
-        color: '#999',
-        marginTop: 2,
-        textAlign: 'center',
-    },
     footer: {
         marginTop: 10,
         alignItems: 'center',
@@ -140,6 +146,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
         marginBottom: 6,
         textAlign: 'center',
+        paddingHorizontal: 20,
     },
     retryBtn: {
         paddingHorizontal: 14,

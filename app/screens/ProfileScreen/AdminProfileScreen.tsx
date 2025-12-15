@@ -537,7 +537,7 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
     };
 
     const handleAnalytics = () => {
-        Alert.alert("Analytics", "This feature would show detailed app usage analytics and metrics.", [{ text: "OK" }]);
+        navigation.navigate('AdminAnalyticsScreen');
     };
 
     const handleSystemLogs = () => {

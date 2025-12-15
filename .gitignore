@@ -41,3 +41,19 @@ yarn-error.*
 
 # supabase keys
 #
+
+# supabase migrations and docs (keep internal only)
+supabase/migrations/
+supabase/**/*.sql
+supabase/*.md
+supabase/SECURITY*.md
+supabase/ADMIN*.md
+supabase/IMPLEMENTATION*.md
+supabase/ARCHITECTURE*.md
+supabase/SUMMARY*.md
+supabase/START_HERE*.md
+CONFLICT_CHECK_RESULTS.md
+ANALYTICS_SETUP.md
+
+# Allow specific docs that should be public
+!ANDROID_BUILD_TROUBLESHOOTING.md

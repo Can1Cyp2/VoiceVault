@@ -172,18 +172,6 @@ Contributions are welcome! If you can help resolve any issues or have ideas for 
 
 ---
 
-## 📝 Changelog
-
-### Version 1.3.3 (December 2025)
-- **Fixed**: Apostrophe search bug - songs with apostrophes (e.g., "Don't Stop Believin'") now appear in search results
-- **Fixed**: Duplicate key errors in search results
-- **Fixed**: Search now properly resets to random songs when query is cleared
-- **Improved**: Optimized initial load performance with parallel artist data fetching
-- **Improved**: Non-blocking artist data loading for faster perceived load times
-- **Enhanced**: SQL query escaping for PostgreSQL compatibility
-
----
-
 ## 📜 License
 
 

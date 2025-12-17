@@ -44,6 +44,28 @@ interface VocalRangeDistribution {
     count: number;
 }
 
+interface EngagementMetrics {
+    avg_vocal_range_semitones: number;
+    avg_lists_per_user: number;
+    users_with_coins: number;
+    total_users_with_saved_songs: number;
+    week_over_week_growth: number;
+    month_over_month_growth: number;
+}
+
+interface MostSavedSong {
+    song_name: string;
+    artist: string;
+    save_count: number;
+}
+
+interface SupportMetrics {
+    total_issues: number;
+    resolved_issues: number;
+    resolution_rate: number;
+    avg_resolution_time_hours: number;
+}
+
 export default function AdminAnalyticsScreen({ navigation }: any) {
     const { isAdmin, loading: adminLoading } = useAdminStatus();
     const { colors } = useTheme();
@@ -51,6 +73,9 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
     const [userAnalytics, setUserAnalytics] = useState<UserAnalytics | null>(null);
     const [minRangeDistribution, setMinRangeDistribution] = useState<VocalRangeDistribution[]>([]);
     const [maxRangeDistribution, setMaxRangeDistribution] = useState<VocalRangeDistribution[]>([]);
+    const [engagementMetrics, setEngagementMetrics] = useState<EngagementMetrics | null>(null);
+    const [mostSavedSongs, setMostSavedSongs] = useState<MostSavedSong[]>([]);
+    const [supportMetrics, setSupportMetrics] = useState<SupportMetrics | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -81,6 +106,15 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
 
             const { data: maxData, error: maxError } = await supabase.rpc('admin_get_max_range_distribution');
             if (!maxError && maxData) setMaxRangeDistribution(maxData);
+
+            const { data: engagementData, error: engagementError } = await supabase.rpc('admin_get_engagement_metrics');
+            if (!engagementError && engagementData && engagementData.length > 0) setEngagementMetrics(engagementData[0]);
+
+            const { data: songsData, error: songsError } = await supabase.rpc('admin_get_most_saved_songs');
+            if (!songsError && songsData) setMostSavedSongs(songsData);
+
+            const { data: supportData, error: supportError } = await supabase.rpc('admin_get_support_metrics');
+            if (!supportError && supportData && supportData.length > 0) setSupportMetrics(supportData[0]);
         } catch (err: any) {
             console.error('Error fetching analytics:', err);
             setError(err.message || 'Failed to load analytics');
@@ -253,7 +287,7 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
 
             {/* Support & Economy Section */}
             <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>💰 Economy & Support</Text>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>💰 Economy</Text>
                 <View style={styles.row}>
                     <MetricCard 
                         label="Total Coins" 
@@ -263,22 +297,153 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
                         colors={colors}
                     />
                     <MetricCard 
-                        label="Avg per User" 
-                        value={Math.round(stats?.avg_coins_per_user || 0).toString()} 
-                        icon="💵" 
+                        label="Users w/ Coins" 
+                        value={engagementMetrics?.users_with_coins?.toString() || '0'} 
+                        icon="💰" 
                         color="#2ecc71"
                         colors={colors}
                     />
                 </View>
                 <View style={styles.row}>
-                    <MetricCard label="Total Issues" value={stats?.total_issues?.toString() || '0'} icon="📝" colors={colors} />
-                    <MetricCard label="Open Issues" value={stats?.open_issues?.toString() || '0'} icon="🚨" color="#e74c3c" colors={colors} />
+                    <MetricCard 
+                        label="Avg per User" 
+                        value={Math.round(stats?.avg_coins_per_user || 0).toString()} 
+                        icon="💵" 
+                        color="#27ae60"
+                        colors={colors}
+                    />
+                    <MetricCard 
+                        label="Avg Lists/User" 
+                        value={(engagementMetrics?.avg_lists_per_user || 0).toFixed(1)} 
+                        icon="📋" 
+                        color="#3498db"
+                        colors={colors}
+                    />
                 </View>
             </View>
 
+            {/* Growth Metrics (Expandable) */}
+            <View style={styles.section}>
+                <TouchableOpacity 
+                    style={[styles.expandableHeader, { backgroundColor: colors.backgroundCard }]}
+                    onPress={() => toggleSection('growth')}
+                >
+                    <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 0 }]}>
+                        📈 Growth Metrics
+                    </Text>
+                    <Text style={[styles.expandIcon, { color: colors.textPrimary }]}>
+                        {expandedSections['growth'] ? '▼' : '▶'}
+                    </Text>
+                </TouchableOpacity>
+                
+                {expandedSections['growth'] && (
+                    <View style={[styles.expandedContent, { backgroundColor: colors.backgroundCard }]}>
+                        <View style={styles.row}>
+                            <MetricCard 
+                                label="Week over Week" 
+                                value={`${(engagementMetrics?.week_over_week_growth || 0).toFixed(1)}%`}
+                                icon="📊" 
+                                color={engagementMetrics && engagementMetrics.week_over_week_growth >= 0 ? "#27ae60" : "#e74c3c"}
+                                colors={colors}
+                            />
+                            <MetricCard 
+                                label="Month over Month" 
+                                value={`${(engagementMetrics?.month_over_month_growth || 0).toFixed(1)}%`}
+                                icon="📈" 
+                                color={engagementMetrics && engagementMetrics.month_over_month_growth >= 0 ? "#27ae60" : "#e74c3c"}
+                                colors={colors}
+                            />
+                        </View>
+                    </View>
+                )}
+            </View>
+
+            {/* Most Saved Songs (Expandable) */}
+            <View style={styles.section}>
+                <TouchableOpacity 
+                    style={[styles.expandableHeader, { backgroundColor: colors.backgroundCard }]}
+                    onPress={() => toggleSection('topSongs')}
+                >
+                    <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 0 }]}>
+                        🎵 Most Saved Songs
+                    </Text>
+                    <Text style={[styles.expandIcon, { color: colors.textPrimary }]}>
+                        {expandedSections['topSongs'] ? '▼' : '▶'}
+                    </Text>
+                </TouchableOpacity>
+                
+                {expandedSections['topSongs'] && (
+                    <View style={[styles.expandedContent, { backgroundColor: colors.backgroundCard }]}>
+                        {mostSavedSongs.slice(0, 10).map((song, index) => (
+                            <View key={index} style={styles.songRow}>
+                                <Text style={[styles.songRank, { color: colors.textSecondary }]}>#{index + 1}</Text>
+                                <View style={styles.songInfo}>
+                                    <Text style={[styles.songName, { color: colors.textPrimary }]}>{song.song_name}</Text>
+                                    <Text style={[styles.songArtist, { color: colors.textSecondary }]}>{song.artist}</Text>
+                                </View>
+                                <Text style={[styles.songCount, { color: colors.primary }]}>{song.save_count} saves</Text>
+                            </View>
+                        ))}
+                    </View>
+                )}
+            </View>
+
+            {/* Support Metrics (Expandable) */}
+            {supportMetrics && supportMetrics.total_issues > 0 && (
+                <View style={styles.section}>
+                    <TouchableOpacity 
+                        style={[styles.expandableHeader, { backgroundColor: colors.backgroundCard }]}
+                        onPress={() => toggleSection('support')}
+                    >
+                        <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 0 }]}>
+                            🐛 Support Quality
+                        </Text>
+                        <Text style={[styles.expandIcon, { color: colors.textPrimary }]}>
+                            {expandedSections['support'] ? '▼' : '▶'}
+                        </Text>
+                    </TouchableOpacity>
+                    
+                    {expandedSections['support'] && (
+                        <View style={[styles.expandedContent, { backgroundColor: colors.backgroundCard }]}>
+                            <View style={styles.row}>
+                                <MetricCard 
+                                    label="Total Issues" 
+                                    value={supportMetrics.total_issues.toString()}
+                                    icon="📝" 
+                                    colors={colors}
+                                />
+                                <MetricCard 
+                                    label="Resolved" 
+                                    value={supportMetrics.resolved_issues.toString()}
+                                    icon="✅" 
+                                    color="#27ae60"
+                                    colors={colors}
+                                />
+                            </View>
+                            <View style={styles.row}>
+                                <MetricCard 
+                                    label="Resolution Rate" 
+                                    value={`${supportMetrics.resolution_rate.toFixed(1)}%`}
+                                    icon="📊" 
+                                    color="#3498db"
+                                    colors={colors}
+                                />
+                                <MetricCard 
+                                    label="Avg Time (hrs)" 
+                                    value={(supportMetrics.avg_resolution_time_hours || 0).toFixed(1)}
+                                    icon="⏱️" 
+                                    color="#f39c12"
+                                    colors={colors}
+                                />
+                            </View>
+                        </View>
+                    )}
+                </View>
+            )}
+
             {/* Key Insights */}
             <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>💡 Key Insights</Text>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>💡 Quick Insights</Text>
                 <View style={[styles.insightCard, { backgroundColor: colors.backgroundCard }]}>
                     <Text style={[styles.insightLabel, { color: colors.textPrimary }]}>Most Common Low Note:</Text>
                     <Text style={[styles.insightValue, { color: colors.primary }]}>{userAnalytics?.most_common_min_range || 'N/A'}</Text>
@@ -286,6 +451,12 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
                 <View style={[styles.insightCard, { backgroundColor: colors.backgroundCard }]}>
                     <Text style={[styles.insightLabel, { color: colors.textPrimary }]}>Most Common High Note:</Text>
                     <Text style={[styles.insightValue, { color: colors.primary }]}>{userAnalytics?.most_common_max_range || 'N/A'}</Text>
+                </View>
+                <View style={[styles.insightCard, { backgroundColor: colors.backgroundCard }]}>
+                    <Text style={[styles.insightLabel, { color: colors.textPrimary }]}>Avg Vocal Range:</Text>
+                    <Text style={[styles.insightValue, { color: colors.primary }]}>
+                        {(engagementMetrics?.avg_vocal_range_semitones || 0).toFixed(0)} semitones
+                    </Text>
                 </View>
             </View>
 
@@ -396,6 +567,35 @@ const styles = StyleSheet.create({
         width: 40,
         fontSize: 12,
         textAlign: 'right',
+    },
+    songRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(128, 128, 128, 0.1)',
+    },
+    songRank: {
+        width: 35,
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    songInfo: {
+        flex: 1,
+        marginLeft: 8,
+    },
+    songName: {
+        fontSize: 14,
+        fontWeight: '600',
+        marginBottom: 2,
+    },
+    songArtist: {
+        fontSize: 12,
+    },
+    songCount: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        marginLeft: 8,
     },
     row: {
         flexDirection: 'row',

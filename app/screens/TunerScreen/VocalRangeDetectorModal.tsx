@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { View, Text, Modal, TouchableOpacity, Alert, StyleSheet, Animated } from 'react-native';
-import { startPitchDetection, PitchResult } from '../../util/pitchDetection';
+import { Ionicons } from '@expo/vector-icons';
+import { startPitchDetection, PitchResult, resetMockIndex } from '../../util/pitchDetection';
 import { analyzeVocalRange, validateRange, calculateRangeStats } from '../../util/audioAnalysis';
 import { submitVocalRange } from '../UserVocalRange/UserVocalRangeLogic';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -31,12 +32,25 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
 
   const RECORDING_DURATION = 5000; // 5 seconds
 
-  // Clean up on unmount
+  // Clean up on unmount or when modal closes
   useEffect(() => {
+    if (!visible) {
+      stopRecording();
+    } else {
+      // Reset mock data index when modal opens for consistent first-run detection
+      resetMockIndex();
+    }
     return () => {
       stopRecording();
     };
-  }, []);
+  }, [visible]);
+
+  // Stop recording when step changes away from recording steps
+  useEffect(() => {
+    if (step !== 'recordLow' && step !== 'recordHigh') {
+      stopRecording();
+    }
+  }, [step]);
 
   const startRecording = (type: 'low' | 'high') => {
     setPitchSamples([]);
@@ -80,6 +94,14 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
     setRecording(false);
     setCurrentPitch(null);
     progressAnimationRef.setValue(0);
+  };
+
+  const handleCancel = () => {
+    stopRecording();
+    setDetectedLowNote(null);
+    setDetectedHighNote(null);
+    setStep('intro');
+    onClose();
   };
 
   const analyzeRecording = (type: 'low' | 'high') => {
@@ -145,7 +167,7 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
             >
               <Text style={styles.buttonText}>Start</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+            <TouchableOpacity style={styles.cancelTextButton} onPress={onClose}>
               <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -234,13 +256,13 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
             </Text>
             <View style={styles.buttonRow}>
               <TouchableOpacity
-                style={[styles.button, styles.secondaryButton]}
+                style={[styles.button, styles.secondaryButton, styles.buttonInRow]}
                 onPress={() => setStep('recordLow')}
               >
                 <Text style={styles.buttonText}>↻ Retry</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.button, styles.primaryButton]}
+                style={[styles.button, styles.primaryButton, styles.buttonInRow]}
                 onPress={() => setStep('recordHigh')}
               >
                 <Text style={styles.buttonText}>Next →</Text>
@@ -319,13 +341,13 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
             </Text>
             <View style={styles.buttonRow}>
               <TouchableOpacity
-                style={[styles.button, styles.secondaryButton]}
+                style={[styles.button, styles.secondaryButton, styles.buttonInRow]}
                 onPress={() => setStep('recordHigh')}
               >
                 <Text style={styles.buttonText}>↻ Retry</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.button, styles.primaryButton]}
+                style={[styles.button, styles.primaryButton, styles.buttonInRow]}
                 onPress={() => setStep('results')}
               >
                 <Text style={styles.buttonText}>See Results →</Text>
@@ -382,7 +404,19 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        {renderStep()}
+        {/* Cancel Button - Top Left */}
+        <View style={styles.cancelButtonContainer}>
+          <TouchableOpacity 
+            style={styles.cancelButton}
+            onPress={handleCancel}
+          >
+            <Ionicons name="close" size={32} color={colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.contentContainer}>
+          {renderStep()}
+        </View>
       </View>
     </Modal>
   );
@@ -390,6 +424,22 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
 
 const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  cancelButtonContainer: {
+    position: 'absolute',
+    top: 40,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    paddingHorizontal: 20,
+  },
+  cancelButton: {
+    alignSelf: 'flex-start',
+    padding: 10,
+  },
+  contentContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -440,7 +490,7 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     fontSize: 18,
     fontWeight: '600',
   },
-  cancelButton: {
+  cancelTextButton: {
     marginTop: 20,
   },
   cancelText: {
@@ -476,8 +526,15 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     marginVertical: 30,
   },
   buttonRow: {
-    flexDirection: 'row',
-    gap: 15,
+    flexDirection: 'column',
+    gap: 10,
+    width: '80%',
+    alignSelf: 'center',
+  },
+  buttonInRow: {
+    paddingVertical: 15,
+    paddingHorizontal: 40,
+    width: '100%',
   },
   rangeDisplay: {
     fontSize: 40,

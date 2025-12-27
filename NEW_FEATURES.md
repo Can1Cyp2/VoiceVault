@@ -452,12 +452,11 @@ CREATE INDEX idx_user_profiles_username ON user_profiles(username);
 5. 🎵 **Advanced Song Filtering**
 6. 🎼 **Custom Practice Exercises**
 7. 🎙️ **Recording & Playback**
-
-8. 👥 **Social Features** (follows, messaging)
-9. 🔔 **Smart Notifications**
-10. 🌐 **Offline Mode**
-11 🌐 **Offline Mode**
-10. 🎨 **Advanced Customization**
+8. 🎹 **Real-time Guitar/Vocal Tuner** (Post 1.3.6)
+9. 👥 **Social Features** (follows, messaging)
+10. 🔔 **Smart Notifications**
+11. 🌐 **Offline Mode**
+12. 🎨 **Advanced Customization**
 
 ---
 
@@ -505,23 +504,23 @@ Track user-requested features here:
 
 ## 📅 Release Timeline
 
-##User Profile Pages
+### Version 1.3.6 (January 2026) - CURRENT
+- 🎤 **Vocal Range Auto-Detection** (Batch processing mode)
+- Record and analyze lowest/highest notes
+- Integration with existing user vocal range system
+
+### Version 1.4.0 (Q1 2026)
+- 👤 **User Profile Pages**
 - Upload history viewing
 - Contributor statistics
 - Clickable usernames
 
 ### Version 1.5.0 (Q2 2026)
-- Automatic Vocal Range Detection MVP
-- Basic pitch visualization
-- Manual range override
-7.0 (Q3 2026)
-- Advanced filtering
-- Custom exercises
-- Recording & playback
+- 🎹 **Real-time Instrument/Vocal Tuner**
+- Live pitch display (<100ms latency)
+- Visual tuner interface
+- Multi-instrument support
 
-### Version 2.0.0 (Q4 2026)
-- Social features (follow/unfollow)
-- User badges & achievement
 ### Version 1.6.0 (Q3 2026)
 - Advanced filtering
 - Custom exercises

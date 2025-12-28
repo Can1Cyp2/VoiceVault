@@ -1,7 +1,8 @@
 
 // app/components/Piano/Piano.tsx
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { noteToValue } from '../../util/vocalRange';
 import { LightColors } from '../../styles/theme';
 
 
@@ -23,73 +24,34 @@ const NOTES = [
   'C8'
 ];
 
-// Use local noteToValue that matches Piano's NOTES array
-const noteToValue = (note: string): number => {
-  return NOTES.indexOf(note);
-};
-
 const Piano = ({ vocalRange }: { vocalRange: string }) => {
   const scrollViewRef = useRef<ScrollView>(null);
-  const hasScrolledRef = useRef(false);
   const [lowNote, highNote] = vocalRange.split(' - ');
 
   const lowNoteValue = noteToValue(lowNote);
   const highNoteValue = noteToValue(highNote);
 
-  const scrollToRange = () => {
-    if (!scrollViewRef.current || !lowNoteValue || !highNoteValue) {
-      console.log('[Piano] Cannot scroll - missing ref or values:', { 
-        hasRef: !!scrollViewRef.current, 
-        lowNoteValue, 
-        highNoteValue,
-        lowNote,
-        highNote 
-      });
-      return;
-    }
-    
-    const whiteKeys = NOTES.filter(note => !note.includes('#'));
-    const lowNoteIndex = whiteKeys.findIndex(note => noteToValue(note) >= lowNoteValue);
-    const highNoteIndex = whiteKeys.findIndex(note => noteToValue(note) >= highNoteValue);
-    
-    console.log('[Piano] Scroll calculation:', {
-      lowNote,
-      highNote,
-      lowNoteValue,
-      highNoteValue,
-      lowNoteIndex,
-      highNoteIndex,
-      pianoWidth,
-      WHITE_KEY_WIDTH
-    });
-    
-    if (lowNoteIndex !== -1) {
-      const visibleKeys = Math.floor(pianoWidth / WHITE_KEY_WIDTH);
-      // If both notes fit in view, center them
-      if (highNoteIndex - lowNoteIndex + 1 <= visibleKeys) {
-        const centerIndex = (lowNoteIndex + highNoteIndex) / 2;
-        const xOffset = centerIndex * WHITE_KEY_WIDTH - pianoWidth / 2 + WHITE_KEY_WIDTH / 2;
-        console.log('[Piano] Centering view - scrolling to:', Math.max(xOffset, 0));
-        scrollViewRef.current.scrollTo({ x: Math.max(xOffset, 0), animated: true });
-      } else {
-        // Otherwise, show the low note at the start
-        const xOffset = lowNoteIndex * WHITE_KEY_WIDTH;
-        console.log('[Piano] Showing from low note - scrolling to:', Math.max(xOffset, 0));
-        scrollViewRef.current.scrollTo({ x: Math.max(xOffset, 0), animated: true });
-      }
-      hasScrolledRef.current = true;
-    } else {
-      console.log('[Piano] lowNoteIndex is -1, cannot scroll');
-    }
-  };
-
-  const handleContentSizeChange = () => {
-    if (!hasScrolledRef.current) {
-      scrollToRange();
-    }
-  };
-
   const whiteKeys = NOTES.filter(note => !note.includes('#'));
+
+  useEffect(() => {
+    if (scrollViewRef.current && lowNoteValue && highNoteValue) {
+      const lowNoteIndex = whiteKeys.findIndex(note => noteToValue(note) >= lowNoteValue);
+      const highNoteIndex = whiteKeys.findIndex(note => noteToValue(note) >= highNoteValue);
+      if (lowNoteIndex !== -1) {
+        const visibleKeys = Math.floor(pianoWidth / WHITE_KEY_WIDTH);
+        // If both notes fit in view, center them
+        if (highNoteIndex - lowNoteIndex + 1 <= visibleKeys) {
+          const centerIndex = (lowNoteIndex + highNoteIndex) / 2;
+          const xOffset = centerIndex * WHITE_KEY_WIDTH - pianoWidth / 2 + WHITE_KEY_WIDTH / 2;
+          scrollViewRef.current.scrollTo({ x: Math.max(xOffset, 0), animated: true });
+        } else {
+          // Otherwise, show the low note at the start
+          const xOffset = lowNoteIndex * WHITE_KEY_WIDTH;
+          scrollViewRef.current.scrollTo({ x: Math.max(xOffset, 0), animated: true });
+        }
+      }
+    }
+  }, [lowNoteValue, highNoteValue, whiteKeys, pianoWidth]);
 
   const renderKeys = () => {
     let whiteKeyIndex = 0;
@@ -137,7 +99,6 @@ const Piano = ({ vocalRange }: { vocalRange: string }) => {
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.piano}
-        onContentSizeChange={handleContentSizeChange}
       >
         {renderKeys()}
       </ScrollView>

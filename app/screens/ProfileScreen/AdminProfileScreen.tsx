@@ -529,7 +529,7 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
     };
 
     const handleContentModeration = () => {
-        navigation.navigate('ContentModerationScreen');
+        Alert.alert("Content Moderation", "This feature would allow you to moderate user-generated content and reports.", [{ text: "OK" }]);
     };
 
     const handleAppSettings = () => {

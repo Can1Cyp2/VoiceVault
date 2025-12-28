@@ -13,7 +13,6 @@ import ListDetailsScreen from "../screens/ListDetailsScreen/ListDetailsScreen";
 import MetronomeScreen from "../screens/MetronomeScreen/MetronomeScreen";
 import AdminProfileScreen from "../screens/ProfileScreen/AdminProfileScreen";
 import AdminAnalyticsScreen from "../screens/AdminAnalyticsScreen/AdminAnalyticsScreen";
-import ContentModerationScreen from "../screens/ContentModerationScreen/ContentModerationScreen";
 import ForgotPasswordScreen from "../screens/ForgotPasswordScreen/ForgotPasswordScreen";
 import ResetPasswordScreen from "../screens/ResetPasswordScreen/ResetPasswordScreen";
 
@@ -35,7 +34,6 @@ export type RootStackParamList = {
   Metronome: undefined;
   AdminProfileScreen: undefined;
   AdminAnalyticsScreen: undefined;
-  ContentModerationScreen: undefined;
   ForgotPassword: undefined;
 };
 
@@ -167,14 +165,6 @@ export function AppStack() {
       component={AdminAnalyticsScreen}
       options={{
         title: "Admin Analytics",
-        headerShown: true,
-      }}
-    />
-      <Stack.Screen
-      name="ContentModerationScreen"
-      component={ContentModerationScreen}
-      options={{
-        title: "Content Moderation",
         headerShown: true,
       }}
     />

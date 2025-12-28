@@ -121,12 +121,7 @@ VoiceVault is the perfect tool for vocalists, music students, and karaoke enthus
 ---
 
 ## 🐞 Known Issues
-
-### Piano View Range Display
-- **Issue**: Songs with large vocal ranges do not auto-fit properly in the piano view on the song details screen. When a song has a wide range (e.g., "Moving On" by Asking Alexandria with a range of A#2 to D5), the view is positioned in the middle of the two notes, causing neither the lowest nor highest note to be visible on screen.
-- **Expected Behavior**: The view should display at least one of the boundary notes (lowest or highest) if both cannot fit on screen simultaneously.
-- **Current Behavior**: The piano view centers between the range boundaries, leaving both notes outside the visible area.
-- **Status**: The feature works well for songs with smaller ranges.
+**THERE ARE NO MAJOR KNOWN ISSUES**
 
 Past example issue:
 ### Network Connectivity on Android (Play Store)

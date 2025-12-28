@@ -1,12 +1,13 @@
 // app/screens/TunerScreen/VocalRangeDetectorModal.tsx
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { View, Text, Modal, TouchableOpacity, Alert, StyleSheet, Animated } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Alert, StyleSheet, Animated, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { startPitchDetection, PitchResult, resetMockIndex } from '../../util/pitchDetection';
 import { analyzeVocalRange, validateRange, calculateRangeStats } from '../../util/audioAnalysis';
 import { submitVocalRange } from '../UserVocalRange/UserVocalRangeLogic';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAdminStatus } from '../../util/adminUtils';
 
 type Step = 'intro' | 'recordLow' | 'analyzeLow' | 'confirmLow' | 'recordHigh' | 'analyzeHigh' | 'confirmHigh' | 'results';
 
@@ -18,6 +19,7 @@ interface Props {
 
 export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }: Props) {
   const { colors } = useTheme();
+  const { isAdmin } = useAdminStatus();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [step, setStep] = useState<Step>('intro');
   const [recording, setRecording] = useState(false);
@@ -25,6 +27,7 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
   const [detectedLowNote, setDetectedLowNote] = useState<string | null>(null);
   const [detectedHighNote, setDetectedHighNote] = useState<string | null>(null);
   const [currentPitch, setCurrentPitch] = useState<PitchResult | null>(null);
+  const [useMockData, setUseMockData] = useState(false);
   
   const stopDetectionRef = useRef<(() => void) | null>(null);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -72,7 +75,8 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
       (error) => {
         Alert.alert('Error', 'Microphone access failed: ' + error.message);
         stopRecording();
-      }
+      },
+      useMockData // Pass the mock data flag
     );
 
     // Auto-stop after duration
@@ -412,6 +416,19 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
           >
             <Ionicons name="close" size={32} color={colors.textPrimary} />
           </TouchableOpacity>
+          
+          {/* Demo Mode Toggle (Admin Only) */}
+          {isAdmin && (
+            <View style={styles.demoModeContainer}>
+              <Text style={[styles.demoModeLabel, { color: colors.textSecondary }]}>Demo Mode</Text>
+              <Switch
+                value={useMockData}
+                onValueChange={setUseMockData}
+                trackColor={{ false: '#767577', true: colors.accent }}
+                thumbColor={useMockData ? '#fff' : '#f4f3f4'}
+              />
+            </View>
+          )}
         </View>
         
         <View style={styles.contentContainer}>
@@ -438,6 +455,18 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   cancelButton: {
     alignSelf: 'flex-start',
     padding: 10,
+  },
+  demoModeContainer: {
+    position: 'absolute',
+    top: 0,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  demoModeLabel: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   contentContainer: {
     flex: 1,

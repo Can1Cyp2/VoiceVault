@@ -51,21 +51,75 @@ export const resetMockIndex = () => {
 };
 
 /**
+ * Mock pitch detection function (extracted for reuse)
+ */
+const startMockPitchDetection = (
+  onPitchDetected: (result: PitchResult) => void,
+  isRunning: () => boolean
+): (() => void) => {
+  const mockFrequencies = [
+    // First 35 samples: E2 (for LOW note recording)
+    82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41,
+    82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41,
+    82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41,
+    82.41, 82.41, 82.41, 82.41, 82.41,
+    // Next 35 samples: C5 (for HIGH note recording)
+    523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25,
+    523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25,
+    523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25,
+    523.25, 523.25, 523.25, 523.25, 523.25,
+  ];
+  
+  const interval = setInterval(() => {
+    if (!isRunning()) return;
+    
+    // Add slight realistic pitch variation (vibrato)
+    const baseFrequency = mockFrequencies[mockDataIndex % mockFrequencies.length];
+    const frequency = baseFrequency + (Math.random() - 0.5) * 2; // ±1 Hz variation
+    const noteData = frequencyToNote(frequency);
+    
+    if (noteData) {
+      onPitchDetected({
+        frequency,
+        note: noteData.note,
+        octave: noteData.octave,
+        confidence: 0.92 + Math.random() * 0.08,
+        timestamp: Date.now(),
+      });
+    }
+    
+    mockDataIndex++;
+  }, 150); // Update every 150ms
+  
+  return () => {
+    if (interval) clearInterval(interval);
+  };
+};
+
+/**
  * Start continuous pitch detection using react-native-pitch-detector
  * Returns a function to stop detection
  * 
- * Note: This is a placeholder interface. The actual implementation
- * will use the native module after EAS build.
+ * @param onPitchDetected - Callback when pitch is detected
+ * @param onError - Callback when error occurs
+ * @param forceMock - Force use of mock data (for demo/testing purposes)
  */
 export const startPitchDetection = (
   onPitchDetected: (result: PitchResult) => void,
-  onError: (error: Error) => void
+  onError: (error: Error) => void,
+  forceMock: boolean = false
 ): (() => void) => {
   // This will be replaced with actual native module implementation
   // For now, we'll use a mock for UI testing
   
   let isRunning = true;
   let interval: NodeJS.Timeout;
+
+  // Use mock data if forced or in development mode when native module unavailable
+  if (forceMock) {
+    console.log('Using mock pitch detection (demo mode enabled)');
+    return startMockPitchDetection(onPitchDetected, () => isRunning);
+  }
 
   // Check if native module is available
   try {
@@ -102,51 +156,10 @@ export const startPitchDetection = (
       detector.stop();
     };
   } catch (error) {
-    // Only use mock data in development mode
+    // Only use mock data in development mode if not forced
     if (__DEV__) {
       console.warn('Native pitch detector not available, using mock data for testing');
-      
-      // Mock pitch detection - simulates realistic singing with LONG sustained notes
-      // Array is structured so first recording gets LOW notes, second gets HIGH notes
-      // Each 5-second recording captures ~33 samples (5000ms / 150ms)
-      const mockFrequencies = [
-        // First 35 samples: E2 (for LOW note recording)
-        82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41,
-        82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41,
-        82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41,
-        82.41, 82.41, 82.41, 82.41, 82.41,
-        // Next 35 samples: C5 (for HIGH note recording)
-        523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25,
-        523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25,
-        523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25,
-        523.25, 523.25, 523.25, 523.25, 523.25,
-      ];
-      
-      interval = setInterval(() => {
-        if (!isRunning) return;
-        
-        // Add slight realistic pitch variation (vibrato)
-        const baseFrequency = mockFrequencies[mockDataIndex % mockFrequencies.length];
-        const frequency = baseFrequency + (Math.random() - 0.5) * 2; // ±1 Hz variation
-        const noteData = frequencyToNote(frequency);
-        
-        if (noteData) {
-          onPitchDetected({
-            frequency,
-            note: noteData.note,
-            octave: noteData.octave,
-            confidence: 0.92 + Math.random() * 0.08,
-            timestamp: Date.now(),
-          });
-        }
-        
-        mockDataIndex++;
-      }, 150); // Update every 150ms
-      
-      return () => {
-        isRunning = false;
-        if (interval) clearInterval(interval);
-      };
+      return startMockPitchDetection(onPitchDetected, () => isRunning);
     } else {
       // Production mode: show proper error
       console.error('Pitch detector native module failed to load:', error);

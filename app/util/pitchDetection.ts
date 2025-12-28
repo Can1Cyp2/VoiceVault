@@ -102,49 +102,56 @@ export const startPitchDetection = (
       detector.stop();
     };
   } catch (error) {
-    // Native module not available - use mock for testing UI
-    console.warn('Native pitch detector not available, using mock data for testing');
-    
-    // Mock pitch detection - simulates realistic singing with LONG sustained notes
-    // Array is structured so first recording gets LOW notes, second gets HIGH notes
-    // Each 5-second recording captures ~33 samples (5000ms / 150ms)
-    const mockFrequencies = [
-      // First 35 samples: E2 (for LOW note recording)
-      82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41,
-      82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41,
-      82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41,
-      82.41, 82.41, 82.41, 82.41, 82.41,
-      // Next 35 samples: C5 (for HIGH note recording)
-      523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25,
-      523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25,
-      523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25,
-      523.25, 523.25, 523.25, 523.25, 523.25,
-    ];
-    
-    interval = setInterval(() => {
-      if (!isRunning) return;
+    // Only use mock data in development mode
+    if (__DEV__) {
+      console.warn('Native pitch detector not available, using mock data for testing');
       
-      // Add slight realistic pitch variation (vibrato)
-      const baseFrequency = mockFrequencies[mockDataIndex % mockFrequencies.length];
-      const frequency = baseFrequency + (Math.random() - 0.5) * 2; // ±1 Hz variation
-      const noteData = frequencyToNote(frequency);
+      // Mock pitch detection - simulates realistic singing with LONG sustained notes
+      // Array is structured so first recording gets LOW notes, second gets HIGH notes
+      // Each 5-second recording captures ~33 samples (5000ms / 150ms)
+      const mockFrequencies = [
+        // First 35 samples: E2 (for LOW note recording)
+        82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41,
+        82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41,
+        82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41, 82.41,
+        82.41, 82.41, 82.41, 82.41, 82.41,
+        // Next 35 samples: C5 (for HIGH note recording)
+        523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25,
+        523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25,
+        523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25,
+        523.25, 523.25, 523.25, 523.25, 523.25,
+      ];
       
-      if (noteData) {
-        onPitchDetected({
-          frequency,
-          note: noteData.note,
-          octave: noteData.octave,
-          confidence: 0.92 + Math.random() * 0.08,
-          timestamp: Date.now(),
-        });
-      }
+      interval = setInterval(() => {
+        if (!isRunning) return;
+        
+        // Add slight realistic pitch variation (vibrato)
+        const baseFrequency = mockFrequencies[mockDataIndex % mockFrequencies.length];
+        const frequency = baseFrequency + (Math.random() - 0.5) * 2; // ±1 Hz variation
+        const noteData = frequencyToNote(frequency);
+        
+        if (noteData) {
+          onPitchDetected({
+            frequency,
+            note: noteData.note,
+            octave: noteData.octave,
+            confidence: 0.92 + Math.random() * 0.08,
+            timestamp: Date.now(),
+          });
+        }
+        
+        mockDataIndex++;
+      }, 150); // Update every 150ms
       
-      mockDataIndex++;
-    }, 150); // Update every 150ms
-    
-    return () => {
-      isRunning = false;
-      if (interval) clearInterval(interval);
-    };
+      return () => {
+        isRunning = false;
+        if (interval) clearInterval(interval);
+      };
+    } else {
+      // Production mode: show proper error
+      console.error('Pitch detector native module failed to load:', error);
+      onError(new Error('Microphone access unavailable. Please ensure microphone permissions are granted.'));
+      return () => {};
+    }
   }
 };

@@ -154,14 +154,13 @@ export const startPitchDetection = (
 
   // Check if native module is available
   try {
-    // @ts-ignore - Native module not yet imported
     const { PitchDetector } = require('react-native-pitch-detector');
     
     if (!PitchDetector) {
       throw new Error('PitchDetector module not found');
     }
     
-    // Add listener for pitch detection results
+    // Add listener for pitch detection results BEFORE starting
     const subscription = PitchDetector.addListener((result: { frequency: number; tone: string }) => {
       if (!isRunning) return;
       
@@ -178,22 +177,29 @@ export const startPitchDetection = (
       }
     });
     
-    // Start pitch detection
-    PitchDetector.start()
-      .then(() => {
-        console.log('Pitch detection started successfully');
-      })
-      .catch((startError: any) => {
-        console.error('Failed to start pitch detector:', startError);
-        onError(new Error('Failed to start microphone: ' + startError.message));
-      });
+    // Start pitch detection (async)
+    (async () => {
+      try {
+        await PitchDetector.start();
+        console.log('✅ Pitch detection started successfully');
+      } catch (startError: any) {
+        console.error('❌ Failed to start pitch detector:', startError);
+        isRunning = false;
+        if (subscription) {
+          PitchDetector.removeListener();
+        }
+        onError(new Error('Failed to start microphone: ' + (startError?.message || startError)));
+      }
+    })();
     
     return () => {
       isRunning = false;
       PitchDetector.stop().catch((err: any) => console.error('Error stopping detector:', err));
-      PitchDetector.removeListener();
+      if (subscription) {
+        PitchDetector.removeListener();
+      }
     };
-  } catch (error) {
+  } catch (error: any) {
     // In dev mode, silently use mock data (native modules not available in Expo Go)
     if (__DEV__) {
       // Only log once to avoid spam
@@ -204,8 +210,8 @@ export const startPitchDetection = (
       return startMockPitchDetection(onPitchDetected, () => isRunning);
     } else {
       // Production mode: show proper error to user
-      console.error('Pitch detector native module failed to load:', error);
-      onError(new Error('Microphone access unavailable. Please ensure microphone permissions are granted and the app is up to date.'));
+      console.error('❌ Pitch detector native module failed to load:', error);
+      onError(new Error('Microphone access unavailable: ' + (error?.message || error)));
       return () => {};
     }
   }

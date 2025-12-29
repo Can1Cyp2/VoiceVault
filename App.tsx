@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { getSession, supabase } from "./app/util/supabase";
 import { StatusBar } from "expo-status-bar";
 import { ThemeProvider, useTheme } from "./app/contexts/ThemeContext";
+import * as Sentry from "@sentry/react-native";
 
 import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
 import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
@@ -16,6 +17,22 @@ import Toast from "react-native-toast-message";
 import { useAdminStatus } from "./app/util/adminUtils";
 import { setLoginGlow } from "./app/util/loginPrompt";
 import { adService } from "./app/components/SupportModal/AdService";
+
+// Initialize Sentry for production error tracking
+try {
+  Sentry.init({
+    dsn: "https://a69ef4d26f73704eba5b08ad7d71d267@o4510615733796864.ingest.de.sentry.io/4510615748280400",
+    // Always enabled to catch all errors
+    enabled: true,
+    // Capture 100% of errors
+    tracesSampleRate: 1.0,
+    // Debug mode
+    debug: true,
+  });
+  console.log('✅ Sentry initialized successfully');
+} catch (error) {
+  console.error('🚨 Failed to initialize Sentry:', error);
+}
 
 // Request ATT permission IMMEDIATELY on iOS before any other initialization
 // For iPadOS 26.0.1+ compatibility
@@ -67,6 +84,14 @@ const requestATTPermission = async () => {
     console.error('❌ Error message:', error?.message);
     console.error('❌ Error stack:', error?.stack);
     console.error('❌ Error details:', JSON.stringify(error, null, 2));
+    // Send to Sentry
+    Sentry.captureException(error, {
+      tags: { location: 'requestATTPermission' },
+      extra: { 
+        message: error?.message,
+        stack: error?.stack 
+      }
+    });
     return false;
   }
 };
@@ -102,23 +127,31 @@ function AppContent() {
     // CRITICAL: Request ATT permission FIRST, before any SDK initialization
     // iOS 18+ requires ATT to be called immediately without delays
     const initializeApp = async () => {
-      console.log('📱 App initializing...');
-      console.log('📱 Platform:', Platform.OS);
-      console.log('📱 ATT already requested:', attRequested);
-      
-      if (Platform.OS === 'ios' && !attRequested) {
-        console.log('🔒 Starting ATT permission flow...');
+      try {
+        console.log('📱 App initializing...');
+        console.log('📱 Platform:', Platform.OS);
+        console.log('📱 ATT already requested:', attRequested);
         
-        // NO DELAY - iOS 18+ requires immediate request
-        const granted = await requestATTPermission();
-        console.log('🔒 ATT Permission Result:', granted ? 'GRANTED' : 'DENIED/RESTRICTED');
-        setAttRequested(true);
-        console.log('✅ ATT request flow completed');
+        if (Platform.OS === 'ios' && !attRequested) {
+          console.log('🔒 Starting ATT permission flow...');
+          
+          // NO DELAY - iOS 18+ requires immediate request
+          const granted = await requestATTPermission();
+          console.log('🔒 ATT Permission Result:', granted ? 'GRANTED' : 'DENIED/RESTRICTED');
+          setAttRequested(true);
+          console.log('✅ ATT request flow completed');
+        }
+        
+        // Now initialize AdMob SDK after ATT prompt
+        console.log('📱 Initializing AdMob SDK...');
+        adService.initialize().catch(console.error);
+      } catch (error: any) {
+        console.error('🚨 CRITICAL: App initialization failed:', error);
+        Sentry.captureException(error, {
+          tags: { location: 'initializeApp', critical: true },
+          extra: { message: error?.message, stack: error?.stack }
+        });
       }
-      
-      // Now initialize AdMob SDK after ATT prompt
-      console.log('📱 Initializing AdMob SDK...');
-      adService.initialize().catch(console.error);
     };
 
     initializeApp();
@@ -227,14 +260,14 @@ function AppContent() {
   );
 }
 
-// Main App export with ThemeProvider
-export default function App() {
+// Main App export with ThemeProvider - wrapped with Sentry
+export default Sentry.wrap(function App() {
   return (
     <ThemeProvider>
       <AppContent />
     </ThemeProvider>
   );
-}
+});
 
 // Custom Tab Button for Home and other tabs
 const CustomTabButton = ({ onPress, accessibilityState, label, icon, isCurrentScreen }: any) => {

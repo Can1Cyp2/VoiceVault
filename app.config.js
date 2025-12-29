@@ -146,6 +146,14 @@ module.exports = () => {
       "expo-secure-store",
       "expo-video",
       "expo-tracking-transparency",
+      "expo-asset",
+      [
+        "@sentry/react-native",
+        {
+          organization: "voicevault-z4",
+          project: "react-native"
+        }
+      ],
       [
         "react-native-google-mobile-ads",
         {

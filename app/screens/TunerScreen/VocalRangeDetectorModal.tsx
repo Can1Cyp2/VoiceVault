@@ -8,6 +8,7 @@ import { analyzeVocalRange, validateRange, calculateRangeStats } from '../../uti
 import { submitVocalRange } from '../UserVocalRange/UserVocalRangeLogic';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAdminStatus } from '../../util/adminUtils';
+import * as Sentry from '@sentry/react-native';
 
 type Step = 'intro' | 'recordLow' | 'analyzeLow' | 'confirmLow' | 'recordHigh' | 'analyzeHigh' | 'confirmHigh' | 'results';
 
@@ -79,18 +80,55 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
       useNativeDriver: false,
     }).start();
 
+    console.log('🎤 [VocalRangeModal] About to start pitch detection, useMockData:', useMockData);
+    
+    // Send a breadcrumb to Sentry to track this action
+    Sentry.addBreadcrumb({
+      category: 'vocal-range',
+      message: `Starting pitch detection (mock: ${useMockData})`,
+      level: 'info',
+    });
+
     // Start pitch detection
-    stopDetectionRef.current = startPitchDetection(
-      (result) => {
-        setPitchSamples(prev => [...prev, result]);
-        setCurrentPitch(result);
-      },
-      (error) => {
-        Alert.alert('Error', 'Microphone access failed: ' + error.message);
-        stopRecording();
-      },
-      useMockData // Pass the mock data flag
-    );
+    try {
+      stopDetectionRef.current = startPitchDetection(
+        (result) => {
+          try {
+            setPitchSamples(prev => [...prev, result]);
+            setCurrentPitch(result);
+          } catch (err: any) {
+            console.error('🚨 [VocalRangeModal] Error in pitch callback:', err);
+            // Don't crash - just log it
+          }
+        },
+        (error) => {
+          console.error('🚨 [VocalRangeModal] Pitch detection error:', error);
+          Sentry.captureException(error, {
+            tags: { component: 'VocalRangeModal', action: 'pitchDetectionError' },
+            extra: { useMockData, recordingType: type }
+          });
+          Alert.alert(
+            'Microphone Error',
+            error.message + '\n\nPlease screenshot this error and report it.',
+            [
+              { text: 'Copy Error', onPress: () => console.log('ERROR:', error.message) },
+              { text: 'OK', onPress: () => stopRecording() }
+            ]
+          );
+        },
+        useMockData // Pass the mock data flag
+      );
+      console.log('✅ [VocalRangeModal] Pitch detection started successfully');
+    } catch (err: any) {
+      console.error('🚨 [VocalRangeModal] Failed to start pitch detection:', err);
+      Sentry.captureException(err, {
+        tags: { component: 'VocalRangeModal', action: 'startPitchDetectionFailed' },
+        extra: { useMockData, recordingType: type, errorMessage: err?.message }
+      });
+      Alert.alert('Error', 'Failed to start recording: ' + err.message);
+      setRecording(false);
+      return;
+    }
 
     // Auto-stop after duration
     recordingTimerRef.current = setTimeout(() => {

@@ -1,5 +1,8 @@
 // app/util/pitchDetection.ts
 
+import { Platform, PermissionsAndroid } from 'react-native';
+import { Audio } from 'expo-av';
+
 export interface PitchResult {
   frequency: number;
   note: string;
@@ -48,6 +51,34 @@ let mockDataIndex = 0;
  */
 export const resetMockIndex = () => {
   mockDataIndex = 0;
+};
+
+/**
+ * Request microphone permission (works on both iOS and Android)
+ */
+export const requestMicrophonePermission = async (): Promise<boolean> => {
+  try {
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        {
+          title: 'Microphone Permission',
+          message: 'VoiceVault needs access to your microphone to detect your vocal range.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        }
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } else {
+      // iOS: Use Expo's Audio API to request permission
+      const { status } = await Audio.requestPermissionsAsync();
+      return status === 'granted';
+    }
+  } catch (error) {
+    console.error('Error requesting microphone permission:', error);
+    return false;
+  }
 };
 
 /**
@@ -124,46 +155,57 @@ export const startPitchDetection = (
   // Check if native module is available
   try {
     // @ts-ignore - Native module not yet imported
-    const PitchDetector = require('react-native-pitch-detector').default;
+    const { PitchDetector } = require('react-native-pitch-detector');
     
-    const detector = new PitchDetector();
+    if (!PitchDetector) {
+      throw new Error('PitchDetector module not found');
+    }
     
-    detector.start({
-      sampleRate: 22050,
-      bufferSize: 2048,
-      onPitchDetected: (frequency: number, confidence: number) => {
-        if (!isRunning) return;
-        
-        const noteData = frequencyToNote(frequency);
-        
-        if (noteData && confidence > 0.85) { // Only high-confidence detections
-          onPitchDetected({
-            frequency,
-            note: noteData.note,
-            octave: noteData.octave,
-            confidence,
-            timestamp: Date.now(),
-          });
-        }
-      },
-      onError: (error: any) => {
-        onError(new Error(error));
-      },
+    // Add listener for pitch detection results
+    const subscription = PitchDetector.addListener((result: { frequency: number; tone: string }) => {
+      if (!isRunning) return;
+      
+      const noteData = frequencyToNote(result.frequency);
+      
+      if (noteData) {
+        onPitchDetected({
+          frequency: result.frequency,
+          note: noteData.note,
+          octave: noteData.octave,
+          confidence: 0.9, // Library doesn't provide confidence, assume high
+          timestamp: Date.now(),
+        });
+      }
     });
+    
+    // Start pitch detection
+    PitchDetector.start()
+      .then(() => {
+        console.log('Pitch detection started successfully');
+      })
+      .catch((startError: any) => {
+        console.error('Failed to start pitch detector:', startError);
+        onError(new Error('Failed to start microphone: ' + startError.message));
+      });
     
     return () => {
       isRunning = false;
-      detector.stop();
+      PitchDetector.stop().catch((err: any) => console.error('Error stopping detector:', err));
+      PitchDetector.removeListener();
     };
   } catch (error) {
-    // Only use mock data in development mode if not forced
+    // In dev mode, silently use mock data (native modules not available in Expo Go)
     if (__DEV__) {
-      console.warn('Native pitch detector not available, using mock data for testing');
+      // Only log once to avoid spam
+      if (!global.__pitchDetectorWarningShown) {
+        console.log('📱 Expo Go detected - using mock pitch data. Build with expo-dev-client for real microphone access.');
+        global.__pitchDetectorWarningShown = true;
+      }
       return startMockPitchDetection(onPitchDetected, () => isRunning);
     } else {
-      // Production mode: show proper error
+      // Production mode: show proper error to user
       console.error('Pitch detector native module failed to load:', error);
-      onError(new Error('Microphone access unavailable. Please ensure microphone permissions are granted.'));
+      onError(new Error('Microphone access unavailable. Please ensure microphone permissions are granted and the app is up to date.'));
       return () => {};
     }
   }

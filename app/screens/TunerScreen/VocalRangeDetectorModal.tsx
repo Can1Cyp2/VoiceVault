@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { View, Text, Modal, TouchableOpacity, Alert, StyleSheet, Animated, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { startPitchDetection, PitchResult, resetMockIndex } from '../../util/pitchDetection';
+import { startPitchDetection, PitchResult, resetMockIndex, requestMicrophonePermission } from '../../util/pitchDetection';
 import { analyzeVocalRange, validateRange, calculateRangeStats } from '../../util/audioAnalysis';
 import { submitVocalRange } from '../UserVocalRange/UserVocalRangeLogic';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -55,7 +55,20 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
     }
   }, [step]);
 
-  const startRecording = (type: 'low' | 'high') => {
+  const startRecording = async (type: 'low' | 'high') => {
+    // Skip permission check if using mock data
+    if (!useMockData) {
+      const hasPermission = await requestMicrophonePermission();
+      if (!hasPermission) {
+        Alert.alert(
+          'Microphone Permission Required',
+          'VoiceVault needs microphone access to detect your vocal range. Please enable it in your device settings.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+    }
+
     setPitchSamples([]);
     setRecording(true);
 

@@ -113,6 +113,19 @@ const subscription = PitchDetector.addListener((result) => {
 })();
 ```
 
+### 3. Added Missing Configuration
+**File:** `package.json`
+
+Added required iOS permissions configuration for `react-native-pitch-detector`:
+
+```json
+"reactNativePermissionsIOS": [
+  "Microphone"
+]
+```
+
+This ensures the native module properly requests microphone permissions on iOS.
+
 ## Verification Steps
 
 ### Before Testing the Fix:

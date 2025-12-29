@@ -2,6 +2,7 @@
 
 import { Platform, PermissionsAndroid } from 'react-native';
 import { Audio } from 'expo-av';
+import * as Sentry from '@sentry/react-native';
 
 export interface PitchResult {
   frequency: number;
@@ -20,6 +21,11 @@ export const VALID_VOCAL_RANGE = {
  * Convert frequency (Hz) to musical note
  */
 export const frequencyToNote = (frequency: number): { note: string; octave: number } | null => {
+  // Validate input
+  if (!frequency || !isFinite(frequency) || frequency <= 0) {
+    return null;
+  }
+  
   if (frequency < VALID_VOCAL_RANGE.minFrequency || frequency > VALID_VOCAL_RANGE.maxFrequency) {
     return null;
   }
@@ -27,11 +33,23 @@ export const frequencyToNote = (frequency: number): { note: string; octave: numb
   const A4 = 440;
   const C0 = A4 * Math.pow(2, -4.75);
   const halfSteps = 12 * Math.log2(frequency / C0);
+  
+  // Check for invalid calculations
+  if (!isFinite(halfSteps)) {
+    return null;
+  }
+  
   const noteNumber = Math.round(halfSteps);
   
   const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const octave = Math.floor(noteNumber / 12);
-  const note = notes[noteNumber % 12];
+  const noteIndex = ((noteNumber % 12) + 12) % 12; // Ensure positive index
+  const note = notes[noteIndex];
+  
+  // Final validation
+  if (!note || !isFinite(octave)) {
+    return null;
+  }
   
   return { note, octave };
 };
@@ -154,52 +172,131 @@ export const startPitchDetection = (
 
   // Check if native module is available
   try {
+    console.log('🔍 [PitchDetection] Attempting to load native module...');
     const { PitchDetector } = require('react-native-pitch-detector');
     
     if (!PitchDetector) {
+      console.error('❌ [PitchDetection] PitchDetector object is null/undefined');
       throw new Error('PitchDetector module not found');
     }
     
+    console.log('✅ [PitchDetection] Native module loaded successfully');
+    console.log('🎧 [PitchDetection] Adding event listener...');
+    
     // Add listener for pitch detection results BEFORE starting
-    const subscription = PitchDetector.addListener((result: { frequency: number; tone: string }) => {
-      if (!isRunning) return;
-      
-      const noteData = frequencyToNote(result.frequency);
-      
-      if (noteData) {
-        onPitchDetected({
-          frequency: result.frequency,
-          note: noteData.note,
-          octave: noteData.octave,
-          confidence: 0.9, // Library doesn't provide confidence, assume high
-          timestamp: Date.now(),
-        });
-      }
-    });
+    try {
+      PitchDetector.addListener((result: { frequency: number; tone: string }) => {
+        // CRITICAL: Wrap callback in try/catch to prevent unhandled exceptions
+        try {
+          if (!isRunning) return;
+          
+          const noteData = frequencyToNote(result.frequency);
+          
+          if (noteData) {
+            onPitchDetected({
+              frequency: result.frequency,
+              note: noteData.note,
+              octave: noteData.octave,
+              confidence: 0.9, // Library doesn't provide confidence, assume high
+              timestamp: Date.now(),
+            });
+          }
+        } catch (callbackError: any) {
+          console.error('❌ [PitchDetection] Listener callback error:', callbackError);
+          // Send to Sentry for tracking
+          Sentry.captureException(callbackError, {
+            tags: {
+              component: 'PitchDetection',
+              function: 'listenerCallback',
+            },
+            extra: {
+              frequency: result?.frequency,
+              tone: result?.tone,
+              isRunning,
+            },
+          });
+          // Don't propagate - just log it to avoid crash
+        }
+      });
+      console.log('✅ [PitchDetection] Listener added successfully');
+    } catch (listenerError: any) {
+      console.error('❌ [PitchDetection] Failed to add listener:', listenerError);
+      Sentry.captureException(listenerError, {
+        tags: { component: 'PitchDetection', function: 'addListener' },
+      });
+      throw new Error('Failed to add pitch listener: ' + (listenerError?.message || listenerError));
+    }
     
     // Start pitch detection (async)
+    console.log('🎤 [PitchDetection] Starting microphone...');
     (async () => {
       try {
+        console.log('🎤 [PitchDetection] Calling PitchDetector.start()...');
         await PitchDetector.start();
-        console.log('✅ Pitch detection started successfully');
+        console.log('✅ [PitchDetection] Microphone started successfully');
       } catch (startError: any) {
-        console.error('❌ Failed to start pitch detector:', startError);
-        isRunning = false;
-        if (subscription) {
-          PitchDetector.removeListener();
+        console.error('❌ [PitchDetection] Start failed:', {
+          message: startError?.message,
+          code: startError?.code,
+          name: startError?.name,
+          stack: startError?.stack,
+          fullError: JSON.stringify(startError, null, 2)
+        });
+        
+        // Send to Sentry and force flush immediately
+        Sentry.captureException(startError, {
+          tags: {
+            component: 'PitchDetection',
+            function: 'start',
+          },
+          extra: {
+            errorCode: startError?.code,
+            errorName: startError?.name,
+          },
+        });
+        
+        // Try to flush Sentry events immediately
+        try {
+          await Sentry.flush(2000); // Wait up to 2 seconds
+          console.log('📤 [PitchDetection] Sentry events flushed');
+        } catch (flushError) {
+          console.error('⚠️ [PitchDetection] Sentry flush error:', flushError);
         }
-        onError(new Error('Failed to start microphone: ' + (startError?.message || startError)));
+        
+        isRunning = false;
+        try {
+          PitchDetector.removeListener();
+        } catch (cleanupError) {
+          console.error('⚠️ [PitchDetection] Cleanup error:', cleanupError);
+        }
+        
+        const errorMessage = `Microphone failed to start.\n\nError: ${startError?.message || startError}\n\nCode: ${startError?.code || 'N/A'}`;
+        onError(new Error(errorMessage));
       }
     })();
     
     return () => {
+      console.log('🛑 [PitchDetection] Cleanup called');
       isRunning = false;
-      PitchDetector.stop().catch((err: any) => console.error('Error stopping detector:', err));
-      if (subscription) {
+      PitchDetector.stop()
+        .then(() => console.log('✅ [PitchDetection] Stopped successfully'))
+        .catch((err: any) => console.error('⚠️ [PitchDetection] Stop error:', err));
+      try {
         PitchDetector.removeListener();
+        console.log('✅ [PitchDetection] Listener removed');
+      } catch (err) {
+        console.error('⚠️ [PitchDetection] removeListener error:', err);
       }
     };
   } catch (error: any) {
+    console.error('🚨 [PitchDetection] Module load failed:', {
+      message: error?.message,
+      code: error?.code,
+      name: error?.name,
+      isDev: __DEV__,
+      fullError: JSON.stringify(error, null, 2)
+    });
+    
     // In dev mode, silently use mock data (native modules not available in Expo Go)
     if (__DEV__) {
       // Only log once to avoid spam
@@ -209,9 +306,10 @@ export const startPitchDetection = (
       }
       return startMockPitchDetection(onPitchDetected, () => isRunning);
     } else {
-      // Production mode: show proper error to user
-      console.error('❌ Pitch detector native module failed to load:', error);
-      onError(new Error('Microphone access unavailable: ' + (error?.message || error)));
+      // Production mode: show detailed error to user for debugging
+      const errorDetails = `Module failed to load in production.\n\nError: ${error?.message || 'Unknown'}\nType: ${error?.name || 'N/A'}\nCode: ${error?.code || 'N/A'}`;
+      console.error('❌ [PitchDetection] PRODUCTION ERROR:', errorDetails);
+      onError(new Error(errorDetails));
       return () => {};
     }
   }

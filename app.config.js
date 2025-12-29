@@ -22,7 +22,7 @@ module.exports = () => {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.can1cyp2.VoiceVault",
-      buildNumber: "1.3.6",
+      buildNumber: "1.0.81",
       infoPlist: {
         // CRITICAL: AdMob App ID (required by Google Mobile Ads SDK)
         GADApplicationIdentifier: "ca-app-pub-7846050438990670~3247720022",
@@ -89,7 +89,7 @@ module.exports = () => {
       },
     },
     android: {
-      versionCode: 10301,
+      versionCode: 10302,
       adaptiveIcon: {
         foregroundImage: "./assets/icon.png",
         backgroundColor: "#ffffff",

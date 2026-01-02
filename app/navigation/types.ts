@@ -11,4 +11,13 @@ export type RootStackParamList = {
   ArtistDetails: {
     name: string;
   };
+  AddSong: undefined;
+  SavedLists: undefined;
+  ListDetails: { listName: string };
+  SongDetails: { name: string; artist: string; vocalRange: string };
+  Metronome: undefined;
+  AdminProfileScreen: undefined;
+  AdminAnalyticsScreen: undefined;
+  ContentModerationScreen: undefined;
+  ForgotPassword: undefined;
 };

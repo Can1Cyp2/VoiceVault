@@ -74,6 +74,8 @@ module.exports = () => {
         ],
         NSUserTrackingUsageDescription:
           "If you choose to watch ads: Your data may be used to deliver more relevant ads and measure ad performance by Google (Admob), VoiceVault does not save this data.",
+        NSMicrophoneUsageDescription:
+          "VoiceVault needs microphone access to detect your vocal range and help you tune your voice.",
         NSCameraUsageDescription:
           "This app uses the camera for user profile images. (Future updates may require this permission.)",
         NSPhotoLibraryUsageDescription:
@@ -102,6 +104,7 @@ module.exports = () => {
         "com.google.android.gms.permission.AD_ID",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO",
       ],
       compileSdkVersion: 35,
       targetSdkVersion: 35,

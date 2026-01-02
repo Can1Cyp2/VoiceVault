@@ -18,6 +18,7 @@ import { supabase } from "../../util/supabase";
 import { fetchUserVocalRange } from "../../util/api";
 import { useAdminStatus, checkAdminStatus } from "../../util/adminUtils";
 import { useTheme } from "../../contexts/ThemeContext";
+import VocalRangeDetectorModal from "../TunerScreen/VocalRangeDetectorModal";
 
 export default function ProfileScreen({ navigation }: any) {
   const { colors, isDark, setMode } = useTheme();
@@ -30,6 +31,7 @@ export default function ProfileScreen({ navigation }: any) {
   const [isHelpVisible, setHelpVisible] = useState(false);
   const [updateTrigger, setUpdateTrigger] = useState(0); // Triggers refresh
   const [coinBalance, setCoinBalance] = useState<number | null>(null);
+  const [isRangeModalVisible, setRangeModalVisible] = useState(false);
 
   // Admin status hook
   const { isAdmin, loading: adminLoading, adminDetails } = useAdminStatus();
@@ -165,7 +167,31 @@ export default function ProfileScreen({ navigation }: any) {
 
       {/* Display Vocal Range */}
       <Text style={styles.vocalRange}>{vocalRange}</Text>
+{/* Set My Range Button */}
+      <TouchableOpacity
+        style={styles.rangeButton}
+        onPress={() => {
+          if (isAdmin) {
+            setRangeModalVisible(true);
+          } else {
+            Alert.alert(
+              "Coming Soon! 🎤",
+              "The vocal range auto-detection feature is currently in beta testing. It will be available to all users in the next update!",
+              [{ text: "OK" }]
+            );
+          }
+        }}
+      >
+        <View style={styles.rangeButtonContent}>
+          <Ionicons name="mic-outline" size={24} color="#FFF" style={styles.rangeButtonIcon} />
+          <View style={styles.rangeButtonTextContainer}>
+            <Text style={styles.rangeButtonText}>Set My Vocal Range</Text>
+            <Text style={styles.rangeButtonSubtext}>Auto-detect your range</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
 
+      
       <TouchableOpacity
         style={styles.button}
         onPress={() => navigation.navigate("Search", { screen: "SavedLists" })}
@@ -250,6 +276,16 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
+
+      {/* Vocal Range Detector Modal */}
+      <VocalRangeDetectorModal
+        visible={isRangeModalVisible}
+        onClose={() => setRangeModalVisible(false)}
+        onSuccess={(low, high) => {
+          console.log('Vocal range saved:', low, high);
+          setUpdateTrigger((prev) => prev + 1); // Refresh profile data
+        }}
+      />
     </View>
   );
 }
@@ -285,6 +321,40 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 10,
+  },
+  rangeButton: {
+    backgroundColor: colors.accent,
+    padding: 18,
+    borderRadius: 12,
+    marginBottom: 15,
+    width: "85%",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  rangeButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  rangeButtonIcon: {
+    marginRight: 12,
+  },
+  rangeButtonTextContainer: {
+    flexDirection: "column",
+  },
+  rangeButtonText: {
+    color: "#FFF",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  rangeButtonSubtext: {
+    color: "#FFF",
+    fontSize: 12,
+    opacity: 0.9,
+    marginTop: 2,
   },
   coinBalance: {
     fontSize: 16,

@@ -173,19 +173,36 @@ export const startPitchDetection = (
   // Check if native module is available
   try {
     console.log('🔍 [PitchDetection] Attempting to load native module...');
-    const { PitchDetector } = require('react-native-pitch-detector');
-    
-    if (!PitchDetector) {
-      console.error('❌ [PitchDetection] PitchDetector object is null/undefined');
-      throw new Error('PitchDetector module not found');
+
+    // Import directly from react-native instead of using the library's wrapper
+    const { NativeModules, NativeEventEmitter } = require('react-native');
+
+    console.log('📋 [PitchDetection] Available NativeModules:', Object.keys(NativeModules || {}).join(', '));
+    console.log('📋 [PitchDetection] PitchDetectorModule exists:', !!NativeModules?.PitchDetectorModule);
+
+    const PitchDetectorModule = NativeModules.PitchDetectorModule;
+
+    if (!PitchDetectorModule) {
+      console.error('❌ [PitchDetection] PitchDetectorModule is null/undefined in NativeModules');
+      throw new Error('PitchDetectorModule not found in NativeModules');
     }
-    
-    console.log('✅ [PitchDetection] Native module loaded successfully');
+
+    console.log('✅ [PitchDetection] Native module found, methods:', Object.keys(PitchDetectorModule));
+
+    // Create event emitter directly
+    const pitchEventEmitter = new NativeEventEmitter(PitchDetectorModule);
+
+    console.log('✅ [PitchDetection] NativeEventEmitter created');
     console.log('🎧 [PitchDetection] Adding event listener...');
-    
+
+    // CRITICAL: Store the subscription to properly clean it up later
+    let listenerSubscription: { remove: () => void } | null = null;
+    let hasStarted = false;
+    let isStarting = false;
+
     // Add listener for pitch detection results BEFORE starting
     try {
-      PitchDetector.addListener((result: { frequency: number; tone: string }) => {
+      listenerSubscription = pitchEventEmitter.addListener('data', (result: { frequency: number; tone: string }) => {
         // CRITICAL: Wrap callback in try/catch to prevent unhandled exceptions
         try {
           if (!isRunning) return;
@@ -215,10 +232,9 @@ export const startPitchDetection = (
               isRunning,
             },
           });
-          // Don't propagate - just log it to avoid crash
         }
       });
-      console.log('✅ [PitchDetection] Listener added successfully');
+      console.log('✅ [PitchDetection] Listener added successfully, subscription stored');
     } catch (listenerError: any) {
       console.error('❌ [PitchDetection] Failed to add listener:', listenerError);
       Sentry.captureException(listenerError, {
@@ -226,15 +242,62 @@ export const startPitchDetection = (
       });
       throw new Error('Failed to add pitch listener: ' + (listenerError?.message || listenerError));
     }
-    
+
+    // Cleanup helper function to ensure proper resource release
+    const cleanupResources = () => {
+      console.log('🧹 [PitchDetection] Cleaning up resources...');
+
+      // Remove listener using the stored subscription
+      if (listenerSubscription) {
+        try {
+          listenerSubscription.remove();
+          console.log('✅ [PitchDetection] Listener subscription removed');
+        } catch (err) {
+          console.error('⚠️ [PitchDetection] subscription.remove() error:', err);
+        }
+        listenerSubscription = null;
+      }
+
+      // Also remove all listeners as a fallback
+      try {
+        pitchEventEmitter.removeAllListeners('data');
+        console.log('✅ [PitchDetection] All event listeners removed');
+      } catch (err) {
+        // This may fail if subscription.remove() already cleaned up, which is fine
+        console.log('ℹ️ [PitchDetection] removeAllListeners fallback:', err);
+      }
+    };
+
+    // Platform-specific config for the pitch detector
+    // Using minimal config - let native modules handle defaults
+    const config = Platform.OS === 'ios' 
+      ? { algorithm: 'YIN', bufferSize: 1024 }
+      : { algorithm: 'YIN' }; // Android will use native defaults
+
     // Start pitch detection (async)
-    console.log('🎤 [PitchDetection] Starting microphone...');
+    console.log(`🎤 [PitchDetection] Starting microphone on ${Platform.OS} with config:`, config);
+    isStarting = true;
+
     (async () => {
       try {
-        console.log('🎤 [PitchDetection] Calling PitchDetector.start()...');
-        await PitchDetector.start();
+        console.log('🎤 [PitchDetection] Calling PitchDetectorModule.start()...');
+        await PitchDetectorModule.start(config);
+        hasStarted = true;
+        isStarting = false;
         console.log('✅ [PitchDetection] Microphone started successfully');
+
+        // Check if cleanup was requested while starting
+        if (!isRunning) {
+          console.log('⚠️ [PitchDetection] Cleanup requested during start, stopping now...');
+          try {
+            await PitchDetectorModule.stop();
+          } catch (stopErr) {
+            console.error('⚠️ [PitchDetection] Stop after late cleanup error:', stopErr);
+          }
+          cleanupResources();
+        }
       } catch (startError: any) {
+        isStarting = false;
         console.error('❌ [PitchDetection] Start failed:', {
           message: startError?.message,
           code: startError?.code,
@@ -257,35 +320,36 @@ export const startPitchDetection = (
         
         // Try to flush Sentry events immediately
         try {
-          await Sentry.flush(2000); // Wait up to 2 seconds
+          await Sentry.flush(); // Flush all pending events
           console.log('📤 [PitchDetection] Sentry events flushed');
         } catch (flushError) {
           console.error('⚠️ [PitchDetection] Sentry flush error:', flushError);
         }
-        
+
         isRunning = false;
-        try {
-          PitchDetector.removeListener();
-        } catch (cleanupError) {
-          console.error('⚠️ [PitchDetection] Cleanup error:', cleanupError);
-        }
-        
+        cleanupResources();
+
         const errorMessage = `Microphone failed to start.\n\nError: ${startError?.message || startError}\n\nCode: ${startError?.code || 'N/A'}`;
         onError(new Error(errorMessage));
       }
     })();
-    
+
     return () => {
-      console.log('🛑 [PitchDetection] Cleanup called');
+      console.log('🛑 [PitchDetection] Cleanup called, hasStarted:', hasStarted, 'isStarting:', isStarting);
       isRunning = false;
-      PitchDetector.stop()
-        .then(() => console.log('✅ [PitchDetection] Stopped successfully'))
-        .catch((err: any) => console.error('⚠️ [PitchDetection] Stop error:', err));
-      try {
-        PitchDetector.removeListener();
-        console.log('✅ [PitchDetection] Listener removed');
-      } catch (err) {
-        console.error('⚠️ [PitchDetection] removeListener error:', err);
+
+      // Only call stop() if we actually started successfully
+      if (hasStarted) {
+        PitchDetectorModule.stop()
+          .then(() => console.log('✅ [PitchDetection] Stopped successfully'))
+          .catch((err: any) => console.error('⚠️ [PitchDetection] Stop error:', err))
+          .finally(() => cleanupResources());
+      } else if (isStarting) {
+        // Start is in progress, cleanup will happen when start completes/fails
+        console.log('⏳ [PitchDetection] Start in progress, cleanup will happen after start completes');
+      } else {
+        // Never started, just clean up the listener
+        cleanupResources();
       }
     };
   } catch (error: any) {
@@ -300,9 +364,9 @@ export const startPitchDetection = (
     // In dev mode, silently use mock data (native modules not available in Expo Go)
     if (__DEV__) {
       // Only log once to avoid spam
-      if (!global.__pitchDetectorWarningShown) {
+      if (!(global as any).__pitchDetectorWarningShown) {
         console.log('📱 Expo Go detected - using mock pitch data. Build with expo-dev-client for real microphone access.');
-        global.__pitchDetectorWarningShown = true;
+        (global as any).__pitchDetectorWarningShown = true;
       }
       return startMockPitchDetection(onPitchDetected, () => isRunning);
     } else {

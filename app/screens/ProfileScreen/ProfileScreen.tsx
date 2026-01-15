@@ -11,20 +11,25 @@ import {
   ActivityIndicator,
   GestureResponderEvent,
   Image,
+  ScrollView,
+  RefreshControl,
 } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
-import ProfileMenu from "./ProfileMenu";
 import { supabase } from "../../util/supabase";
 import { fetchUserVocalRange } from "../../util/api";
 import { useAdminStatus, checkAdminStatus } from "../../util/adminUtils";
 import { useTheme } from "../../contexts/ThemeContext";
 import VocalRangeDetectorModal from "../TunerScreen/VocalRangeDetectorModal";
+import EditProfileModal from "./EditProfileModal";
 
 export default function ProfileScreen({ navigation }: any) {
   const { colors, isDark, setMode } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   
   const [isMenuVisible, setMenuVisible] = useState(false);
+  const [isEditProfileVisible, setEditProfileVisible] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const [vocalRange, setVocalRange] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -107,6 +112,13 @@ export default function ProfileScreen({ navigation }: any) {
     };
   }, [updateTrigger]); // Refresh on updates
 
+  // Handle pull-to-refresh
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchUserData();
+    setRefreshing(false);
+  };
+
   // Handle logout
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -119,6 +131,78 @@ export default function ProfileScreen({ navigation }: any) {
       Alert.alert("Logged Out", "You have successfully logged out.");
     }
     setMenuVisible(false);
+  };
+
+  // Function to reset the user's password
+  const handleResetPassword = async () => {
+    try {
+      const user = supabase.auth.user();
+
+      if (!user?.email) {
+        Alert.alert("Error", "No email found for the user.");
+        return;
+      }
+
+      const { error } = await supabase.auth.api.resetPasswordForEmail(user.email);
+
+      if (error) {
+        Alert.alert("Error", error.message);
+      } else {
+        Alert.alert(
+          "Success",
+          "Password reset email sent. Please check your inbox."
+        );
+      }
+    } catch (err) {
+      Alert.alert("Error", "An unexpected error occurred.");
+    }
+  };
+
+  // Function to delete user account and associated data
+  const handleDeleteAccount = async () => {
+    Alert.alert(
+      "Confirm Deletion",
+      "Are you sure you want to delete your account? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsDeleting(true);
+
+              const user = supabase.auth.user();
+
+              if (!user) {
+                setIsDeleting(false);
+                Alert.alert("Error", "Could not fetch user details.");
+                return;
+              }
+
+              const { error: updateError } = await supabase.auth.update({
+                data: { deleted: true },
+              });
+
+              if (updateError) {
+                Alert.alert("Error", "Failed to mark account as deleted. Please try again shortly or contact support if the issue persists voicevaultcontact@gmail.com");
+                setIsDeleting(false);
+                return;
+              }
+
+              await supabase.auth.signOut();
+              setIsDeleting(false);
+              Alert.alert("Success", "Your account has been deleted.");
+              handleLogout();
+            } catch (error) {
+              console.error("Unexpected error:", error);
+              setIsDeleting(false);
+              Alert.alert("Error", "An unexpected error occurred.");
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (isLoading) {
@@ -148,73 +232,167 @@ export default function ProfileScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Profile</Text>
-      <Text style={styles.username}>
-        {(username ?? "").startsWith("Edit profile")
-          ? username
-          : `Username: ${username}`}
-      </Text>
-      {coinBalance !== null && (
-        <View style={styles.coinBalanceContainer}>
-          <Text style={styles.coinBalance}>Coins: </Text>
-          <Image 
-            source={require('../../../assets/coin-icon.png')} 
-            style={styles.coinIcon}
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
-          <Text style={styles.coinBalance}> {coinBalance}</Text>
-        </View>
-      )}
-
-      {/* Display Vocal Range */}
-      <Text style={styles.vocalRange}>{vocalRange}</Text>
-{/* Set My Range Button */}
-      <TouchableOpacity
-        style={styles.rangeButton}
-        onPress={() => {
-          if (isAdmin) {
-            setRangeModalVisible(true);
-          } else {
-            Alert.alert(
-              "Coming Soon! 🎤",
-              "The vocal range auto-detection feature is currently in beta testing. It will be available to all users in the next update!",
-              [{ text: "OK" }]
-            );
-          }
-        }}
+        }
       >
-        <View style={styles.rangeButtonContent}>
-          <Ionicons name="mic-outline" size={24} color="#FFF" style={styles.rangeButtonIcon} />
-          <View style={styles.rangeButtonTextContainer}>
-            <Text style={styles.rangeButtonText}>Set My Vocal Range</Text>
-            <Text style={styles.rangeButtonSubtext}>Auto-detect your range</Text>
+        {/* Header Section */}
+        <View style={styles.header}>
+        <View style={styles.avatarContainer}>
+          <Ionicons name="person-circle" size={80} color={colors.primary} />
+        </View>
+        <Text style={styles.title}>
+          {(username ?? "").startsWith("Edit profile")
+            ? "Welcome"
+            : username}
+        </Text>
+        {coinBalance !== null && (
+          <View style={styles.coinBadge}>
+            <Image 
+              source={require('../../../assets/coin-icon.png')} 
+              style={styles.coinIcon}
+            />
+            <Text style={styles.coinBalance}>{coinBalance}</Text>
           </View>
+        )}
+      </View>
+
+      {/* Vocal Range Card */}
+      <View style={styles.infoCard}>
+        <View style={styles.cardHeader}>
+          <Ionicons name="musical-notes" size={24} color={colors.primary} />
+          <Text style={styles.cardTitle}>Vocal Range</Text>
         </View>
-      </TouchableOpacity>
+        <Text style={styles.vocalRangeText}>{vocalRange}</Text>
+      </View>
 
-      
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => navigation.navigate("Search", { screen: "SavedLists" })}
-      >
-        <Text style={styles.buttonText}>View Saved Lists</Text>
-      </TouchableOpacity>
+      {/* Action Buttons */}
+      <View style={styles.actionsContainer}>
+        {/* Set My Range Button */}
+        <TouchableOpacity
+          style={styles.primaryActionButton}
+          onPress={() => setRangeModalVisible(true)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionButtonContent}>
+            <View style={styles.actionIconContainer}>
+              <Ionicons name="mic" size={24} color="#FFF" />
+            </View>
+            <View style={styles.actionTextContainer}>
+              <Text style={styles.actionButtonTitle}>Set My Vocal Range</Text>
+              <Text style={styles.actionButtonSubtitle}>Auto-detect your range</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.7)" />
+          </View>
+        </TouchableOpacity>
 
-      {/* Profile Menu */}
-      <TouchableOpacity
-        style={styles.menuButton}
-        onPress={() => setMenuVisible(true)}
-      >
-        <Text style={styles.menuButtonText}>Open Profile Menu</Text>
-      </TouchableOpacity>
-      {isMenuVisible && (
-        <ProfileMenu
-          onClose={() => {
-            setUpdateTrigger((prev) => prev + 1); // Triggers refresh
-            setMenuVisible(false);
-          }}
-          onLogout={handleLogout}
-        />
-      )}
+        {/* Saved Lists Button */}
+        <TouchableOpacity
+          style={styles.secondaryActionButton}
+          onPress={() => navigation.navigate("Search", { screen: "SavedLists" })}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionButtonContent}>
+            <View style={[styles.actionIconContainer, { backgroundColor: colors.secondary }]}>
+              <Ionicons name="list" size={24} color="#FFF" />
+            </View>
+            <View style={styles.actionTextContainer}>
+              <Text style={[styles.actionButtonTitle, { color: colors.textPrimary }]}>View Saved Lists</Text>
+              <Text style={[styles.actionButtonSubtitle, { color: colors.textSecondary }]}>Your collections</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={colors.textTertiary} />
+          </View>
+        </TouchableOpacity>
+
+        {/* Profile Settings Button */}
+        <TouchableOpacity
+          style={styles.secondaryActionButton}
+          onPress={() => setMenuVisible(!isMenuVisible)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionButtonContent}>
+            <View style={[styles.actionIconContainer, { backgroundColor: colors.success }]}>
+              <Ionicons name="settings" size={24} color="#FFF" />
+            </View>
+            <View style={styles.actionTextContainer}>
+              <Text style={[styles.actionButtonTitle, { color: colors.textPrimary }]}>Profile Settings</Text>
+              <Text style={[styles.actionButtonSubtitle, { color: colors.textSecondary }]}>Edit your profile</Text>
+            </View>
+            <Ionicons 
+              name={isMenuVisible ? "chevron-up" : "chevron-down"} 
+              size={24} 
+              color={colors.textTertiary} 
+            />
+          </View>
+        </TouchableOpacity>
+
+        {/* Expandable Dropdown Options */}
+        {isMenuVisible && (
+          <View style={styles.dropdownContainer}>
+            {/* Edit Profile */}
+            <TouchableOpacity
+              style={styles.dropdownOption}
+              onPress={() => {
+                setEditProfileVisible(true);
+                setMenuVisible(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="create-outline" size={20} color={colors.textPrimary} />
+              <Text style={styles.dropdownText}>Edit Profile</Text>
+            </TouchableOpacity>
+
+            {/* Reset Password */}
+            <TouchableOpacity
+              style={styles.dropdownOption}
+              onPress={() => {
+                handleResetPassword();
+                setMenuVisible(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="key-outline" size={20} color={colors.textPrimary} />
+              <Text style={styles.dropdownText}>Reset Password</Text>
+            </TouchableOpacity>
+
+            {/* Delete Account */}
+            <TouchableOpacity
+              style={styles.dropdownOption}
+              onPress={handleDeleteAccount}
+              disabled={isDeleting}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={20} color={colors.danger} />
+              {isDeleting ? (
+                <ActivityIndicator size="small" color={colors.danger} style={{ marginLeft: 12 }} />
+              ) : (
+                <Text style={[styles.dropdownText, { color: colors.danger }]}>Delete Account</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Logout */}
+            <TouchableOpacity
+              style={[styles.dropdownOption, styles.dropdownOptionLast]}
+              onPress={handleLogout}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+              <Text style={[styles.dropdownText, { color: colors.danger }]}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
+      </ScrollView>
 
       {/* Admin Access Button - Only visible to admins */}
       {!adminLoading && isAdmin && (
@@ -286,6 +464,18 @@ export default function ProfileScreen({ navigation }: any) {
           setUpdateTrigger((prev) => prev + 1); // Refresh profile data
         }}
       />
+
+      {/* Edit Profile Modal */}
+      {isEditProfileVisible && (
+        <Modal visible={isEditProfileVisible} transparent animationType="slide">
+          <EditProfileModal
+            onClose={() => {
+              setEditProfileVisible(false);
+              setUpdateTrigger((prev) => prev + 1); // Refresh profile data
+            }}
+          />
+        </Modal>
+      )}
     </View>
   );
 }
@@ -293,114 +483,182 @@ export default function ProfileScreen({ navigation }: any) {
 const createStyles = (colors: typeof import('../../styles/theme').LightColors) => StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
     backgroundColor: colors.background,
-    padding: 20,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100, // Space for floating buttons
+  },
+  header: {
+    backgroundColor: colors.backgroundCard,
+    paddingTop: 60,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  avatarContainer: {
+    marginBottom: 16,
   },
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    marginBottom: 20,
     color: colors.textPrimary,
+    marginBottom: 12,
   },
-  username: {
-    fontSize: 18,
-    color: colors.textSecondary,
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  vocalRange: {
-    fontSize: 16,
-    color: colors.textTertiary,
-    fontStyle: "italic",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  coinBalanceContainer: {
+  coinBadge: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
-  },
-  rangeButton: {
-    backgroundColor: colors.accent,
-    padding: 18,
-    borderRadius: 12,
-    marginBottom: 15,
-    width: "85%",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  rangeButtonContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  rangeButtonIcon: {
-    marginRight: 12,
-  },
-  rangeButtonTextContainer: {
-    flexDirection: "column",
-  },
-  rangeButtonText: {
-    color: "#FFF",
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  rangeButtonSubtext: {
-    color: "#FFF",
-    fontSize: 12,
-    opacity: 0.9,
-    marginTop: 2,
-  },
-  coinBalance: {
-    fontSize: 16,
-    color: colors.gold,
-    fontWeight: "600",
+    backgroundColor: colors.backgroundTertiary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
   },
   coinIcon: {
     width: 20,
     height: 20,
     resizeMode: "contain",
   },
-  button: {
-    backgroundColor: colors.secondary,
-    padding: 15,
-    borderRadius: 5,
-    marginBottom: 10,
-    width: "80%",
+  coinBalance: {
+    fontSize: 16,
+    color: colors.gold,
+    fontWeight: "700",
+  },
+  infoCard: {
+    backgroundColor: colors.backgroundCard,
+    marginHorizontal: 20,
+    marginTop: 20,
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 8,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  vocalRangeText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    lineHeight: 22,
+  },
+  actionsContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    gap: 12,
+  },
+  primaryActionButton: {
+    backgroundColor: colors.accent,
+    borderRadius: 16,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  secondaryActionButton: {
+    backgroundColor: colors.backgroundCard,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  actionButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    gap: 12,
+  },
+  actionIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
     alignItems: "center",
   },
-  buttonText: {
-    color: colors.buttonText,
+  actionTextContainer: {
+    flex: 1,
+  },
+  actionButtonTitle: {
     fontSize: 16,
     fontWeight: "600",
+    color: "#FFF",
+    marginBottom: 2,
   },
-  menuButton: {
-    backgroundColor: colors.green,
-    padding: 15,
-    borderRadius: 5,
-    marginBottom: 10,
-    width: "80%",
+  actionButtonSubtitle: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.8)",
+  },
+  // Dropdown Styles
+  dropdownContainer: {
+    backgroundColor: colors.backgroundCard,
+    marginHorizontal: 20,
+    marginTop: -4,
+    borderRadius: 16,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  dropdownOption: {
+    flexDirection: "row",
     alignItems: "center",
+    padding: 16,
+    paddingLeft: 20,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  menuButtonText: {
-    color: colors.buttonText,
+  dropdownOptionLast: {
+    borderBottomWidth: 0,
+  },
+  dropdownText: {
     fontSize: 16,
-    fontWeight: "600",
+    color: colors.textPrimary,
+    fontWeight: "500",
   },
-  // Admin Section Styles - Enhanced contrast
+  // Keep existing admin styles
   adminSection: {
+    marginHorizontal: 20,
     marginTop: 20,
     padding: 20,
     backgroundColor: colors.highlightAlt,
     borderRadius: 12,
     borderLeftWidth: 4,
     borderLeftColor: colors.danger,
-    width: "80%",
     alignItems: "center",
     shadowColor: colors.danger,
     shadowOffset: { width: 0, height: 2 },
@@ -439,15 +697,20 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     bottom: 20,
     right: 20,
     backgroundColor: colors.dangerDark,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   helpButtonText: {
     color: colors.buttonText,
-    fontSize: 35,
+    fontSize: 32,
     fontWeight: "bold",
   },
   themeButton: {
@@ -455,13 +718,18 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     bottom: 20,
     left: 20,
     backgroundColor: colors.backgroundCard,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
     borderColor: colors.border,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 6,
   },
   modalOverlay: {
     flex: 1,

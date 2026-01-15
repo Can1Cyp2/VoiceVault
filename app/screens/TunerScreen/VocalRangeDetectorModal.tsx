@@ -32,9 +32,10 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
   
   const stopDetectionRef = useRef<(() => void) | null>(null);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const currentSamplesRef = useRef<PitchResult[]>([]);
   const progressAnimationRef = useRef(new Animated.Value(0)).current;
 
-  const RECORDING_DURATION = 5000; // 5 seconds
+  const RECORDING_DURATION = 10000; // 10 seconds
 
   // Clean up on unmount or when modal closes
   useEffect(() => {
@@ -70,6 +71,8 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
       }
     }
 
+    // CRITICAL: Clear samples using ref for immediate, non-async access
+    currentSamplesRef.current = [];
     setPitchSamples([]);
     setRecording(true);
 
@@ -94,7 +97,10 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
       stopDetectionRef.current = startPitchDetection(
         (result) => {
           try {
-            setPitchSamples(prev => [...prev, result]);
+            // Add to ref array for immediate access
+            currentSamplesRef.current.push(result);
+            // Also update state for UI display
+            setPitchSamples([...currentSamplesRef.current]);
             setCurrentPitch(result);
           } catch (err: any) {
             console.error('🚨 [VocalRangeModal] Error in pitch callback:', err);
@@ -133,6 +139,7 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
     // Auto-stop after duration
     recordingTimerRef.current = setTimeout(() => {
       stopRecording();
+      // Use ref for guaranteed current data
       analyzeRecording(type);
     }, RECORDING_DURATION);
   };
@@ -163,7 +170,11 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
     setStep(type === 'low' ? 'analyzeLow' : 'analyzeHigh');
 
     setTimeout(() => {
-      const result = analyzeVocalRange(pitchSamples, type === 'low' ? 'lowest' : 'highest');
+      // Always use ref for current data - works for both auto-stop and manual "Stop Early"
+      const samplesToAnalyze = currentSamplesRef.current;
+      console.log(`🔍 [VocalRangeModal] Analyzing ${samplesToAnalyze.length} samples for ${type} note`);
+      
+      const result = analyzeVocalRange(samplesToAnalyze, type === 'low' ? 'lowest' : 'highest');
 
       if (!result || result.confidence < 0.3) {
         Alert.alert(
@@ -173,6 +184,8 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
         );
         return;
       }
+
+      console.log(`✅ [VocalRangeModal] Detected ${type} note: ${result.note} (${result.frequency.toFixed(2)} Hz, confidence: ${result.confidence.toFixed(2)})`);
 
       if (type === 'low') {
         setDetectedLowNote(result.note);
@@ -236,7 +249,7 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
               Sing Your LOWEST Note
             </Text>
             <Text style={[styles.instructions, { color: colors.textSecondary }]}>
-              Sing and hold your lowest comfortable note for 5 seconds
+              Sing and hold your lowest comfortable note. Keep it steady for at least 4 seconds total.
             </Text>
             
             {!recording && (
@@ -334,7 +347,7 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
               Sing Your HIGHEST Note
             </Text>
             <Text style={[styles.instructions, { color: colors.textSecondary }]}>
-              Sing and hold your highest comfortable note for 5 seconds
+              Sing and hold your highest comfortable note. Keep it steady for at least 4 seconds total.
             </Text>
             
             {!recording && (

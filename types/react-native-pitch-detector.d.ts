@@ -1,15 +1,20 @@
 // Type declarations for react-native-pitch-detector
 
 declare module 'react-native-pitch-detector' {
-  export interface PitchDetectorOptions {
-    sampleRate?: number;
-    bufferSize?: number;
-    onPitchDetected: (frequency: number, confidence: number) => void;
-    onError: (error: string) => void;
+  export interface PitchDetectorResult {
+    frequency: number;
+    tone: string;
   }
 
-  export default class PitchDetector {
-    start(options: PitchDetectorOptions): void;
-    stop(): void;
+  export interface PitchDetectorSubscription {
+    remove: () => void;
+  }
+
+  export namespace PitchDetector {
+    function start(): Promise<void>;
+    function stop(): Promise<void>;
+    function isRecording(): Promise<boolean>;
+    function addListener(callback: (result: PitchDetectorResult) => void): PitchDetectorSubscription;
+    function removeListener(): void;
   }
 }

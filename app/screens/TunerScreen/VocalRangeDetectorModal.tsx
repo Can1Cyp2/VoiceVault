@@ -1,12 +1,14 @@
 // app/screens/TunerScreen/VocalRangeDetectorModal.tsx
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { View, Text, Modal, TouchableOpacity, Alert, StyleSheet, Animated } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Alert, StyleSheet, Animated, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { startPitchDetection, PitchResult, resetMockIndex } from '../../util/pitchDetection';
+import { startPitchDetection, PitchResult, resetMockIndex, requestMicrophonePermission } from '../../util/pitchDetection';
 import { analyzeVocalRange, validateRange, calculateRangeStats } from '../../util/audioAnalysis';
 import { submitVocalRange } from '../UserVocalRange/UserVocalRangeLogic';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAdminStatus } from '../../util/adminUtils';
+import * as Sentry from '@sentry/react-native';
 
 type Step = 'intro' | 'recordLow' | 'analyzeLow' | 'confirmLow' | 'recordHigh' | 'analyzeHigh' | 'confirmHigh' | 'results';
 
@@ -18,6 +20,7 @@ interface Props {
 
 export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }: Props) {
   const { colors } = useTheme();
+  const { isAdmin } = useAdminStatus();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [step, setStep] = useState<Step>('intro');
   const [recording, setRecording] = useState(false);
@@ -25,6 +28,7 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
   const [detectedLowNote, setDetectedLowNote] = useState<string | null>(null);
   const [detectedHighNote, setDetectedHighNote] = useState<string | null>(null);
   const [currentPitch, setCurrentPitch] = useState<PitchResult | null>(null);
+  const [useMockData, setUseMockData] = useState(false);
   
   const stopDetectionRef = useRef<(() => void) | null>(null);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -52,7 +56,20 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
     }
   }, [step]);
 
-  const startRecording = (type: 'low' | 'high') => {
+  const startRecording = async (type: 'low' | 'high') => {
+    // Skip permission check if using mock data
+    if (!useMockData) {
+      const hasPermission = await requestMicrophonePermission();
+      if (!hasPermission) {
+        Alert.alert(
+          'Microphone Permission Required',
+          'VoiceVault needs microphone access to detect your vocal range. Please enable it in your device settings.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+    }
+
     setPitchSamples([]);
     setRecording(true);
 
@@ -63,17 +80,55 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
       useNativeDriver: false,
     }).start();
 
+    console.log('🎤 [VocalRangeModal] About to start pitch detection, useMockData:', useMockData);
+    
+    // Send a breadcrumb to Sentry to track this action
+    Sentry.addBreadcrumb({
+      category: 'vocal-range',
+      message: `Starting pitch detection (mock: ${useMockData})`,
+      level: 'info',
+    });
+
     // Start pitch detection
-    stopDetectionRef.current = startPitchDetection(
-      (result) => {
-        setPitchSamples(prev => [...prev, result]);
-        setCurrentPitch(result);
-      },
-      (error) => {
-        Alert.alert('Error', 'Microphone access failed: ' + error.message);
-        stopRecording();
-      }
-    );
+    try {
+      stopDetectionRef.current = startPitchDetection(
+        (result) => {
+          try {
+            setPitchSamples(prev => [...prev, result]);
+            setCurrentPitch(result);
+          } catch (err: any) {
+            console.error('🚨 [VocalRangeModal] Error in pitch callback:', err);
+            // Don't crash - just log it
+          }
+        },
+        (error) => {
+          console.error('🚨 [VocalRangeModal] Pitch detection error:', error);
+          Sentry.captureException(error, {
+            tags: { component: 'VocalRangeModal', action: 'pitchDetectionError' },
+            extra: { useMockData, recordingType: type }
+          });
+          Alert.alert(
+            'Microphone Error',
+            error.message + '\n\nPlease screenshot this error and report it.',
+            [
+              { text: 'Copy Error', onPress: () => console.log('ERROR:', error.message) },
+              { text: 'OK', onPress: () => stopRecording() }
+            ]
+          );
+        },
+        useMockData // Pass the mock data flag
+      );
+      console.log('✅ [VocalRangeModal] Pitch detection started successfully');
+    } catch (err: any) {
+      console.error('🚨 [VocalRangeModal] Failed to start pitch detection:', err);
+      Sentry.captureException(err, {
+        tags: { component: 'VocalRangeModal', action: 'startPitchDetectionFailed' },
+        extra: { useMockData, recordingType: type, errorMessage: err?.message }
+      });
+      Alert.alert('Error', 'Failed to start recording: ' + err.message);
+      setRecording(false);
+      return;
+    }
 
     // Auto-stop after duration
     recordingTimerRef.current = setTimeout(() => {
@@ -412,6 +467,19 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
           >
             <Ionicons name="close" size={32} color={colors.textPrimary} />
           </TouchableOpacity>
+          
+          {/* Demo Mode Toggle (Admin Only) */}
+          {isAdmin && (
+            <View style={styles.demoModeContainer}>
+              <Text style={[styles.demoModeLabel, { color: colors.textSecondary }]}>Demo Mode</Text>
+              <Switch
+                value={useMockData}
+                onValueChange={setUseMockData}
+                trackColor={{ false: '#767577', true: colors.accent }}
+                thumbColor={useMockData ? '#fff' : '#f4f3f4'}
+              />
+            </View>
+          )}
         </View>
         
         <View style={styles.contentContainer}>
@@ -438,6 +506,18 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   cancelButton: {
     alignSelf: 'flex-start',
     padding: 10,
+  },
+  demoModeContainer: {
+    position: 'absolute',
+    top: 0,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  demoModeLabel: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   contentContainer: {
     flex: 1,

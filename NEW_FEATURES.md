@@ -504,7 +504,7 @@ Track user-requested features here:
 
 ## 📅 Release Timeline
 
-### Version 1.3.6 (January 2026) - CURRENT
+### Version 1.3.7 (January 2026) - CURRENT
 - 🎤 **Vocal Range Auto-Detection** (Batch processing mode)
 - Record and analyze lowest/highest notes
 - Integration with existing user vocal range system

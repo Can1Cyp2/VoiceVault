@@ -1,7 +1,7 @@
 {
   "name": "voice-vault-app",
   "license": "0BSD",
-  "version": "1.3.6",
+  "version": "1.3.7",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
@@ -20,10 +20,12 @@
     "@react-navigation/native-stack": "^7.1.14",
     "@react-navigation/stack": "^7.1.1",
     "@reduxjs/toolkit": "^2.4.0",
+    "@sentry/react-native": "^7.8.0",
     "@supabase/supabase-js": "^1.35.6",
     "argparse": "^2.0.1",
     "eas-cli": "^14.7.1",
     "expo": "54.0.23",
+    "expo-asset": "~12.0.12",
     "expo-audio": "~1.0.14",
     "expo-av": "~16.0.7",
     "expo-build-properties": "~1.0.9",
@@ -45,6 +47,7 @@
     "react-native-elements": "^3.4.3",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-google-mobile-ads": "^15.4.0",
+    "react-native-permissions": "^5.2.0",
     "react-native-pitch-detector": "^0.1.6",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
@@ -67,5 +70,8 @@
     "form-data": "4.0.4",
     "node-forge": "1.3.2"
   },
+  "reactNativePermissionsIOS": [
+    "Microphone"
+  ],
   "private": true
 }

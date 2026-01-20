@@ -4,6 +4,7 @@ import { View, Text, TextInput, Button, Alert, StyleSheet } from 'react-native';
 import { supabase } from '../../util/supabase';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../contexts/ThemeContext';
+import type { NavigationProp } from '@react-navigation/native';
 
 const ResetPasswordScreen = () => {
   const { colors } = useTheme();
@@ -12,7 +13,7 @@ const ResetPasswordScreen = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<any>>();
   const route = useRoute();
 
   useEffect(() => {
@@ -30,7 +31,7 @@ const ResetPasswordScreen = () => {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await supabase.auth.update({ password });
     setLoading(false);
     if (error) {
       Alert.alert('Error', error.message);

@@ -19,6 +19,7 @@ import { CompositeScreenProps } from "@react-navigation/native";
 import { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import { TabParamList } from "../../../App";
 import { SupportModal } from "../../components/SupportModal/SupportModal";
+import { ToolsModal } from "../../components/ToolsModal/ToolsModal";
 import { getLoginGlow, setLoginGlow } from "../../util/loginPrompt";
 import { useTheme } from "../../contexts/ThemeContext";
 
@@ -33,6 +34,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [isSignupVisible, setSignupVisible] = useState(false);
   const [isLoggedIn, setLoggedIn] = useState(false);
   const [isSupportVisible, setSupportVisible] = useState(false);
+  const [isToolsVisible, setToolsVisible] = useState(false);
 
   // Theme hook
   const { colors, isDark, setMode } = useTheme();
@@ -141,13 +143,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         <View style={styles.leftSection}>
           <TouchableOpacity
             style={styles.toolsButton}
-            onPress={() => {
-              // @ts-ignore - Navigate to nested screen
-              navigation.navigate("Search", { 
-                screen: "Metronome",
-                initial: false 
-              });
-            }}
+            onPress={() => setToolsVisible(true)}
           >
             <Ionicons name="cog-outline" size={30} color={colors.primaryDark} />
             <Text style={[styles.toolsText, { color: colors.primaryDark }]}>Tools</Text>
@@ -234,6 +230,17 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       </Modal>
 
       <SupportModal visible={isSupportVisible} onClose={() => setSupportVisible(false)} />
+      <ToolsModal 
+        visible={isToolsVisible} 
+        onClose={() => setToolsVisible(false)}
+        onMetronomePress={() => {
+          // @ts-ignore - Navigate to nested screen
+          navigation.navigate("Search", { 
+            screen: "Metronome",
+            initial: false 
+          });
+        }}
+      />
       <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.3.7</Text>
     </View>
   );

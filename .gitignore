@@ -56,6 +56,30 @@ CONFLICT_CHECK_RESULTS.md
 ANALYTICS_SETUP.md
 CONTENT_MODERATION_GUIDE.md
 VOCAL_RANGE_DETECTION_IMPLEMENTATION.md
+TODO.md
 
 # Allow specific docs that should be public
 !ANDROID_BUILD_TROUBLESHOOTING.md
+
+# Local environment and secrets
+.env
+.env.*
+process.env
+
+# Expo shared local state
+.expo-shared/
+
+# Sensitive keys and certs
+*.pem
+*.p12
+*.p8
+*.key
+*.jks
+*.keystore
+
+# Firebase / Google services
+google-services.json
+**/GoogleService-Info.plist
+
+# IDE
+.vscode/

@@ -15,17 +15,20 @@ import { useTheme } from '../../contexts/ThemeContext';
 interface DetailedStats {
     total_users: number;
     new_today: number;
-    new_this_week: number;
-    new_this_month: number;
     total_songs: number;
     pending_songs: number;
     total_issues: number;
     open_issues: number;
-    total_saved_lists: number;
-    total_saved_songs: number;
-    users_with_vocal_range: number;
-    total_coins_distributed: number;
-    avg_coins_per_user: number;
+}
+
+interface ExtendedStats {
+    new_this_week?: number;
+    new_this_month?: number;
+    total_saved_lists?: number;
+    total_saved_songs?: number;
+    users_with_vocal_range?: number;
+    total_coins_distributed?: number;
+    avg_coins_per_user?: number;
 }
 
 interface UserAnalytics {
@@ -70,6 +73,7 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
     const { isAdmin, loading: adminLoading } = useAdminStatus();
     const { colors } = useTheme();
     const [stats, setStats] = useState<DetailedStats | null>(null);
+    const [extendedStats, setExtendedStats] = useState<ExtendedStats>({});
     const [userAnalytics, setUserAnalytics] = useState<UserAnalytics | null>(null);
     const [minRangeDistribution, setMinRangeDistribution] = useState<VocalRangeDistribution[]>([]);
     const [maxRangeDistribution, setMaxRangeDistribution] = useState<VocalRangeDistribution[]>([]);
@@ -93,22 +97,58 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
         try {
             setError(null);
             
-            const { data: statsData, error: statsError } = await supabase.rpc('admin_get_detailed_stats');
+            // Use admin_get_stats (same as AdminQuickStats) for accurate total users from auth.users
+            const { data: statsData, error: statsError } = await supabase.rpc('admin_get_stats');
             if (statsError) throw statsError;
             if (statsData && statsData.length > 0) setStats(statsData[0]);
 
+            // Fetch user analytics (includes users_with_vocal_range with proper RLS bypass)
             const { data: analyticsData, error: analyticsError } = await supabase.rpc('admin_get_user_analytics');
             if (analyticsError) throw analyticsError;
-            if (analyticsData && analyticsData.length > 0) setUserAnalytics(analyticsData[0]);
+            if (analyticsData && analyticsData.length > 0) {
+                setUserAnalytics(analyticsData[0]);
+                
+                // Set extended stats from user analytics
+                setExtendedStats({
+                    users_with_vocal_range: analyticsData[0].users_with_vocal_range,
+                    total_saved_lists: 0, // Will be updated below
+                    total_saved_songs: 0, // Will be updated below
+                    total_coins_distributed: 0, // Will be updated below
+                    avg_coins_per_user: analyticsData[0].avg_coins_per_user,
+                });
+            }
+
+            // Get engagement metrics for additional stats
+            const { data: engagementData, error: engagementError } = await supabase.rpc('admin_get_engagement_metrics');
+            if (!engagementError && engagementData && engagementData.length > 0) {
+                setEngagementMetrics(engagementData[0]);
+                
+                // Update extended stats with engagement data
+                setExtendedStats(prev => ({
+                    ...prev,
+                    new_this_week: Math.round((engagementData[0].week_over_week_growth || 0) * (stats?.total_users || 0) / 100),
+                    new_this_month: Math.round((engagementData[0].month_over_month_growth || 0) * (stats?.total_users || 0) / 100),
+                }));
+            }
+
+            // Get saved lists and songs counts from existing RPC
+            const { data: detailedStatsData } = await supabase.rpc('admin_get_detailed_stats');
+            if (detailedStatsData && detailedStatsData.length > 0) {
+                setExtendedStats(prev => ({
+                    ...prev,
+                    total_saved_lists: detailedStatsData[0].total_saved_lists,
+                    total_saved_songs: detailedStatsData[0].total_saved_songs,
+                    total_coins_distributed: detailedStatsData[0].total_coins_distributed,
+                    new_this_week: detailedStatsData[0].new_this_week,
+                    new_this_month: detailedStatsData[0].new_this_month,
+                }));
+            }
 
             const { data: minData, error: minError} = await supabase.rpc('admin_get_min_range_distribution');
             if (!minError && minData) setMinRangeDistribution(minData);
 
             const { data: maxData, error: maxError } = await supabase.rpc('admin_get_max_range_distribution');
             if (!maxError && maxData) setMaxRangeDistribution(maxData);
-
-            const { data: engagementData, error: engagementError } = await supabase.rpc('admin_get_engagement_metrics');
-            if (!engagementError && engagementData && engagementData.length > 0) setEngagementMetrics(engagementData[0]);
 
             const { data: songsData, error: songsError } = await supabase.rpc('admin_get_most_saved_songs');
             if (!songsError && songsData) setMostSavedSongs(songsData);
@@ -184,8 +224,8 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
                     <MetricCard label="New Today" value={stats?.new_today?.toString() || '0'} icon="✨" color="#27ae60" colors={colors} />
                 </View>
                 <View style={styles.row}>
-                    <MetricCard label="New This Week" value={stats?.new_this_week?.toString() || '0'} icon="📅" color="#3498db" colors={colors} />
-                    <MetricCard label="New This Month" value={stats?.new_this_month?.toString() || '0'} icon="📆" color="#9b59b6" colors={colors} />
+                    <MetricCard label="New This Week" value={extendedStats?.new_this_week?.toString() || '0'} icon="📅" color="#3498db" colors={colors} />
+                    <MetricCard label="New This Month" value={extendedStats?.new_this_month?.toString() || '0'} icon="📆" color="#9b59b6" colors={colors} />
                 </View>
             </View>
 
@@ -195,8 +235,8 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
                 <View style={styles.row}>
                     <MetricCard 
                         label="With Vocal Range" 
-                        value={stats?.users_with_vocal_range?.toString() || '0'}
-                        subtitle={`${calculatePercentage(stats?.users_with_vocal_range || 0, stats?.total_users || 0)}% of users`}
+                        value={extendedStats?.users_with_vocal_range?.toString() || '0'}
+                        subtitle={`${calculatePercentage(extendedStats?.users_with_vocal_range || 0, stats?.total_users || 0)}% of users`}
                         icon="🎵" 
                         colors={colors}
                     />
@@ -280,8 +320,8 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
                     <MetricCard label="Pending Songs" value={stats?.pending_songs?.toString() || '0'} icon="⏳" color="#f39c12" colors={colors} />
                 </View>
                 <View style={styles.row}>
-                    <MetricCard label="Saved Lists" value={stats?.total_saved_lists?.toString() || '0'} icon="📋" colors={colors} />
-                    <MetricCard label="Saved Songs" value={stats?.total_saved_songs?.toString() || '0'} icon="💾" colors={colors} />
+                    <MetricCard label="Saved Lists" value={extendedStats?.total_saved_lists?.toString() || '0'} icon="📋" colors={colors} />
+                    <MetricCard label="Saved Songs" value={extendedStats?.total_saved_songs?.toString() || '0'} icon="💾" colors={colors} />
                 </View>
             </View>
 
@@ -291,7 +331,7 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
                 <View style={styles.row}>
                     <MetricCard 
                         label="Total Coins" 
-                        value={stats?.total_coins_distributed?.toString() || '0'} 
+                        value={extendedStats?.total_coins_distributed?.toString() || '0'} 
                         icon="🪙" 
                         color="#f1c40f"
                         colors={colors}
@@ -307,7 +347,7 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
                 <View style={styles.row}>
                     <MetricCard 
                         label="Avg per User" 
-                        value={Math.round(stats?.avg_coins_per_user || 0).toString()} 
+                        value={Math.round(extendedStats?.avg_coins_per_user || 0).toString()} 
                         icon="💵" 
                         color="#27ae60"
                         colors={colors}
@@ -652,6 +692,28 @@ const styles = StyleSheet.create({
     insightValue: {
         fontSize: 18,
         fontWeight: 'bold',
+    },
+    infoCard: {
+        borderRadius: 12,
+        padding: 16,
+        marginTop: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(128, 128, 128, 0.2)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+        elevation: 2,
+    },
+    infoCardTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        marginBottom: 8,
+    },
+    infoCardText: {
+        fontSize: 12,
+        lineHeight: 18,
+        marginBottom: 6,
     },
     footer: {
         alignItems: 'center',

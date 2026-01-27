@@ -166,21 +166,57 @@ export const calculateRangeStats = (lowestNote: string, highestNote: string) => 
   const octaves = Math.floor(semitones / 12);
   const remainingSemitones = semitones % 12;
   
-  // Classify vocal type (simplified)
+  // Classify vocal type based on actual vocal ranges
+  // Extract octave numbers from notes (e.g., "C2" -> 2, "C#3" -> 3)
+  const getOctave = (note: string): number => {
+    const match = note.match(/\d+$/);
+    return match ? parseInt(match[0]) : 0;
+  };
+  
+  const lowOctave = getOctave(lowestNote);
+  const highOctave = getOctave(highestNote);
+  
   let classification = 'Unknown';
   
-  if (lowestNote.includes('2') || lowestNote.includes('1')) {
-    if (highestNote.includes('4')) {
-      classification = 'Bass';
-    } else if (highestNote.includes('5')) {
-      classification = 'Baritone / Mezzo-Soprano';
-    }
-  } else if (lowestNote.includes('3')) {
-    if (highestNote.includes('5')) {
-      classification = 'Tenor / Alto';
-    } else if (highestNote.includes('6')) {
-      classification = 'Soprano';
-    }
+  // Bass: typically E2-E4 (low notes, ending around 4th octave)
+  if (lowOctave <= 2 && highOctave <= 4) {
+    classification = 'Bass';
+  }
+  // Baritone: typically A2-A4 (mid-low notes, can reach 4th-5th octave)
+  else if (lowOctave <= 2 && highOctave >= 4 && highOctave <= 5) {
+    classification = 'Baritone';
+  }
+  // Tenor: typically C3-C5 (higher male voice, reaching 5th octave)
+  else if (lowOctave >= 2 && lowOctave <= 3 && highOctave >= 5 && highOctave <= 6) {
+    classification = 'Tenor';
+  }
+  // Alto: typically F3-F5 (lower female voice)
+  else if (lowOctave >= 3 && highOctave >= 5 && highOctave <= 6) {
+    classification = 'Alto';
+  }
+  // Mezzo-Soprano: typically A3-A5 (mid female voice)
+  else if (lowOctave >= 3 && highOctave >= 5) {
+    classification = 'Mezzo-Soprano';
+  }
+  // Soprano: typically C4-C6 or higher (highest female voice)
+  else if (lowOctave >= 4 && highOctave >= 6) {
+    classification = 'Soprano';
+  }
+  // Countertenor: male voice singing in alto/soprano range (C3-C5 or higher)
+  else if (lowOctave >= 3 && highOctave >= 5) {
+    classification = 'Countertenor / Alto';
+  }
+  // Broad ranges that could be multiple types
+  else if (lowOctave <= 2 && highOctave >= 5) {
+    classification = 'Baritone / Tenor';
+  }
+  // Very high voices
+  else if (highOctave >= 6) {
+    classification = 'Soprano / High Voice';
+  }
+  // Very low voices
+  else if (lowOctave <= 2) {
+    classification = 'Bass / Low Voice';
   }
   
   return {

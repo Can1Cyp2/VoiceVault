@@ -379,6 +379,28 @@ export default function ProfileScreen({ navigation }: any) {
               )}
             </TouchableOpacity>
 
+            {/* Admin Access - Only visible to admins */}
+            {!adminLoading && isAdmin && (
+              <TouchableOpacity
+                style={styles.dropdownOption}
+                onPress={(event) => {
+                  handleAdminAccess(event);
+                  setMenuVisible(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="shield-checkmark-outline" size={20} color={colors.warning} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.dropdownText, { color: colors.warning }]}>Admin Panel</Text>
+                  {adminDetails && typeof adminDetails === 'object' && 'role' in adminDetails && (
+                    <Text style={[styles.adminRoleDropdown, { color: colors.textTertiary }]}>
+                      {(adminDetails as any).role.replace("_", " ").toUpperCase()}
+                    </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            )}
+
             {/* Logout */}
             <TouchableOpacity
               style={[styles.dropdownOption, styles.dropdownOptionLast]}
@@ -393,24 +415,6 @@ export default function ProfileScreen({ navigation }: any) {
       </View>
 
       </ScrollView>
-
-      {/* Admin Access Button - Only visible to admins */}
-      {!adminLoading && isAdmin && (
-        <View style={styles.adminSection}>
-          <Text style={styles.adminLabel}>🔒 Admin Access</Text>
-          <TouchableOpacity
-            style={styles.adminButton}
-            onPress={handleAdminAccess}
-          >
-            <Text style={styles.adminButtonText}>Open Admin Panel</Text>
-          </TouchableOpacity>
-          {adminDetails && typeof adminDetails === 'object' && 'role' in adminDetails && (
-            <Text style={styles.adminRole}>
-              Role: {(adminDetails as any).role.replace("_", " ").toUpperCase()}
-            </Text>
-          )}
-        </View>
-      )}
 
       {/* Help Modal */}
       <TouchableOpacity
@@ -650,47 +654,10 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     color: colors.textPrimary,
     fontWeight: "500",
   },
-  // Keep existing admin styles
-  adminSection: {
-    marginHorizontal: 20,
-    marginTop: 20,
-    padding: 20,
-    backgroundColor: colors.highlightAlt,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.danger,
-    alignItems: "center",
-    shadowColor: colors.danger,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  adminLabel: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: colors.danger,
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  adminButton: {
-    backgroundColor: colors.danger,
-    padding: 15,
-    borderRadius: 8,
-    width: "100%",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  adminButtonText: {
-    color: colors.buttonText,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  adminRole: {
-    fontSize: 12,
-    color: colors.textSecondary,
+  adminRoleDropdown: {
+    fontSize: 11,
     fontStyle: "italic",
-    textAlign: "center",
+    marginTop: 2,
   },
   helpButton: {
     position: "absolute",

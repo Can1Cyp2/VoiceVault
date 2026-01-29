@@ -240,6 +240,13 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             initial: false 
           });
         }}
+        onTunerPress={() => {
+          // @ts-ignore - Navigate to nested screen
+          navigation.navigate("Search", { 
+            screen: "Tuner",
+            initial: false 
+          });
+        }}
       />
       <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.3.9</Text>
     </View>

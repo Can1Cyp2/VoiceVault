@@ -61,6 +61,40 @@ export const formatNote = (note: string, octave: number): string => {
   return `${note}${octave}`;
 };
 
+/**
+ * Calculate cents difference from perfect pitch
+ * Returns how many cents (1/100 of a semitone) the frequency is off from the target note
+ * Positive = sharp, Negative = flat
+ */
+export const calculateCents = (frequency: number): number => {
+  if (!frequency || !isFinite(frequency) || frequency <= 0) {
+    return 0;
+  }
+
+  const A4 = 440;
+  const C0 = A4 * Math.pow(2, -4.75);
+  const halfSteps = 12 * Math.log2(frequency / C0);
+  const nearestNote = Math.round(halfSteps);
+  const cents = Math.round((halfSteps - nearestNote) * 100);
+  
+  return cents;
+};
+
+/**
+ * Get the target frequency for a given note and octave
+ */
+export const getNoteFrequency = (note: string, octave: number): number => {
+  const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const noteIndex = notes.indexOf(note);
+  if (noteIndex === -1) return 0;
+  
+  const A4 = 440;
+  const C0 = A4 * Math.pow(2, -4.75);
+  const halfSteps = octave * 12 + noteIndex;
+  
+  return C0 * Math.pow(2, halfSteps / 12);
+};
+
 // Global index for mock data to persist across recordings
 let mockDataIndex = 0;
 

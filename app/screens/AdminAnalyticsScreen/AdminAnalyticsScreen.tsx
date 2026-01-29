@@ -193,7 +193,7 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
         return (
             <View style={[styles.container, { backgroundColor: colors.background }]}>
                 <View style={styles.errorContainer}>
-                    <Text style={[styles.errorText, { color: colors.error }]}>❌ {error}</Text>
+                    <Text style={[styles.errorText, { color: colors.danger }]}>❌ {error}</Text>
                     <TouchableOpacity 
                         style={[styles.retryButton, { backgroundColor: colors.primary }]} 
                         onPress={fetchAllData}

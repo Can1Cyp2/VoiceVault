@@ -11,6 +11,7 @@ import SearchScreen from "../screens/SearchScreen/SearchScreen";
 import SavedListsScreen from "../screens/SavedListsScreen/SavedListsScreen";
 import ListDetailsScreen from "../screens/ListDetailsScreen/ListDetailsScreen";
 import MetronomeScreen from "../screens/MetronomeScreen/MetronomeScreen";
+import TunerScreen from "../screens/TunerScreen/TunerScreen";
 import AdminProfileScreen from "../screens/ProfileScreen/AdminProfileScreen";
 import AdminAnalyticsScreen from "../screens/AdminAnalyticsScreen/AdminAnalyticsScreen";
 import ContentModerationScreen from "../screens/ContentModerationScreen/ContentModerationScreen";
@@ -33,6 +34,7 @@ export type RootStackParamList = {
   ListDetails: { listName: string }; // Route for showing a specific list's details
   SongDetails: { name: string; artist: string; vocalRange: string };
   Metronome: undefined;
+  Tuner: undefined;
   AdminProfileScreen: undefined;
   AdminAnalyticsScreen: undefined;
   ContentModerationScreen: undefined;
@@ -154,6 +156,16 @@ export function AppStack() {
           title: "Metronome",
         }}
       />
+
+      {/* Tuner Screen */}
+      <Stack.Screen
+        name="Tuner"
+        component={TunerScreen}
+        options={{
+          title: "Tuner",
+        }}
+      />
+
       <Stack.Screen
       name="AdminProfileScreen"
       component={AdminProfileScreen}

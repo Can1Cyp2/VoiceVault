@@ -42,6 +42,9 @@ yarn-error.*
 # supabase keys
 #
 
+# Personal notes
+possible_future_TODO.md
+
 # supabase migrations and docs (keep internal only)
 supabase/migrations/
 supabase/**/*.sql

@@ -375,7 +375,7 @@ class AdService {
       console.log("Checking if ad is loaded:", this.rewardedAd.loaded);
       if (!this.rewardedAd.loaded) {
         console.log("Rewarded ad not loaded, loading now...");
-        Alert.alert("Loading Ad", "Please wait a moment while the ad loads...");
+        // Don't show alert yet - only show if loading takes too long or fails
         const options = await this.currentRequestOptions();
         console.log("Loading ad with options:", options);
 

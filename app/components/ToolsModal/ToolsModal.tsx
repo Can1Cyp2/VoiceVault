@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useAdminStatus } from '../../util/adminUtils';
 
 interface ToolsModalProps {
   visible: boolean;
@@ -27,7 +26,6 @@ export const ToolsModal: React.FC<ToolsModalProps> = ({
   onTunerPress,
 }) => {
   const { colors } = useTheme();
-  const { isAdmin } = useAdminStatus();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
@@ -72,40 +70,23 @@ export const ToolsModal: React.FC<ToolsModalProps> = ({
             </TouchableOpacity>
 
             {/* Tuner Button */}
-            {isAdmin ? (
-              <TouchableOpacity
-                style={styles.toolButton}
-                onPress={() => {
-                  onTunerPress();
-                  onClose();
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={styles.iconContainer}>
-                  <Text style={styles.emoji}>🎸</Text>
-                </View>
-                <View style={styles.textContainer}>
-                  <Text style={styles.toolTitle}>Tuner</Text>
-                  <Text style={styles.toolDescription}>Tune your instrument or voice</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.toolButton, styles.disabledButton]}
-                activeOpacity={0.5}
-                disabled
-              >
-                <View style={styles.iconContainer}>
-                  <Text style={styles.emoji}>🎸</Text>
-                </View>
-                <View style={styles.textContainer}>
-                  <Text style={styles.toolTitle}>Tuner</Text>
-                  <Text style={styles.comingSoon}>Coming soon</Text>
-                </View>
-                <Ionicons name="lock-closed" size={20} color={colors.textTertiary} />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.toolButton}
+              onPress={() => {
+                onTunerPress();
+                onClose();
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={styles.iconContainer}>
+                <Text style={styles.emoji}>🎸</Text>
+              </View>
+              <View style={styles.textContainer}>
+                <Text style={styles.toolTitle}>Tuner</Text>
+                <Text style={styles.toolDescription}>Tune your instrument or voice</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
         </Pressable>
       </Pressable>

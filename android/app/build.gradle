@@ -99,7 +99,7 @@ android {
         applicationId 'com.can1cyp2.VoiceVault'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10307
+        versionCode 10308
         versionName "1.4.5"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""

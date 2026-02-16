@@ -16,6 +16,8 @@ export type RootStackParamList = {
   ListDetails: { listName: string };
   SongDetails: { name: string; artist: string; vocalRange: string };
   Metronome: undefined;
+  Tuner: undefined;
+  Piano: undefined;
   AdminProfileScreen: undefined;
   AdminAnalyticsScreen: undefined;
   ContentModerationScreen: undefined;

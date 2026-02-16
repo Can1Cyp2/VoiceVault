@@ -17,6 +17,7 @@ interface ToolsModalProps {
   onClose: () => void;
   onMetronomePress: () => void;
   onTunerPress: () => void;
+  onPianoPress: () => void;
 }
 
 export const ToolsModal: React.FC<ToolsModalProps> = ({
@@ -24,6 +25,7 @@ export const ToolsModal: React.FC<ToolsModalProps> = ({
   onClose,
   onMetronomePress,
   onTunerPress,
+  onPianoPress,
 }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -84,6 +86,25 @@ export const ToolsModal: React.FC<ToolsModalProps> = ({
               <View style={styles.textContainer}>
                 <Text style={styles.toolTitle}>Tuner</Text>
                 <Text style={styles.toolDescription}>Tune your instrument or voice</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
+            </TouchableOpacity>
+
+            {/* Piano Button */}
+            <TouchableOpacity
+              style={styles.toolButton}
+              onPress={() => {
+                onPianoPress();
+                onClose();
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={styles.iconContainer}>
+                <Text style={styles.emoji}>🎹</Text>
+              </View>
+              <View style={styles.textContainer}>
+                <Text style={styles.toolTitle}>Piano</Text>
+                <Text style={styles.toolDescription}>Play a scrollable piano keyboard</Text>
               </View>
               <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
             </TouchableOpacity>

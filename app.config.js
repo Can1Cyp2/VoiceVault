@@ -9,7 +9,7 @@ module.exports = () => {
     name: "VoiceVault",
     slug: "VoiceVault",
     version: "1.4.1",
-    orientation: "portrait",
+    orientation: "default",
     icon: "./assets/dark-glow-nontransparent-icon2.png",
     userInterfaceStyle: "light",
     newArchEnabled: false, // temp

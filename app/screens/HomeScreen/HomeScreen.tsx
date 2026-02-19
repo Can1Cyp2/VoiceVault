@@ -248,7 +248,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           });
         }}
       />
-      <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.3.9</Text>
+      <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.4.0</Text>
     </View>
   );
 }

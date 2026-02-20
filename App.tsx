@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Alert, Text, View, Platform } from "react-native";
-import { NavigationContainer, useNavigation } from "@react-navigation/native";
+import { NavigationContainer, useNavigation, getFocusedRouteNameFromRoute } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { AppStack } from "./app/navigation/StackNavigator";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,6 +7,7 @@ import { getSession, supabase } from "./app/util/supabase";
 import { StatusBar } from "expo-status-bar";
 import { ThemeProvider, useTheme } from "./app/contexts/ThemeContext";
 import * as Sentry from "@sentry/react-native";
+import * as ScreenOrientation from "expo-screen-orientation";
 
 import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
 import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
@@ -123,6 +124,11 @@ function AppContent() {
   const [attRequested, setAttRequested] = useState(false);
   const { isDark } = useTheme();
 
+  // Lock app to portrait by default (Piano screen overrides this to landscape)
+  useEffect(() => {
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+  }, []);
+
   useEffect(() => {
     // CRITICAL: Request ATT permission FIRST, before any SDK initialization
     // iOS 18+ requires ATT to be called immediately without delays
@@ -231,13 +237,20 @@ function AppContent() {
           <Tab.Screen
             name="Search"
             component={AppStack}
-            options={{
-              tabBarButton: (props) => (
-                <CustomSearchButton
-                  {...props}
-                  isCurrentScreen={currentScreen === "Search"}
-                />
-              ),
+            options={({ route }) => {
+              const routeName = getFocusedRouteNameFromRoute(route) ?? "Search";
+              const hideTabBar = ["Piano", "Metronome", "Tuner"].includes(routeName);
+              return {
+                ...(hideTabBar && {
+                  tabBarStyle: { display: "none" as const },
+                }),
+                tabBarButton: (props) => (
+                  <CustomSearchButton
+                    {...props}
+                    isCurrentScreen={currentScreen === "Search"}
+                  />
+                ),
+              };
             }}
           />
           <Tab.Screen

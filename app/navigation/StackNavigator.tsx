@@ -12,6 +12,7 @@ import SavedListsScreen from "../screens/SavedListsScreen/SavedListsScreen";
 import ListDetailsScreen from "../screens/ListDetailsScreen/ListDetailsScreen";
 import MetronomeScreen from "../screens/MetronomeScreen/MetronomeScreen";
 import TunerScreen from "../screens/TunerScreen/TunerScreen";
+import PianoScreen from "../screens/PianoScreen/PianoScreen";
 import AdminProfileScreen from "../screens/ProfileScreen/AdminProfileScreen";
 import AdminAnalyticsScreen from "../screens/AdminAnalyticsScreen/AdminAnalyticsScreen";
 import ContentModerationScreen from "../screens/ContentModerationScreen/ContentModerationScreen";
@@ -35,6 +36,7 @@ export type RootStackParamList = {
   SongDetails: { name: string; artist: string; vocalRange: string };
   Metronome: undefined;
   Tuner: undefined;
+  Piano: undefined;
   AdminProfileScreen: undefined;
   AdminAnalyticsScreen: undefined;
   ContentModerationScreen: undefined;
@@ -163,6 +165,16 @@ export function AppStack() {
         component={TunerScreen}
         options={{
           title: "Tuner",
+        }}
+      />
+
+      {/* Piano Screen */}
+      <Stack.Screen
+        name="Piano"
+        component={PianoScreen}
+        options={{
+          title: "Piano",
+          headerShown: false,
         }}
       />
 

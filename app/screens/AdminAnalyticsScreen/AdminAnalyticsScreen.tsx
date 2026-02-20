@@ -8,9 +8,17 @@ import {
     TouchableOpacity,
     RefreshControl,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../util/supabase';
 import { useAdminStatus } from '../../util/adminUtils';
 import { useTheme } from '../../contexts/ThemeContext';
+import {
+    UserGrowthModal,
+    EngagementModal,
+    EconomyModal,
+    ContentModal,
+    VocalRangeModal,
+} from './components';
 
 interface DetailedStats {
     total_users: number;
@@ -84,6 +92,13 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({});
+    
+    // Modal visibility states
+    const [showUserGrowthModal, setShowUserGrowthModal] = useState(false);
+    const [showEngagementModal, setShowEngagementModal] = useState(false);
+    const [showEconomyModal, setShowEconomyModal] = useState(false);
+    const [showContentModal, setShowContentModal] = useState(false);
+    const [showVocalRangeModal, setShowVocalRangeModal] = useState(false);
 
     useEffect(() => {
         if (!adminLoading && isAdmin) {
@@ -218,7 +233,17 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
 
             {/* User Growth Section */}
             <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>👥 User Growth</Text>
+                <TouchableOpacity 
+                    style={styles.sectionHeader}
+                    onPress={() => setShowUserGrowthModal(true)}
+                    activeOpacity={0.7}
+                >
+                    <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>👥 User Growth</Text>
+                    <View style={[styles.viewDetailsButton, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.viewDetailsText}>View Details</Text>
+                        <Ionicons name="chevron-forward" size={14} color="#fff" />
+                    </View>
+                </TouchableOpacity>
                 <View style={styles.row}>
                     <MetricCard label="Total Users" value={stats?.total_users?.toString() || '0'} icon="👤" colors={colors} />
                     <MetricCard label="New Today" value={stats?.new_today?.toString() || '0'} icon="✨" color="#27ae60" colors={colors} />
@@ -231,7 +256,17 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
 
             {/* Engagement Section */}
             <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>🎯 User Engagement</Text>
+                <TouchableOpacity 
+                    style={styles.sectionHeader}
+                    onPress={() => setShowEngagementModal(true)}
+                    activeOpacity={0.7}
+                >
+                    <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>🎯 User Engagement</Text>
+                    <View style={[styles.viewDetailsButton, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.viewDetailsText}>View Details</Text>
+                        <Ionicons name="chevron-forward" size={14} color="#fff" />
+                    </View>
+                </TouchableOpacity>
                 <View style={styles.row}>
                     <MetricCard 
                         label="With Vocal Range" 
@@ -255,12 +290,26 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
             <View style={styles.section}>
                 <TouchableOpacity 
                     style={[styles.expandableHeader, { backgroundColor: colors.backgroundCard }]}
-                    onPress={() => toggleSection('vocalRange')}
+                    onPress={() => setShowVocalRangeModal(true)}
                 >
                     <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 0 }]}>
                         🎼 Vocal Range Distribution
                     </Text>
-                    <Text style={[styles.expandIcon, { color: colors.textPrimary }]}>
+                    <View style={[styles.viewDetailsButton, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.viewDetailsText}>Analyze</Text>
+                        <Ionicons name="analytics" size={14} color="#fff" />
+                    </View>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                    style={[styles.quickExpandHeader, { backgroundColor: colors.backgroundCard }]}
+                    onPress={() => toggleSection('vocalRange')}
+                    activeOpacity={0.7}
+                >
+                    <Text style={[styles.quickExpandText, { color: colors.textSecondary }]}>
+                        {expandedSections['vocalRange'] ? 'Hide Quick Preview' : 'Show Quick Preview'}
+                    </Text>
+                    <Text style={[styles.expandIcon, { color: colors.textSecondary }]}>
                         {expandedSections['vocalRange'] ? '▼' : '▶'}
                     </Text>
                 </TouchableOpacity>
@@ -314,7 +363,17 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
 
             {/* Content Section */}
             <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>📚 Content Stats</Text>
+                <TouchableOpacity 
+                    style={styles.sectionHeader}
+                    onPress={() => setShowContentModal(true)}
+                    activeOpacity={0.7}
+                >
+                    <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>📚 Content Stats</Text>
+                    <View style={[styles.viewDetailsButton, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.viewDetailsText}>View Details</Text>
+                        <Ionicons name="chevron-forward" size={14} color="#fff" />
+                    </View>
+                </TouchableOpacity>
                 <View style={styles.row}>
                     <MetricCard label="Total Songs" value={stats?.total_songs?.toString() || '0'} icon="🎵" colors={colors} />
                     <MetricCard label="Pending Songs" value={stats?.pending_songs?.toString() || '0'} icon="⏳" color="#f39c12" colors={colors} />
@@ -327,7 +386,17 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
 
             {/* Support & Economy Section */}
             <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>💰 Economy</Text>
+                <TouchableOpacity 
+                    style={styles.sectionHeader}
+                    onPress={() => setShowEconomyModal(true)}
+                    activeOpacity={0.7}
+                >
+                    <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>💰 Economy</Text>
+                    <View style={[styles.viewDetailsButton, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.viewDetailsText}>View Details</Text>
+                        <Ionicons name="chevron-forward" size={14} color="#fff" />
+                    </View>
+                </TouchableOpacity>
                 <View style={styles.row}>
                     <MetricCard 
                         label="Total Coins" 
@@ -504,7 +573,59 @@ export default function AdminAnalyticsScreen({ navigation }: any) {
                 <Text style={[styles.footerText, { color: colors.textSecondary }]}>
                     Last updated: {new Date().toLocaleString()}
                 </Text>
+                <Text style={[styles.footerHint, { color: colors.textTertiary }]}>
+                    Tap any section header for detailed analytics
+                </Text>
             </View>
+
+            {/* Analytics Detail Modals */}
+            <UserGrowthModal
+                visible={showUserGrowthModal}
+                onClose={() => setShowUserGrowthModal(false)}
+                colors={colors}
+                stats={stats}
+                extendedStats={extendedStats}
+                engagementMetrics={engagementMetrics}
+            />
+            
+            <EngagementModal
+                visible={showEngagementModal}
+                onClose={() => setShowEngagementModal(false)}
+                colors={colors}
+                stats={stats}
+                extendedStats={extendedStats}
+                userAnalytics={userAnalytics}
+                engagementMetrics={engagementMetrics}
+            />
+            
+            <EconomyModal
+                visible={showEconomyModal}
+                onClose={() => setShowEconomyModal(false)}
+                colors={colors}
+                stats={stats}
+                extendedStats={extendedStats}
+                engagementMetrics={engagementMetrics}
+            />
+            
+            <ContentModal
+                visible={showContentModal}
+                onClose={() => setShowContentModal(false)}
+                colors={colors}
+                stats={stats}
+                extendedStats={extendedStats}
+                mostSavedSongs={mostSavedSongs}
+            />
+            
+            <VocalRangeModal
+                visible={showVocalRangeModal}
+                onClose={() => setShowVocalRangeModal(false)}
+                colors={colors}
+                minRangeDistribution={minRangeDistribution}
+                maxRangeDistribution={maxRangeDistribution}
+                userAnalytics={userAnalytics}
+                engagementMetrics={engagementMetrics}
+                extendedStats={extendedStats}
+            />
         </ScrollView>
     );
 }
@@ -551,10 +672,29 @@ const styles = StyleSheet.create({
     section: {
         marginBottom: 24,
     },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
     sectionTitle: {
         fontSize: 18,
         fontWeight: '600',
         marginBottom: 12,
+    },
+    viewDetailsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        gap: 4,
+    },
+    viewDetailsText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: '600',
     },
     expandableHeader: {
         flexDirection: 'row',
@@ -562,7 +702,20 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 16,
         borderRadius: 12,
+        marginBottom: 4,
+    },
+    quickExpandHeader: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 8,
         marginBottom: 8,
+        gap: 8,
+    },
+    quickExpandText: {
+        fontSize: 13,
     },
     expandIcon: {
         fontSize: 16,
@@ -723,6 +876,11 @@ const styles = StyleSheet.create({
     },
     footerText: {
         fontSize: 12,
+    },
+    footerHint: {
+        fontSize: 11,
+        marginTop: 4,
+        fontStyle: 'italic',
     },
     loadingContainer: {
         flex: 1,

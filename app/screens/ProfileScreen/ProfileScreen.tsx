@@ -256,13 +256,21 @@ export default function ProfileScreen({ navigation }: any) {
             : username}
         </Text>
         {coinBalance !== null && (
-          <View style={styles.coinBadge}>
+          <TouchableOpacity 
+            style={styles.coinBadge}
+            onPress={() => Alert.alert(
+              "What are Coins? 🪙",
+              "Coins represent your support for VoiceVault — a small token of gratitude for helping keep the app running!\n\nIn the future, I'd love to reward supporters with special perks and gifts. Stay tuned! 💜",
+              [{ text: "Got it!", style: "default" }]
+            )}
+            activeOpacity={0.7}
+          >
             <Image 
               source={require('../../../assets/coin-icon.png')} 
               style={styles.coinIcon}
             />
             <Text style={styles.coinBalance}>{coinBalance}</Text>
-          </View>
+          </TouchableOpacity>
         )}
       </View>
 

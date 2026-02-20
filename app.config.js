@@ -8,8 +8,8 @@ module.exports = () => {
   return {
     name: "VoiceVault",
     slug: "VoiceVault",
-    version: "1.4.0",
-    orientation: "portrait",
+    version: "1.4.1",
+    orientation: "default",
     icon: "./assets/dark-glow-nontransparent-icon2.png",
     userInterfaceStyle: "light",
     newArchEnabled: false, // temp

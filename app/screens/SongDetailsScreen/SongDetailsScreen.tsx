@@ -30,6 +30,7 @@ import { supabase } from "../../util/supabase";
 import { findClosestVocalRangeFit, noteToValue } from "./RangeBestFit";
 import SongRangeRecommendation from "./SongRangeRecommendation";
 import Piano from '../../components/Piano/Piano';
+import { playNoteSound } from '../../util/pianoAudio';
 
 const { width } = Dimensions.get('window');
 
@@ -283,11 +284,25 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
           <View style={styles.rangeDetails}>
             <View style={styles.rangeItem}>
               <Text style={styles.rangeLabel}>Lowest Note:</Text>
-              <Text style={styles.rangeValue}>{lowest}</Text>
+              <TouchableOpacity
+                style={styles.playableNote}
+                onPress={() => playNoteSound(lowest)}
+                activeOpacity={0.6}
+              >
+                <Text style={styles.rangeValue}>{lowest}</Text>
+                <Ionicons name="volume-medium" size={18} color={colors.primary} />
+              </TouchableOpacity>
             </View>
             <View style={styles.rangeItem}>
               <Text style={styles.rangeLabel}>Highest Note:</Text>
-              <Text style={styles.rangeValue}>{highest}</Text>
+              <TouchableOpacity
+                style={styles.playableNote}
+                onPress={() => playNoteSound(highest)}
+                activeOpacity={0.6}
+              >
+                <Text style={styles.rangeValue}>{highest}</Text>
+                <Ionicons name="volume-medium" size={18} color={colors.primary} />
+              </TouchableOpacity>
             </View>
             <View style={styles.rangeItem}>
               <Text style={styles.rangeLabel}>Octave Range:</Text>
@@ -585,6 +600,11 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     fontWeight: 'bold',
     color: colors.textPrimary,
     fontFamily: FONTS.primary,
+  },
+  playableNote: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
   },
 
   // Best Fit Section

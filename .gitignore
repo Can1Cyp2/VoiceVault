@@ -86,3 +86,6 @@ google-services.json
 
 # IDE
 .vscode/
+
+# Claude Code temp files
+tmpclaude-*

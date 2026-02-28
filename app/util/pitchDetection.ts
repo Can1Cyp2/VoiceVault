@@ -303,10 +303,15 @@ export const startPitchDetection = (
     };
 
     // Platform-specific config for the pitch detector
-    // Using minimal config - let native modules handle defaults
-    const config = Platform.OS === 'ios' 
+    // Android native module requires sampleRate, bufferSize and bufferOverLap.
+    const config = Platform.OS === 'ios'
       ? { algorithm: 'YIN', bufferSize: 1024 }
-      : { algorithm: 'YIN' }; // Android will use native defaults
+      : {
+          algorithm: 'YIN',
+          sampleRate: 22050,
+          bufferSize: 1024,
+          bufferOverLap: 0,
+        };
 
     // Start pitch detection (async)
     console.log(`🎤 [PitchDetection] Starting microphone on ${Platform.OS} with config:`, config);

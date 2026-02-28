@@ -330,8 +330,9 @@ export default function TunerScreen() {
     const freqRange = maxFreq - minFreq || 100;
 
     // Generate path for frequency line
+    const pointsDivisor = Math.max(1, pitchHistory.length - 1);
     const points = pitchHistory.map((item, index) => {
-      const x = padding + (index / (pitchHistory.length - 1)) * (graphWidth - 2 * padding);
+      const x = padding + (index / pointsDivisor) * (graphWidth - 2 * padding);
       const y = graphHeight - padding - ((item.frequency - minFreq) / freqRange) * (graphHeight - 2 * padding);
       return { x, y, ...item };
     });

@@ -1,7 +1,11 @@
 import { Alert } from "react-native";
 import { supabase } from "../../util/supabase";
 
-export const submitVocalRange = async (minRange: string, maxRange: string) => {
+export const submitVocalRange = async (
+  minRange: string,
+  maxRange: string,
+  voiceType: string | null = null
+) => {
   // List of valid notes in order
   const NOTES = [
     "C0", "C1", "C#1", "D1", "D#1", "E1", "F1", "F#1", "G1", "G#1", "A1", "A#1", "B1",
@@ -40,6 +44,7 @@ export const submitVocalRange = async (minRange: string, maxRange: string) => {
         user_id: user.id,
         min_range: minRange,
         max_range: maxRange,
+        voice_type: voiceType,
       },
     ],
     { onConflict: "user_id" } // Ensures only one row per user_id

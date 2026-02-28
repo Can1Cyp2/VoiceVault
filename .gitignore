@@ -45,16 +45,11 @@ yarn-error.*
 # Personal notes
 possible_future_TODO.md
 
-# supabase migrations and docs (keep internal only)
-supabase/migrations/
-supabase/**/*.sql
-supabase/*.md
-supabase/SECURITY*.md
-supabase/ADMIN*.md
-supabase/IMPLEMENTATION*.md
-supabase/ARCHITECTURE*.md
-supabase/SUMMARY*.md
-supabase/START_HERE*.md
+# supabase (private by default)
+supabase/**
+!supabase/migrations/
+supabase/migrations/**
+!supabase/migrations/20260227_add_voice_type_to_user_vocal_ranges.sql
 CONFLICT_CHECK_RESULTS.md
 ANALYTICS_SETUP.md
 CONTENT_MODERATION_GUIDE.md

@@ -40,7 +40,7 @@ yarn-error.*
 *.tsbuildinfo
 
 # supabase keys
-#
+# these are blocked
 
 # Personal notes
 possible_future_TODO.md

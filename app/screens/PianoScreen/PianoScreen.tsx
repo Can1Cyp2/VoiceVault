@@ -6,6 +6,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  Pressable,
   Dimensions,
   StatusBar,
   TouchableOpacity,
@@ -431,8 +432,10 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
       <ScrollView
         ref={scrollViewRef}
         horizontal
+        scrollEnabled={activeNotes.size === 0}
         showsHorizontalScrollIndicator={false}
         bounces={false}
+        disableScrollViewPanResponder
         contentContainerStyle={{ width: totalWidth, height: whiteKeyHeight }}
         style={{ flex: 1 }}
       >
@@ -442,10 +445,10 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
             const isActive = activeNotes.has(note.name);
             const isC = note.name.startsWith("C");
             return (
-              <View
+              <Pressable
                 key={note.name}
-                onTouchStart={() => onKeyDown(note)}
-                onTouchEnd={() => onKeyUp(note)}
+                onPressIn={() => onKeyDown(note)}
+                onPressOut={() => onKeyUp(note)}
                 onTouchCancel={() => onKeyUp(note)}
                 style={[
                   styles.whiteKey,
@@ -466,7 +469,7 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
                 {showLabels && !isC && (
                   <Text style={styles.whiteKeyLabel}>{note.name}</Text>
                 )}
-              </View>
+              </Pressable>
             );
           })}
 
@@ -475,10 +478,10 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
             const isActive = activeNotes.has(note.name);
             const xPos = getBlackKeyPosition(note);
             return (
-              <View
+              <Pressable
                 key={note.name}
-                onTouchStart={() => onKeyDown(note)}
-                onTouchEnd={() => onKeyUp(note)}
+                onPressIn={() => onKeyDown(note)}
+                onPressOut={() => onKeyUp(note)}
                 onTouchCancel={() => onKeyUp(note)}
                 style={[
                   styles.blackKey,
@@ -489,7 +492,7 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
                 {showLabels && (
                   <Text style={styles.blackKeyLabel}>{note.name}</Text>
                 )}
-              </View>
+              </Pressable>
             );
           })}
         </View>

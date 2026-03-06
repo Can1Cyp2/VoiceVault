@@ -166,57 +166,47 @@ export const calculateRangeStats = (lowestNote: string, highestNote: string) => 
   const octaves = Math.floor(semitones / 12);
   const remainingSemitones = semitones % 12;
   
-  // Classify vocal type based on actual vocal ranges
-  // Extract octave numbers from notes (e.g., "C2" -> 2, "C#3" -> 3)
-  const getOctave = (note: string): number => {
-    const match = note.match(/\d+$/);
-    return match ? parseInt(match[0]) : 0;
-  };
-  
-  const lowOctave = getOctave(lowestNote);
-  const highOctave = getOctave(highestNote);
-  
   let classification = 'Unknown';
-  
-  // Bass: typically E2-E4 (low notes, ending around 4th octave)
-  if (lowOctave <= 2 && highOctave <= 4) {
-    classification = 'Bass';
-  }
-  // Baritone: typically A2-A4 (mid-low notes, can reach 4th-5th octave)
-  else if (lowOctave <= 2 && highOctave >= 4 && highOctave <= 5) {
-    classification = 'Baritone';
-  }
-  // Tenor: typically C3-C5 (higher male voice, reaching 5th octave)
-  else if (lowOctave >= 2 && lowOctave <= 3 && highOctave >= 5 && highOctave <= 6) {
-    classification = 'Tenor';
-  }
-  // Alto: typically F3-F5 (lower female voice)
-  else if (lowOctave >= 3 && highOctave >= 5 && highOctave <= 6) {
-    classification = 'Alto';
-  }
-  // Mezzo-Soprano: typically A3-A5 (mid female voice)
-  else if (lowOctave >= 3 && highOctave >= 5) {
-    classification = 'Mezzo-Soprano';
-  }
-  // Soprano: typically C4-C6 or higher (highest female voice)
-  else if (lowOctave >= 4 && highOctave >= 6) {
-    classification = 'Soprano';
-  }
-  // Countertenor: male voice singing in alto/soprano range (C3-C5 or higher)
-  else if (lowOctave >= 3 && highOctave >= 5) {
-    classification = 'Countertenor / Alto';
-  }
-  // Broad ranges that could be multiple types
-  else if (lowOctave <= 2 && highOctave >= 5) {
-    classification = 'Baritone / Tenor';
-  }
-  // Very high voices
-  else if (highOctave >= 6) {
-    classification = 'Soprano / High Voice';
-  }
-  // Very low voices
-  else if (lowOctave <= 2) {
-    classification = 'Bass / Low Voice';
+
+  const voiceRanges = [
+    { label: 'Bass', min: NOTES.indexOf('E2'), max: NOTES.indexOf('E4') },
+    { label: 'Baritone', min: NOTES.indexOf('A2'), max: NOTES.indexOf('F4') },
+    { label: 'Tenor', min: NOTES.indexOf('C3'), max: NOTES.indexOf('A4') },
+    { label: 'Alto', min: NOTES.indexOf('F3'), max: NOTES.indexOf('D5') },
+    { label: 'Mezzo-Soprano', min: NOTES.indexOf('A3'), max: NOTES.indexOf('F5') },
+    { label: 'Soprano', min: NOTES.indexOf('C4'), max: NOTES.indexOf('A5') },
+  ];
+
+  const analyzedRangeCenter = (lowIndex + highIndex) / 2;
+  const scoredRanges = voiceRanges
+    .filter((range) => range.min !== -1 && range.max !== -1)
+    .map((range) => {
+      const overlap = Math.max(0, Math.min(highIndex, range.max) - Math.max(lowIndex, range.min) + 1);
+      const outsideLow = Math.max(0, range.min - lowIndex);
+      const outsideHigh = Math.max(0, highIndex - range.max);
+      const outside = outsideLow + outsideHigh;
+      const centerDistance = Math.abs(analyzedRangeCenter - (range.min + range.max) / 2);
+
+      const score = overlap * 3 - outside * 2 - centerDistance * 0.5;
+      return { ...range, overlap, score };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  if (scoredRanges.length > 0) {
+    const best = scoredRanges[0];
+    const second = scoredRanges[1];
+
+    if (best.overlap === 0) {
+      if (highIndex >= NOTES.indexOf('C6')) {
+        classification = 'Soprano / High Voice';
+      } else if (lowIndex <= NOTES.indexOf('E2')) {
+        classification = 'Bass / Low Voice';
+      }
+    } else if (second && Math.abs(best.score - second.score) <= 2 && second.overlap > 0) {
+      classification = `${best.label} / ${second.label}`;
+    } else {
+      classification = best.label;
+    }
   }
   
   return {

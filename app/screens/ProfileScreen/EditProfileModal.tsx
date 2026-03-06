@@ -95,6 +95,21 @@ export const NOTES = [
   "C7",
 ];
 
+const VOICE_TYPE_OPTIONS = [
+  { label: "Auto (Based on Range)", value: "" },
+  { label: "Bass", value: "Bass" },
+  { label: "Baritone", value: "Baritone" },
+  { label: "Tenor", value: "Tenor" },
+  { label: "Alto", value: "Alto" },
+  { label: "Mezzo-Soprano", value: "Mezzo-Soprano" },
+  { label: "Soprano", value: "Soprano" },
+  { label: "Countertenor / Alto", value: "Countertenor / Alto" },
+  { label: "Baritone / Tenor", value: "Baritone / Tenor" },
+  { label: "Soprano / High Voice", value: "Soprano / High Voice" },
+  { label: "Bass / Low Voice", value: "Bass / Low Voice" },
+  { label: "Unknown", value: "Unknown" },
+];
+
 // Edit profile modal
 export default function EditProfileModal({
   onClose,
@@ -108,6 +123,7 @@ export default function EditProfileModal({
   const [displayName, setDisplayName] = useState("");
   const [minRange, setMinRange] = useState("C0");
   const [maxRange, setMaxRange] = useState("C0");
+  const [voiceType, setVoiceType] = useState("");
   const [loading, setLoading] = useState(true);
   const [originalDisplayName, setOriginalDisplayName] = useState(""); // To track if user edits it
 
@@ -130,6 +146,7 @@ export default function EditProfileModal({
         if (vocalRangeData) {
           setMinRange(vocalRangeData.min_range || "C0");
           setMaxRange(vocalRangeData.max_range || "C0");
+          setVoiceType(vocalRangeData.voice_type || "");
         }
       } catch (err) {
         console.error("Error fetching user data:", err);
@@ -186,7 +203,7 @@ export default function EditProfileModal({
       }
 
       // Save Vocal Range
-      await submitVocalRange(minRange, maxRange);
+      await submitVocalRange(minRange, maxRange, voiceType || null);
 
       // Trigger ProfileScreen to refresh
       if (onSave) onSave();
@@ -224,6 +241,22 @@ export default function EditProfileModal({
         (buttonIndex) => {
           if (buttonIndex > 0) {
             setMaxRange(NOTES[buttonIndex - 1]);
+          }
+        }
+      );
+    }
+  };
+
+  const handleVoiceTypePress = () => {
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Cancel", ...VOICE_TYPE_OPTIONS.map((option) => option.label)],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex > 0) {
+            setVoiceType(VOICE_TYPE_OPTIONS[buttonIndex - 1].value);
           }
         }
       );
@@ -276,6 +309,25 @@ export default function EditProfileModal({
               >
                 {NOTES.map((note) => (
                   <Picker.Item key={note} label={note} value={note} />
+                ))}
+              </Picker>
+            )}
+
+            <Text style={styles.label}>Voice Type:</Text>
+            {Platform.OS === "ios" ? (
+              <TouchableOpacity style={styles.pickerButton} onPress={handleVoiceTypePress}>
+                <Text style={styles.pickerButtonText}>
+                  {VOICE_TYPE_OPTIONS.find((option) => option.value === voiceType)?.label || "Auto (Based on Range)"}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <Picker
+                selectedValue={voiceType}
+                style={styles.picker}
+                onValueChange={(value) => setVoiceType(value)}
+              >
+                {VOICE_TYPE_OPTIONS.map((option) => (
+                  <Picker.Item key={option.label} label={option.label} value={option.value} />
                 ))}
               </Picker>
             )}

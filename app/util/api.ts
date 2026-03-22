@@ -615,7 +615,7 @@ export const fetchUserVocalRange = async () => {
 
   const { data, error } = await supabase
     .from("user_vocal_ranges")
-    .select("min_range, max_range")
+    .select("min_range, max_range, voice_type")
     .eq("user_id", user.id)
     .single();
 

@@ -206,7 +206,12 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
     }
 
     try {
-      await submitVocalRange(detectedLowNote, detectedHighNote);
+      const stats = calculateRangeStats(detectedLowNote, detectedHighNote);
+      await submitVocalRange(
+        detectedLowNote,
+        detectedHighNote,
+        stats.classification === 'Unknown' ? null : stats.classification
+      );
       onSuccess(detectedLowNote, detectedHighNote);
       onClose();
       Alert.alert('Success', 'Your vocal range has been saved!');
@@ -441,9 +446,23 @@ export default function VocalRangeDetectorModal({ visible, onClose, onSuccess }:
               {stats.rangeDescription}
             </Text>
             {stats.classification !== 'Unknown' && (
-              <Text style={[styles.classification, { color: colors.textPrimary }]}>
-                🎤 {stats.classification}
-              </Text>
+              <View style={styles.classificationRow}>
+                <Text style={[styles.classification, { color: colors.textPrimary }]}>
+                  🎤 {stats.classification}
+                </Text>
+                <TouchableOpacity
+                  style={styles.infoButton}
+                  onPress={() =>
+                    Alert.alert(
+                      'Voice Type Estimate',
+                      'This voice type is an estimate based on your detected lowest and highest notes, and may not be fully accurate.\n\nIt can still help by giving you a starting point for choosing songs and keys that are more likely to feel comfortable.',
+                      [{ text: 'OK' }]
+                    )
+                  }
+                >
+                  <Ionicons name="information-circle-outline" size={24} color={colors.accent} />
+                </TouchableOpacity>
+              </View>
             )}
             <TouchableOpacity
               style={[styles.button, styles.primaryButton]}
@@ -641,6 +660,14 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   classification: {
     fontSize: 24,
     fontWeight: '600',
+  },
+  classificationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 30,
+    gap: 8,
+  },
+  infoButton: {
+    padding: 4,
   },
 });

@@ -135,6 +135,15 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   };
 
   // Handle login and signup button presses
+  const openToolFromSearch = (screen: "Metronome" | "Tuner" | "Piano") => {
+    // Open the requested tool in the Search tab stack.
+    // @ts-ignore - Nested route typing comes from the tab -> stack relationship.
+    navigation.navigate("Search", {
+      screen,
+      initial: false,
+    });
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Top Button Row */}
@@ -234,28 +243,16 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         visible={isToolsVisible} 
         onClose={() => setToolsVisible(false)}
         onMetronomePress={() => {
-          // @ts-ignore - Navigate to nested screen
-          navigation.navigate("Search", { 
-            screen: "Metronome",
-            initial: false 
-          });
+          openToolFromSearch("Metronome");
         }}
         onTunerPress={() => {
-          // @ts-ignore - Navigate to nested screen
-          navigation.navigate("Search", { 
-            screen: "Tuner",
-            initial: false 
-          });
+          openToolFromSearch("Tuner");
         }}
         onPianoPress={() => {
-          // @ts-ignore - Navigate to nested screen
-          navigation.navigate("Search", { 
-            screen: "Piano",
-            initial: false 
-          });
+          openToolFromSearch("Piano");
         }}
       />
-      <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.4.8</Text>
+      <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.4.9</Text>
     </View>
   );
 }

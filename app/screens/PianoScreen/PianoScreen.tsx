@@ -158,6 +158,14 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
   const whiteKeyHeight = pianoHeight;
   const blackKeyHeight = Math.round(pianoHeight * BLACK_KEY_RATIO);
 
+  const handleExitToSearch = useCallback(() => {
+    // Restore portrait before leaving piano to avoid transient landscape artifacts.
+    ScreenOrientation.lockAsync(
+      ScreenOrientation.OrientationLock.PORTRAIT_UP
+    ).catch(() => {});
+    navigation.navigate("Search");
+  }, [navigation]);
+
   // Lock to landscape on focus, restore portrait on blur
   useFocusEffect(
     useCallback(() => {
@@ -182,6 +190,19 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
       playThroughEarpieceAndroid: false,
     });
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (event) => {
+      if (event.data.action.type !== "GO_BACK") {
+        return;
+      }
+
+      event.preventDefault();
+      handleExitToSearch();
+    });
+
+    return unsubscribe;
+  }, [navigation, handleExitToSearch]);
 
   // Scroll to middle C on mount
   useEffect(() => {
@@ -366,7 +387,7 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
         <View style={styles.topBar}>
           {/* Back button */}
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
+            onPress={handleExitToSearch}
             style={styles.backButton}
             activeOpacity={0.7}
           >
@@ -432,10 +453,10 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
       <ScrollView
         ref={scrollViewRef}
         horizontal
-        scrollEnabled={activeNotes.size === 0}
+        scrollEnabled={Platform.OS === "android" ? activeNotes.size === 0 : true}
         showsHorizontalScrollIndicator={false}
         bounces={false}
-        disableScrollViewPanResponder
+        disableScrollViewPanResponder={Platform.OS === "android"}
         contentContainerStyle={{ width: totalWidth, height: whiteKeyHeight }}
         style={{ flex: 1 }}
       >
@@ -444,23 +465,45 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
           {WHITE_NOTES.map((note, index) => {
             const isActive = activeNotes.has(note.name);
             const isC = note.name.startsWith("C");
+            const keyStyle = [
+              styles.whiteKey,
+              {
+                left: index * WHITE_KEY_WIDTH,
+                height: whiteKeyHeight,
+              },
+              isActive && styles.whiteKeyActive,
+              isC && styles.whiteKeyOctaveStart,
+            ];
+
+            if (Platform.OS === "android") {
+              return (
+                <Pressable
+                  key={note.name}
+                  onPressIn={() => onKeyDown(note)}
+                  onPressOut={() => onKeyUp(note)}
+                  onTouchCancel={() => onKeyUp(note)}
+                  style={keyStyle}
+                >
+                  {isC && (
+                    <View style={styles.octaveMarker}>
+                      <Text style={styles.octaveMarkerText}>{note.name}</Text>
+                    </View>
+                  )}
+                  {showLabels && !isC && (
+                    <Text style={styles.whiteKeyLabel}>{note.name}</Text>
+                  )}
+                </Pressable>
+              );
+            }
+
             return (
-              <Pressable
+              <View
                 key={note.name}
-                onPressIn={() => onKeyDown(note)}
-                onPressOut={() => onKeyUp(note)}
+                onTouchStart={() => onKeyDown(note)}
+                onTouchEnd={() => onKeyUp(note)}
                 onTouchCancel={() => onKeyUp(note)}
-                style={[
-                  styles.whiteKey,
-                  {
-                    left: index * WHITE_KEY_WIDTH,
-                    height: whiteKeyHeight,
-                  },
-                  isActive && styles.whiteKeyActive,
-                  isC && styles.whiteKeyOctaveStart,
-                ]}
+                style={keyStyle}
               >
-                {/* Octave marker on every C key */}
                 {isC && (
                   <View style={styles.octaveMarker}>
                     <Text style={styles.octaveMarkerText}>{note.name}</Text>
@@ -469,7 +512,7 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
                 {showLabels && !isC && (
                   <Text style={styles.whiteKeyLabel}>{note.name}</Text>
                 )}
-              </Pressable>
+              </View>
             );
           })}
 
@@ -477,22 +520,40 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
           {BLACK_NOTES.map((note) => {
             const isActive = activeNotes.has(note.name);
             const xPos = getBlackKeyPosition(note);
+            const keyStyle = [
+              styles.blackKey,
+              { left: xPos, height: blackKeyHeight },
+              isActive && styles.blackKeyActive,
+            ];
+
+            if (Platform.OS === "android") {
+              return (
+                <Pressable
+                  key={note.name}
+                  onPressIn={() => onKeyDown(note)}
+                  onPressOut={() => onKeyUp(note)}
+                  onTouchCancel={() => onKeyUp(note)}
+                  style={keyStyle}
+                >
+                  {showLabels && (
+                    <Text style={styles.blackKeyLabel}>{note.name}</Text>
+                  )}
+                </Pressable>
+              );
+            }
+
             return (
-              <Pressable
+              <View
                 key={note.name}
-                onPressIn={() => onKeyDown(note)}
-                onPressOut={() => onKeyUp(note)}
+                onTouchStart={() => onKeyDown(note)}
+                onTouchEnd={() => onKeyUp(note)}
                 onTouchCancel={() => onKeyUp(note)}
-                style={[
-                  styles.blackKey,
-                  { left: xPos, height: blackKeyHeight },
-                  isActive && styles.blackKeyActive,
-                ]}
+                style={keyStyle}
               >
                 {showLabels && (
                   <Text style={styles.blackKeyLabel}>{note.name}</Text>
                 )}
-              </Pressable>
+              </View>
             );
           })}
         </View>

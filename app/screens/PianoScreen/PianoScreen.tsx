@@ -139,6 +139,30 @@ function getBlackKeyPosition(note: NoteInfo): number {
   return whiteKeysBefore * WHITE_KEY_WIDTH - BLACK_KEY_WIDTH / 2;
 }
 
+function withAlpha(color: string, alpha: number): string {
+  const safeAlpha = Math.min(1, Math.max(0, alpha));
+
+  if (color.toLowerCase() === "tomato") {
+    return `rgba(255, 99, 71, ${safeAlpha})`;
+  }
+
+  if (/^#[0-9A-Fa-f]{6}$/.test(color)) {
+    const r = parseInt(color.slice(1, 3), 16);
+    const g = parseInt(color.slice(3, 5), 16);
+    const b = parseInt(color.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${safeAlpha})`;
+  }
+
+  if (/^#[0-9A-Fa-f]{3}$/.test(color)) {
+    const r = parseInt(color[1] + color[1], 16);
+    const g = parseInt(color[2] + color[2], 16);
+    const b = parseInt(color[3] + color[3], 16);
+    return `rgba(${r}, ${g}, ${b}, ${safeAlpha})`;
+  }
+
+  return color;
+}
+
 // ─── Component ──────────────────────────────────────────────────
 type PianoScreenProps = NativeStackScreenProps<RootStackParamList, "Piano">;
 
@@ -286,8 +310,9 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
           sound.unloadAsync().catch(() => {});
           removeSound(note.name, sound);
 
-          // If finger is still held, retrigger to extend the note seamlessly
-          if (heldNotes.current.has(note.name)) {
+          // Only retrigger while holding in non-sustain mode.
+          // With sustain enabled, let the sample end naturally once.
+          if (!sustainRef.current && heldNotes.current.has(note.name)) {
             triggerNote(note);
           }
         }
@@ -453,7 +478,7 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
       <ScrollView
         ref={scrollViewRef}
         horizontal
-        scrollEnabled={Platform.OS === "android" ? activeNotes.size === 0 : true}
+        scrollEnabled={activeNotes.size === 0}
         showsHorizontalScrollIndicator={false}
         bounces={false}
         disableScrollViewPanResponder={Platform.OS === "android"}
@@ -565,6 +590,9 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
 
 // ─── Styles ─────────────────────────────────────────────────────
 const createStyles = (colors: any, isDark: boolean) => {
+  const primaryTint = withAlpha(colors.primary, 0.21);
+  const primaryBorderTint = withAlpha(colors.primary, 0.38);
+
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -655,8 +683,8 @@ const createStyles = (colors: any, isDark: boolean) => {
       paddingBottom: 8,
     },
     whiteKeyActive: {
-      backgroundColor: colors.primary + "35",
-      borderBottomColor: colors.primary + "60",
+      backgroundColor: primaryTint,
+      borderBottomColor: primaryBorderTint,
     },
     whiteKeyOctaveStart: {
       borderLeftWidth: 2,
@@ -707,7 +735,7 @@ const createStyles = (colors: any, isDark: boolean) => {
     },
     blackKeyActive: {
       backgroundColor: colors.primary,
-      borderBottomColor: colors.primary + "80",
+      borderBottomColor: primaryBorderTint,
     },
     blackKeyLabel: {
       fontSize: 7,

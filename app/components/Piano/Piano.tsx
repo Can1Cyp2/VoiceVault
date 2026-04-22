@@ -1,8 +1,10 @@
 
 // app/components/Piano/Piano.tsx
-import React, { useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
+import { Audio } from 'expo-av';
 import { LightColors } from '../../styles/theme';
+import { getPianoAudioFile } from '../../util/pianoNotes';
 
 
 const { width } = Dimensions.get('window');
@@ -31,13 +33,14 @@ const noteToValue = (note: string): number => {
 const Piano = ({ vocalRange }: { vocalRange: string }) => {
   const scrollViewRef = useRef<ScrollView>(null);
   const hasScrolledRef = useRef(false);
+  const soundRefs = useRef<Map<string, Audio.Sound[]>>(new Map());
   const [lowNote, highNote] = vocalRange.split(' - ');
 
   const lowNoteValue = noteToValue(lowNote);
   const highNoteValue = noteToValue(highNote);
 
   const scrollToRange = () => {
-    if (!scrollViewRef.current || !lowNoteValue || !highNoteValue) {
+    if (!scrollViewRef.current || lowNoteValue < 0 || highNoteValue < 0) {
       console.log('[Piano] Cannot scroll - missing ref or values:', { 
         hasRef: !!scrollViewRef.current, 
         lowNoteValue, 
@@ -89,6 +92,62 @@ const Piano = ({ vocalRange }: { vocalRange: string }) => {
     }
   };
 
+  useEffect(() => {
+    Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
+    }).catch(() => {});
+
+    return () => {
+      soundRefs.current.forEach((sounds) => {
+        sounds.forEach((sound) => sound.unloadAsync().catch(() => {}));
+      });
+      soundRefs.current.clear();
+    };
+  }, []);
+
+  const removeSound = (noteName: string, sound: Audio.Sound) => {
+    const sounds = soundRefs.current.get(noteName);
+    if (!sounds) return;
+
+    const index = sounds.indexOf(sound);
+    if (index !== -1) {
+      sounds.splice(index, 1);
+    }
+
+    if (sounds.length === 0) {
+      soundRefs.current.delete(noteName);
+    }
+  };
+
+  const playNote = async (note: string) => {
+    const audioFile = getPianoAudioFile(note);
+    if (!audioFile) return;
+
+    try {
+      const { sound } = await Audio.Sound.createAsync(audioFile, {
+        shouldPlay: true,
+        volume: 1.0,
+      });
+
+      const existing = soundRefs.current.get(note) ?? [];
+      existing.push(sound);
+      soundRefs.current.set(note, existing);
+
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (!status.isLoaded) return;
+        if (status.didJustFinish) {
+          sound.unloadAsync().catch(() => {});
+          removeSound(note, sound);
+        }
+      });
+    } catch (error) {
+      console.warn('[Piano] Error playing note:', note, error);
+    }
+  };
+
   const whiteKeys = NOTES.filter(note => !note.includes('#'));
 
   const renderKeys = () => {
@@ -100,8 +159,12 @@ const Piano = ({ vocalRange }: { vocalRange: string }) => {
 
       if (isBlackKey) {
         return (
-          <View
+          <TouchableOpacity
             key={note}
+            activeOpacity={0.8}
+            onPress={() => {
+              void playNote(note);
+            }}
             style={[
               styles.blackKey,
               { left: (whiteKeyIndex - 0.5) * WHITE_KEY_WIDTH - BLACK_KEY_WIDTH / 2 },
@@ -110,13 +173,17 @@ const Piano = ({ vocalRange }: { vocalRange: string }) => {
             ]}
           >
             <Text style={styles.blackKeyLabel}>{note}</Text>
-          </View>
+          </TouchableOpacity>
         );
       } else {
         whiteKeyIndex++;
         return (
-          <View
+          <TouchableOpacity
             key={note}
+            activeOpacity={0.8}
+            onPress={() => {
+              void playNote(note);
+            }}
             style={[
               styles.whiteKey,
               isLowNote && styles.highlightedWhiteKey,
@@ -124,7 +191,7 @@ const Piano = ({ vocalRange }: { vocalRange: string }) => {
             ]}
           >
             <Text style={styles.whiteKeyLabel}>{note}</Text>
-          </View>
+          </TouchableOpacity>
         );
       }
     });

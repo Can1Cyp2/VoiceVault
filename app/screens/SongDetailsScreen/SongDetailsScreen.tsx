@@ -1,6 +1,6 @@
 // app/screens/SongDetailsScreen/SongDetailsScreen.tsx
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import {
   ScrollView,
   Dimensions,
 } from "react-native";
+import { Audio } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, FONTS } from "../../styles/theme";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -30,7 +31,7 @@ import { supabase } from "../../util/supabase";
 import { findClosestVocalRangeFit, noteToValue } from "./RangeBestFit";
 import SongRangeRecommendation from "./SongRangeRecommendation";
 import Piano from '../../components/Piano/Piano';
-import { playNoteSound } from '../../util/pianoAudio';
+import { getPianoAudioFile } from "../../util/pianoNotes";
 
 const { width } = Dimensions.get('window');
 
@@ -51,6 +52,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isIssueModalVisible, setIssueModalVisible] = useState(false);
   const [issueText, setIssueText] = useState("");
+  const referenceSoundRef = useRef<Audio.Sound | null>(null);
 
   // Parse vocal range to extract lowest and highest notes
   const parseVocalRange = (range: string) => {
@@ -77,6 +79,60 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   };
 
   const { lowest, highest, octaveRange } = parseVocalRange(vocalRange);
+
+  useEffect(() => {
+    Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
+    }).catch(() => {});
+
+    return () => {
+      if (referenceSoundRef.current) {
+        referenceSoundRef.current.unloadAsync().catch(() => {});
+        referenceSoundRef.current = null;
+      }
+    };
+  }, []);
+
+  const playReferenceNote = async (note: string) => {
+    if (!note) return;
+
+    const audioFile = getPianoAudioFile(note);
+    if (!audioFile) {
+      Alert.alert("Note unavailable", `No audio sample found for ${note}.`);
+      return;
+    }
+
+    try {
+      if (referenceSoundRef.current) {
+        await referenceSoundRef.current.stopAsync().catch(() => {});
+        await referenceSoundRef.current.unloadAsync().catch(() => {});
+        referenceSoundRef.current = null;
+      }
+
+      const { sound } = await Audio.Sound.createAsync(audioFile, {
+        shouldPlay: true,
+        volume: 1,
+      });
+
+      referenceSoundRef.current = sound;
+
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (!status.isLoaded) return;
+        if (status.didJustFinish) {
+          sound.unloadAsync().catch(() => {});
+          if (referenceSoundRef.current === sound) {
+            referenceSoundRef.current = null;
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Error playing reference note:", error);
+      Alert.alert("Playback Error", "Could not play this note right now.");
+    }
+  };
 
   // Check if the user is logged in and set header options
   useEffect(() => {
@@ -284,25 +340,39 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
           <View style={styles.rangeDetails}>
             <View style={styles.rangeItem}>
               <Text style={styles.rangeLabel}>Lowest Note:</Text>
-              <TouchableOpacity
-                style={styles.playableNote}
-                onPress={() => playNoteSound(lowest)}
-                activeOpacity={0.6}
-              >
+              <View style={styles.rangeValueWithAudio}>
                 <Text style={styles.rangeValue}>{lowest}</Text>
-                <Ionicons name="volume-medium" size={18} color={colors.primary} />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.noteAudioButton}
+                  onPress={() => {
+                    void playReferenceNote(lowest);
+                  }}
+                >
+                  <Ionicons
+                    name="volume-high-outline"
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
             <View style={styles.rangeItem}>
               <Text style={styles.rangeLabel}>Highest Note:</Text>
-              <TouchableOpacity
-                style={styles.playableNote}
-                onPress={() => playNoteSound(highest)}
-                activeOpacity={0.6}
-              >
+              <View style={styles.rangeValueWithAudio}>
                 <Text style={styles.rangeValue}>{highest}</Text>
-                <Ionicons name="volume-medium" size={18} color={colors.primary} />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.noteAudioButton}
+                  onPress={() => {
+                    void playReferenceNote(highest);
+                  }}
+                >
+                  <Ionicons
+                    name="volume-high-outline"
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
             <View style={styles.rangeItem}>
               <Text style={styles.rangeLabel}>Octave Range:</Text>
@@ -601,10 +671,13 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     color: colors.textPrimary,
     fontFamily: FONTS.primary,
   },
-  playableNote: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
+  rangeValueWithAudio: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  noteAudioButton: {
+    marginLeft: 8,
+    padding: 4,
   },
 
   // Best Fit Section

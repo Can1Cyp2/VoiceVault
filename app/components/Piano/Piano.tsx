@@ -1,15 +1,16 @@
 
 // app/components/Piano/Piano.tsx
-import React, { useRef, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, Pressable } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
+import { Audio } from 'expo-av';
 import { LightColors } from '../../styles/theme';
-import { playNoteSound, configureAudio } from '../../util/pianoAudio';
+import { getPianoAudioFile } from '../../util/pianoNotes';
 
 
 const { width } = Dimensions.get('window');
 const MAX_PIANO_WIDTH = 600; // Cap piano width for tablets
 const pianoWidth = Math.min(width, MAX_PIANO_WIDTH);
-const WHITE_KEY_WIDTH = pianoWidth / 10;
+const WHITE_KEY_WIDTH = pianoWidth / 15;
 const BLACK_KEY_WIDTH = WHITE_KEY_WIDTH * 0.6;
 
 const NOTES = [
@@ -29,47 +30,59 @@ const noteToValue = (note: string): number => {
   return NOTES.indexOf(note);
 };
 
-const WHITE_KEY_COUNT = NOTES.filter(n => !n.includes('#')).length;
-const PIANO_HEIGHT = 180;
-const BLACK_KEY_HEIGHT = 110;
-
 const Piano = ({ vocalRange }: { vocalRange: string }) => {
   const scrollViewRef = useRef<ScrollView>(null);
   const hasScrolledRef = useRef(false);
+  const soundRefs = useRef<Map<string, Audio.Sound[]>>(new Map());
   const [lowNote, highNote] = vocalRange.split(' - ');
 
   const lowNoteValue = noteToValue(lowNote);
   const highNoteValue = noteToValue(highNote);
 
-  // Configure audio on mount
-  useEffect(() => {
-    configureAudio();
-  }, []);
-
-  const handlePlayNote = useCallback((noteName: string) => {
-    playNoteSound(noteName);
-  }, []);
-
   const scrollToRange = () => {
-    if (!scrollViewRef.current || !lowNoteValue || !highNoteValue) {
+    if (!scrollViewRef.current || lowNoteValue < 0 || highNoteValue < 0) {
+      console.log('[Piano] Cannot scroll - missing ref or values:', { 
+        hasRef: !!scrollViewRef.current, 
+        lowNoteValue, 
+        highNoteValue,
+        lowNote,
+        highNote 
+      });
       return;
     }
-
+    
     const whiteKeys = NOTES.filter(note => !note.includes('#'));
     const lowNoteIndex = whiteKeys.findIndex(note => noteToValue(note) >= lowNoteValue);
     const highNoteIndex = whiteKeys.findIndex(note => noteToValue(note) >= highNoteValue);
-
+    
+    console.log('[Piano] Scroll calculation:', {
+      lowNote,
+      highNote,
+      lowNoteValue,
+      highNoteValue,
+      lowNoteIndex,
+      highNoteIndex,
+      pianoWidth,
+      WHITE_KEY_WIDTH
+    });
+    
     if (lowNoteIndex !== -1) {
       const visibleKeys = Math.floor(pianoWidth / WHITE_KEY_WIDTH);
+      // If both notes fit in view, center them
       if (highNoteIndex - lowNoteIndex + 1 <= visibleKeys) {
         const centerIndex = (lowNoteIndex + highNoteIndex) / 2;
         const xOffset = centerIndex * WHITE_KEY_WIDTH - pianoWidth / 2 + WHITE_KEY_WIDTH / 2;
+        console.log('[Piano] Centering view - scrolling to:', Math.max(xOffset, 0));
         scrollViewRef.current.scrollTo({ x: Math.max(xOffset, 0), animated: true });
       } else {
+        // Otherwise, show the low note at the start
         const xOffset = lowNoteIndex * WHITE_KEY_WIDTH;
+        console.log('[Piano] Showing from low note - scrolling to:', Math.max(xOffset, 0));
         scrollViewRef.current.scrollTo({ x: Math.max(xOffset, 0), animated: true });
       }
       hasScrolledRef.current = true;
+    } else {
+      console.log('[Piano] lowNoteIndex is -1, cannot scroll');
     }
   };
 
@@ -79,58 +92,110 @@ const Piano = ({ vocalRange }: { vocalRange: string }) => {
     }
   };
 
-  const renderKeys = () => {
-    const whiteKeyElements: React.ReactElement[] = [];
-    const blackKeyElements: React.ReactElement[] = [];
-    let whiteKeyIndex = 0;
+  useEffect(() => {
+    Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
+    }).catch(() => {});
 
-    NOTES.forEach((note) => {
+    return () => {
+      soundRefs.current.forEach((sounds) => {
+        sounds.forEach((sound) => sound.unloadAsync().catch(() => {}));
+      });
+      soundRefs.current.clear();
+    };
+  }, []);
+
+  const removeSound = (noteName: string, sound: Audio.Sound) => {
+    const sounds = soundRefs.current.get(noteName);
+    if (!sounds) return;
+
+    const index = sounds.indexOf(sound);
+    if (index !== -1) {
+      sounds.splice(index, 1);
+    }
+
+    if (sounds.length === 0) {
+      soundRefs.current.delete(noteName);
+    }
+  };
+
+  const playNote = async (note: string) => {
+    const audioFile = getPianoAudioFile(note);
+    if (!audioFile) return;
+
+    try {
+      const { sound } = await Audio.Sound.createAsync(audioFile, {
+        shouldPlay: true,
+        volume: 1.0,
+      });
+
+      const existing = soundRefs.current.get(note) ?? [];
+      existing.push(sound);
+      soundRefs.current.set(note, existing);
+
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (!status.isLoaded) return;
+        if (status.didJustFinish) {
+          sound.unloadAsync().catch(() => {});
+          removeSound(note, sound);
+        }
+      });
+    } catch (error) {
+      console.warn('[Piano] Error playing note:', note, error);
+    }
+  };
+
+  const whiteKeys = NOTES.filter(note => !note.includes('#'));
+
+  const renderKeys = () => {
+    let whiteKeyIndex = 0;
+    return NOTES.map((note, index) => {
       const isBlackKey = note.includes('#');
       const isLowNote = note === lowNote;
       const isHighNote = note === highNote;
 
       if (isBlackKey) {
-        const leftPos = whiteKeyIndex * WHITE_KEY_WIDTH - BLACK_KEY_WIDTH / 2;
-        blackKeyElements.push(
-          <Pressable
+        return (
+          <TouchableOpacity
             key={note}
-            onPress={() => handlePlayNote(note)}
-            style={({pressed}) => [
+            activeOpacity={0.8}
+            onPress={() => {
+              void playNote(note);
+            }}
+            style={[
               styles.blackKey,
-              { left: leftPos },
-              (isLowNote || isHighNote) && styles.highlightedBlackKey,
-              pressed && styles.pressedKey,
+              { left: (whiteKeyIndex - 0.5) * WHITE_KEY_WIDTH - BLACK_KEY_WIDTH / 2 },
+              isLowNote && styles.highlightedBlackKey,
+              isHighNote && styles.highlightedBlackKey,
             ]}
           >
             <Text style={styles.blackKeyLabel}>{note}</Text>
-          </Pressable>
+          </TouchableOpacity>
         );
       } else {
-        const leftPos = whiteKeyIndex * WHITE_KEY_WIDTH;
         whiteKeyIndex++;
-        whiteKeyElements.push(
-          <Pressable
+        return (
+          <TouchableOpacity
             key={note}
-            onPress={() => handlePlayNote(note)}
-            style={({pressed}) => [
+            activeOpacity={0.8}
+            onPress={() => {
+              void playNote(note);
+            }}
+            style={[
               styles.whiteKey,
-              { left: leftPos },
-              (isLowNote || isHighNote) && styles.highlightedWhiteKey,
-              pressed && styles.pressedKey,
+              isLowNote && styles.highlightedWhiteKey,
+              isHighNote && styles.highlightedWhiteKey,
             ]}
           >
             <Text style={styles.whiteKeyLabel}>{note}</Text>
-          </Pressable>
+          </TouchableOpacity>
         );
       }
     });
-
-    // White keys first (rendered below), black keys second (rendered on top)
-    return [...whiteKeyElements, ...blackKeyElements];
   };
-
-  const keys = renderKeys();
-  const TOTAL_WIDTH = WHITE_KEY_COUNT * WHITE_KEY_WIDTH;
 
   return (
     <View style={styles.pianoContainer}>
@@ -138,11 +203,10 @@ const Piano = ({ vocalRange }: { vocalRange: string }) => {
         ref={scrollViewRef}
         horizontal
         showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.piano}
         onContentSizeChange={handleContentSizeChange}
       >
-        <View style={[styles.pianoWrapper, { width: TOTAL_WIDTH }]}>
-          {keys}
-        </View>
+        {renderKeys()}
       </ScrollView>
     </View>
   );
@@ -151,19 +215,19 @@ const Piano = ({ vocalRange }: { vocalRange: string }) => {
 // Always use light mode colors for the piano keyboard
 const styles = StyleSheet.create({
   pianoContainer: {
-    height: PIANO_HEIGHT,
+    height: 150,
     marginVertical: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pianoWrapper: {
-    height: PIANO_HEIGHT,
+  piano: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
   },
   whiteKey: {
-    position: 'absolute',
-    top: 0,
     width: WHITE_KEY_WIDTH,
-    height: PIANO_HEIGHT,
+    height: 150,
     backgroundColor: LightColors.backgroundCard,
     borderWidth: 1,
     borderColor: LightColors.border,
@@ -173,17 +237,13 @@ const styles = StyleSheet.create({
   },
   blackKey: {
     position: 'absolute',
-    top: 0,
     width: BLACK_KEY_WIDTH,
-    height: BLACK_KEY_HEIGHT,
+    height: 90,
     backgroundColor: LightColors.textPrimary,
-    zIndex: 2,
-    elevation: 2,
+    zIndex: 1,
     justifyContent: 'flex-end',
     alignItems: 'center',
     paddingBottom: 5,
-    borderBottomLeftRadius: 4,
-    borderBottomRightRadius: 4,
   },
   whiteKeyLabel: {
     color: LightColors.textPrimary,
@@ -198,9 +258,6 @@ const styles = StyleSheet.create({
   },
   highlightedBlackKey: {
     backgroundColor: LightColors.primary,
-  },
-  pressedKey: {
-    opacity: 0.7,
   },
 });
 

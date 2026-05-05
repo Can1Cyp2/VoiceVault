@@ -25,6 +25,7 @@ import * as ScreenOrientation from "expo-screen-orientation";
 const WHITE_KEY_WIDTH = 52;
 const BLACK_KEY_WIDTH = 32;
 const BLACK_KEY_RATIO = 0.625;
+const MIN_TAP_PLAYBACK_MS = 1000;
 
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
@@ -176,6 +177,11 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
   const [lastPlayedNote, setLastPlayedNote] = useState<string | null>(null);
   const soundRefs = useRef<Map<string, Audio.Sound[]>>(new Map());
   const heldNotes = useRef<Set<string>>(new Set());
+  const pendingStopNotes = useRef<Set<string>>(new Set());
+  const noteDownAt = useRef<Map<string, number>>(new Map());
+  const scheduledStopTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map()
+  );
   const sustainRef = useRef(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const [pianoHeight, setPianoHeight] = useState(240);
@@ -246,6 +252,8 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
   // Cleanup sounds on unmount
   useEffect(() => {
     return () => {
+      scheduledStopTimers.current.forEach((timerId) => clearTimeout(timerId));
+      scheduledStopTimers.current.clear();
       soundRefs.current.forEach((sounds) => {
         sounds.forEach((s) => s.unloadAsync().catch(() => {}));
       });
@@ -305,16 +313,23 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
       existing.push(sound);
       soundRefs.current.set(note.name, existing);
 
+      // If key-up happened before createAsync finished, stop this note immediately
+      // when sustain is off so quick taps don't ring like sustain is on.
+      if (!sustainRef.current && pendingStopNotes.current.has(note.name) && !heldNotes.current.has(note.name)) {
+        try {
+          await sound.stopAsync();
+        } catch {}
+        try {
+          await sound.unloadAsync();
+        } catch {}
+        removeSound(note.name, sound);
+        return null;
+      }
+
       sound.setOnPlaybackStatusUpdate((status) => {
         if (status.isLoaded && status.didJustFinish) {
           sound.unloadAsync().catch(() => {});
           removeSound(note.name, sound);
-
-          // Only retrigger while holding in non-sustain mode.
-          // With sustain enabled, let the sample end naturally once.
-          if (!sustainRef.current && heldNotes.current.has(note.name)) {
-            triggerNote(note);
-          }
         }
       });
 
@@ -339,9 +354,40 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
     } catch {}
   }, [removeSound]);
 
+  const stopNoteSounds = useCallback(async (noteName: string) => {
+    const sounds = soundRefs.current.get(noteName);
+    if (!sounds || sounds.length === 0) return;
+
+    const toStop = [...sounds];
+    for (const sound of toStop) {
+      try {
+        await sound.stopAsync();
+      } catch {}
+
+      try {
+        await sound.unloadAsync();
+      } catch {}
+
+      removeSound(noteName, sound);
+    }
+  }, [removeSound]);
+
   // --- Touch handlers ---
 
   const onKeyDown = useCallback((note: NoteInfo) => {
+    // Guard against repeated key-down events while a finger is still holding a key.
+    if (heldNotes.current.has(note.name)) {
+      return;
+    }
+
+    const existingTimer = scheduledStopTimers.current.get(note.name);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      scheduledStopTimers.current.delete(note.name);
+    }
+
+    pendingStopNotes.current.delete(note.name);
+    noteDownAt.current.set(note.name, Date.now());
     heldNotes.current.add(note.name);
     setActiveNotes((prev) => new Set(prev).add(note.name));
     setLastPlayedNote(note.name);
@@ -352,13 +398,40 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
     heldNotes.current.delete(note.name);
 
     // With sustain: let the note ring out naturally (full WAV duration)
-    // Without sustain: fade out and stop immediately on release
+    // Without sustain: quick taps get a short audible ring, holds stop on release.
     if (!sustainRef.current) {
-      const sounds = soundRefs.current.get(note.name);
-      if (sounds) {
-        // Fade out all instances of this note
-        const toFade = [...sounds];
-        toFade.forEach((s) => fadeOutSound(s, note.name));
+      const startedAt = noteDownAt.current.get(note.name) ?? Date.now();
+      const heldDuration = Date.now() - startedAt;
+      const remainingMs = Math.max(0, MIN_TAP_PLAYBACK_MS - heldDuration);
+
+      const runStop = () => {
+        pendingStopNotes.current.add(note.name);
+        void stopNoteSounds(note.name);
+        scheduledStopTimers.current.delete(note.name);
+      };
+
+      const existingTimer = scheduledStopTimers.current.get(note.name);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+      }
+
+      if (remainingMs === 0) {
+        runStop();
+      } else {
+        const timerId = setTimeout(() => {
+          if (!heldNotes.current.has(note.name)) {
+            runStop();
+          }
+        }, remainingMs);
+        scheduledStopTimers.current.set(note.name, timerId);
+      }
+    } else {
+      pendingStopNotes.current.delete(note.name);
+
+      const existingTimer = scheduledStopTimers.current.get(note.name);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+        scheduledStopTimers.current.delete(note.name);
       }
     }
 
@@ -372,7 +445,7 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
         });
       }
     }, 100);
-  }, [fadeOutSound]);
+  }, [stopNoteSounds]);
 
   // Quick tap (no hold) — play note with timed highlight for non-held taps
   const onQuickTap = useCallback((note: NoteInfo) => {

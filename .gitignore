@@ -50,6 +50,7 @@ supabase/**
 !supabase/migrations/
 supabase/migrations/**
 !supabase/migrations/20260227_add_voice_type_to_user_vocal_ranges.sql
+!supabase/migrations/20260411_add_range_update_reason_to_user_vocal_ranges.sql
 CONFLICT_CHECK_RESULTS.md
 ANALYTICS_SETUP.md
 CONTENT_MODERATION_GUIDE.md

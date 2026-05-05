@@ -1,6 +1,6 @@
 // app/screens/SongDetailsScreen/SongDetailsScreen.tsx
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -32,8 +32,25 @@ import { findClosestVocalRangeFit, noteToValue } from "./RangeBestFit";
 import SongRangeRecommendation from "./SongRangeRecommendation";
 import Piano from '../../components/Piano/Piano';
 import { getPianoAudioFile } from "../../util/pianoNotes";
+import {
+  startPitchDetection,
+  requestMicrophonePermission,
+  frequencyToNote,
+} from "../../util/pitchDetection";
 
 const { width } = Dimensions.get('window');
+const SING_HOLD_DURATION_MS = 4000;
+const SING_MAX_RECORD_MS = 7000;
+
+type SingModalView = "intro" | "note" | "complete";
+
+type SingNoteStatus = "pending" | "recording" | "passed" | "failed";
+
+type SingTestStepResult = {
+  target: string;
+  status: SingNoteStatus;
+  heldMs: number;
+};
 
 // SongDetailsScreen component:
 // Displays details of a song, including vocal range and options to save it to a list.
@@ -53,6 +70,18 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   const [isIssueModalVisible, setIssueModalVisible] = useState(false);
   const [issueText, setIssueText] = useState("");
   const referenceSoundRef = useRef<Audio.Sound | null>(null);
+  const [isSingModalVisible, setSingModalVisible] = useState(false);
+  const [singView, setSingView] = useState<SingModalView>("intro");
+  const [singStepIndex, setSingStepIndex] = useState(0);
+  const [singStepResults, setSingStepResults] = useState<SingTestStepResult[]>([]);
+  const [singLiveNote, setSingLiveNote] = useState<string | null>(null);
+  const [singHeldMs, setSingHeldMs] = useState(0);
+  const [singIsListening, setSingIsListening] = useState(false);
+  const singDetectionStopRef = useRef<(() => void) | null>(null);
+  const singRecordTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const singHoldMsRef = useRef(0);
+  const singMatchStartRef = useRef<number | null>(null);
+  const singIsListeningRef = useRef(false);
 
   // Parse vocal range to extract lowest and highest notes
   const parseVocalRange = (range: string) => {
@@ -79,6 +108,45 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   };
 
   const { lowest, highest, octaveRange } = parseVocalRange(vocalRange);
+  const singTargets = useMemo(() => {
+    try {
+      if (!lowest || !highest) {
+        return [] as string[];
+      }
+
+      noteToValue(lowest);
+      noteToValue(highest);
+
+      return lowest === highest ? [lowest] : [lowest, highest];
+    } catch {
+      return [] as string[];
+    }
+  }, [lowest, highest]);
+  const currentSingTarget = singTargets[singStepIndex] || "";
+  const currentStepStatus = singStepResults[singStepIndex]?.status ?? "pending";
+  const hasNextSingTarget = singStepIndex + 1 < singTargets.length;
+  const allSingTargetsPassed = useMemo(() => {
+    if (singTargets.length === 0) return false;
+    return singTargets.every(
+      (_target, index) => singStepResults[index]?.status === "passed"
+    );
+  }, [singTargets, singStepResults]);
+  const successfulSingRange = useMemo(() => {
+    const passedNotes = singStepResults
+      .filter((step) => step.status === "passed")
+      .map((step) => step.target);
+
+    if (passedNotes.length === 0) return null;
+
+    try {
+      const sorted = [...passedNotes].sort(
+        (a, b) => noteToValue(a) - noteToValue(b)
+      );
+      return `${sorted[0]} - ${sorted[sorted.length - 1]}`;
+    } catch {
+      return passedNotes.length === 1 ? passedNotes[0] : passedNotes.join(" - ");
+    }
+  }, [singStepResults]);
 
   useEffect(() => {
     Audio.setAudioModeAsync({
@@ -95,6 +163,33 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       }
     };
   }, []);
+
+  const stopSingSession = useCallback((resetHold: boolean = true) => {
+    if (singRecordTimeoutRef.current) {
+      clearTimeout(singRecordTimeoutRef.current);
+      singRecordTimeoutRef.current = null;
+    }
+
+    if (singDetectionStopRef.current) {
+      singDetectionStopRef.current();
+      singDetectionStopRef.current = null;
+    }
+
+    singIsListeningRef.current = false;
+    setSingIsListening(false);
+
+    if (resetHold) {
+      singHoldMsRef.current = 0;
+      singMatchStartRef.current = null;
+      setSingHeldMs(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopSingSession();
+    };
+  }, [stopSingSession]);
 
   const playReferenceNote = async (note: string) => {
     if (!note) return;
@@ -133,6 +228,190 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       Alert.alert("Playback Error", "Could not play this note right now.");
     }
   };
+
+  const updateCurrentStep = useCallback(
+    (status: SingNoteStatus, heldMs: number) => {
+      if (!currentSingTarget) return;
+
+      setSingStepResults((prev) => {
+        const next = [...prev];
+        next[singStepIndex] = {
+          target: currentSingTarget,
+          status,
+          heldMs,
+        };
+        return next;
+      });
+    },
+    [currentSingTarget, singStepIndex]
+  );
+
+  const finalizeRecording = useCallback(
+    (status: SingNoteStatus) => {
+      if (!singIsListeningRef.current) return;
+
+      const finalHeldMs = singHoldMsRef.current;
+      stopSingSession(false);
+      singMatchStartRef.current = null;
+      setSingIsListening(false);
+      setSingHeldMs(finalHeldMs);
+      updateCurrentStep(status, finalHeldMs);
+    },
+    [stopSingSession, updateCurrentStep]
+  );
+
+  const startSingRecording = useCallback(async () => {
+    if (!currentSingTarget) return;
+
+    const hasPermission = await requestMicrophonePermission();
+    if (!hasPermission) {
+      Alert.alert(
+        "Microphone Permission Required",
+        "VoiceVault needs microphone access to record your note."
+      );
+      return;
+    }
+
+    stopSingSession();
+    setSingLiveNote(null);
+    setSingHeldMs(0);
+    singHoldMsRef.current = 0;
+    singMatchStartRef.current = null;
+    setSingIsListening(true);
+    singIsListeningRef.current = true;
+    updateCurrentStep("recording", 0);
+
+    try {
+      singDetectionStopRef.current = startPitchDetection(
+        (result) => {
+          if (!singIsListeningRef.current) return;
+
+          const noteData = frequencyToNote(result.frequency);
+          if (!noteData) {
+            return;
+          }
+
+          const detectedNote = `${noteData.note}${noteData.octave}`;
+          setSingLiveNote(detectedNote);
+
+          if (detectedNote === currentSingTarget) {
+            if (!singMatchStartRef.current) {
+              singMatchStartRef.current = Date.now();
+            }
+
+            const heldMs = Date.now() - singMatchStartRef.current;
+            singHoldMsRef.current = heldMs;
+            setSingHeldMs(heldMs);
+
+            if (heldMs >= SING_HOLD_DURATION_MS) {
+              finalizeRecording("passed");
+            }
+          } else {
+            singMatchStartRef.current = null;
+            if (singHoldMsRef.current !== 0) {
+              singHoldMsRef.current = 0;
+              setSingHeldMs(0);
+            }
+          }
+        },
+        (error) => {
+          console.error("Sing test pitch detection error:", error);
+          Alert.alert("Sing Test Error", "Could not start the microphone check right now.");
+          stopSingSession();
+          setSingIsListening(false);
+        },
+        false
+      );
+    } catch (error) {
+      console.error("Failed to start sing recording:", error);
+      Alert.alert("Sing Test Error", "Could not start the microphone check right now.");
+      stopSingSession();
+      setSingIsListening(false);
+      return;
+    }
+
+    singRecordTimeoutRef.current = setTimeout(() => {
+      finalizeRecording("failed");
+    }, SING_MAX_RECORD_MS);
+  }, [currentSingTarget, finalizeRecording, stopSingSession, updateCurrentStep]);
+
+  const handleConfirmSingReady = useCallback(() => {
+    if (!singTargets.length) {
+      Alert.alert(
+        "Sing This!",
+        "This song does not have a valid vocal range to test right now."
+      );
+      return;
+    }
+
+    const steps = singTargets.map((target) => ({
+      target,
+      status: "pending" as SingNoteStatus,
+      heldMs: 0,
+    }));
+
+    stopSingSession();
+    setSingStepResults(steps);
+    setSingStepIndex(0);
+    setSingLiveNote(null);
+    setSingHeldMs(0);
+    setSingView("note");
+  }, [singTargets, stopSingSession]);
+
+  const handleRetrySingNote = useCallback(() => {
+    stopSingSession();
+    setSingLiveNote(null);
+    setSingHeldMs(0);
+    updateCurrentStep("pending", 0);
+  }, [stopSingSession, updateCurrentStep]);
+
+  const handleNextSingNote = useCallback(() => {
+    if (!hasNextSingTarget) return;
+
+    stopSingSession();
+    const nextIndex = singStepIndex + 1;
+    setSingStepIndex(nextIndex);
+    setSingLiveNote(null);
+    setSingHeldMs(0);
+    setSingIsListening(false);
+
+    setSingStepResults((prev) => {
+      const next = [...prev];
+      if (next[nextIndex]) {
+        next[nextIndex] = {
+          ...next[nextIndex],
+          status: "pending",
+          heldMs: 0,
+        };
+      }
+      return next;
+    });
+  }, [hasNextSingTarget, singStepIndex, stopSingSession]);
+
+  const handleFinishSingTest = useCallback(() => {
+    stopSingSession();
+    setSingView("complete");
+  }, [stopSingSession]);
+
+  const handleOpenSingModal = useCallback(() => {
+    setSingModalVisible(true);
+    setSingView("intro");
+    setSingStepIndex(0);
+    setSingStepResults([]);
+    setSingLiveNote(null);
+    setSingHeldMs(0);
+    stopSingSession();
+  }, [stopSingSession]);
+
+  const handleCloseSingModal = useCallback(() => {
+    stopSingSession();
+    setSingModalVisible(false);
+    setSingView("intro");
+    setSingStepIndex(0);
+    setSingStepResults([]);
+    setSingLiveNote(null);
+    setSingHeldMs(0);
+  }, [stopSingSession]);
 
   // Check if the user is logged in and set header options
   useEffect(() => {
@@ -421,6 +700,10 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
             <Text style={styles.primaryButtonText}>ADD TO LIST</Text>
           </TouchableOpacity>
         )}
+        <TouchableOpacity style={styles.singButton} onPress={handleOpenSingModal}>
+          <Ionicons name="mic-outline" size={18} color={colors.buttonText} />
+          <Text style={styles.singButtonText}>SING THIS!</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Share Button */}
@@ -527,6 +810,130 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
               onPress={() => setIssueModalVisible(false)}
             >
               <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={isSingModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={handleCloseSingModal}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Sing This!</Text>
+            {singView === "intro" && (
+              <>
+                <Text style={styles.singDisclaimer}>
+                  Matching these notes only suggests whether this range is comfortable.
+                  It does not guarantee that you will sing the song well, and the listed
+                  vocal range may be approximate or simplified.
+                </Text>
+                <Text style={styles.singInstructions}>
+                  When you are ready, we will guide you through the lowest and highest notes.
+                  You will record each note and hold it for 4 seconds.
+                </Text>
+                <TouchableOpacity style={styles.modalButton} onPress={handleConfirmSingReady}>
+                  <Text style={styles.modalButtonText}>I am Ready</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {singView === "note" && currentSingTarget && (
+              <>
+                <Text style={styles.singStepLabel}>
+                  Note {singStepIndex + 1} of {singTargets.length}
+                </Text>
+                <Text style={styles.singTargetText}>{currentSingTarget}</Text>
+                <Text style={styles.singTargetHint}>
+                  Hold for {SING_HOLD_DURATION_MS / 1000} seconds
+                </Text>
+
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={() => {
+                    void playReferenceNote(currentSingTarget);
+                  }}
+                >
+                  <Text style={styles.secondaryButtonText}>Play Reference Again</Text>
+                </TouchableOpacity>
+
+                {(currentStepStatus === "pending" || currentStepStatus === "failed") && (
+                  <TouchableOpacity
+                    style={styles.modalButton}
+                    onPress={startSingRecording}
+                    disabled={singIsListening}
+                  >
+                    <Text style={styles.modalButtonText}>
+                      {currentStepStatus === "failed" ? "Record Again" : "Record Note"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <Text style={styles.singLiveText}>
+                  Detected: {singLiveNote || (singIsListening ? "Listening..." : "Not listening")}
+                </Text>
+                <Text style={styles.singProgressText}>
+                  Held: {Math.min(singHeldMs, SING_HOLD_DURATION_MS) / 1000}s / {SING_HOLD_DURATION_MS / 1000}s
+                </Text>
+
+                {currentStepStatus === "passed" && (
+                  <View style={styles.singStatusRow}>
+                    <Ionicons name="checkmark-circle" size={22} color={colors.success || colors.primary} />
+                    <Text style={styles.singStatusText}>Held successfully</Text>
+                  </View>
+                )}
+                {currentStepStatus === "failed" && (
+                  <View style={styles.singStatusRow}>
+                    <Ionicons name="close-circle" size={22} color={colors.danger || colors.primary} />
+                    <Text style={styles.singStatusText}>Not held for long enough</Text>
+                  </View>
+                )}
+
+                {currentStepStatus === "failed" && (
+                  <TouchableOpacity style={styles.secondaryButton} onPress={handleRetrySingNote}>
+                    <Text style={styles.secondaryButtonText}>Try Again</Text>
+                  </TouchableOpacity>
+                )}
+
+                {currentStepStatus === "passed" && hasNextSingTarget && (
+                  <TouchableOpacity style={styles.modalButton} onPress={handleNextSingNote}>
+                    <Text style={styles.modalButtonText}>Next Note</Text>
+                  </TouchableOpacity>
+                )}
+
+                {currentStepStatus === "passed" && !hasNextSingTarget && (
+                  <TouchableOpacity style={styles.modalButton} onPress={handleFinishSingTest}>
+                    <Text style={styles.modalButtonText}>See Results</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+
+            {singView === "complete" && (
+              <>
+                <Text style={styles.singResultText}>Great work!</Text>
+                <View style={styles.singResultCard}>
+                  <Text style={styles.singResultCardTitle}>Successful range</Text>
+                  <Text style={styles.singResultCardBody}>
+                    {successfulSingRange || "No notes were held for 4 seconds yet."}
+                  </Text>
+                </View>
+                <Text style={styles.singResultText}>
+                  {allSingTargetsPassed
+                    ? "You should be able to sing this song."
+                    : "Try again if you want to confirm the full range."}
+                </Text>
+                <TouchableOpacity style={styles.modalButton} onPress={handleConfirmSingReady}>
+                  <Text style={styles.modalButtonText}>Test Again</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            <TouchableOpacity style={styles.modalCancelButton} onPress={handleCloseSingModal}>
+              <Text style={styles.modalCancelText}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -743,6 +1150,23 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     fontFamily: FONTS.primary,
     letterSpacing: 1,
   },
+  singButton: {
+    flex: 1,
+    backgroundColor: colors.secondary,
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  singButtonText: {
+    color: colors.buttonText,
+    fontSize: 14,
+    fontWeight: 'bold',
+    fontFamily: FONTS.primary,
+    letterSpacing: 1,
+  },
 
   // Share Button
   shareButton: {
@@ -877,6 +1301,107 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     textAlignVertical: 'top',
     marginVertical: 10,
     fontSize: 16,
+    fontFamily: FONTS.primary,
+  },
+  singDisclaimer: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontFamily: FONTS.primary,
+    lineHeight: 20,
+    marginBottom: 14,
+  },
+  singInstructions: {
+    fontSize: 14,
+    color: colors.textPrimary,
+    fontFamily: FONTS.primary,
+    lineHeight: 21,
+    marginBottom: 14,
+  },
+  singStepLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontFamily: FONTS.primary,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  singTargetText: {
+    fontSize: 18,
+    color: colors.textPrimary,
+    fontWeight: 'bold',
+    fontFamily: FONTS.primary,
+    marginBottom: 8,
+  },
+  singTargetHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontFamily: FONTS.primary,
+    marginBottom: 12,
+  },
+  singLiveText: {
+    fontSize: 15,
+    color: colors.primary,
+    fontFamily: FONTS.primary,
+    marginBottom: 14,
+  },
+  singProgressText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontFamily: FONTS.primary,
+    marginBottom: 12,
+  },
+  singStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  singStatusText: {
+    fontSize: 14,
+    color: colors.textPrimary,
+    fontFamily: FONTS.primary,
+  },
+  singResultText: {
+    fontSize: 15,
+    color: colors.textPrimary,
+    fontFamily: FONTS.primary,
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  singResultCard: {
+    backgroundColor: colors.backgroundTertiary,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  singResultCardTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+    fontFamily: FONTS.primary,
+    marginBottom: 4,
+  },
+  singResultCardBody: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontFamily: FONTS.primary,
+    lineHeight: 19,
+  },
+  secondaryButton: {
+    backgroundColor: colors.backgroundTertiary,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  secondaryButtonText: {
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '600',
     fontFamily: FONTS.primary,
   },
 });

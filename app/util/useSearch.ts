@@ -32,6 +32,20 @@ interface SearchState {
   hasMoreSongs: boolean;
 }
 
+const DEFAULT_SEARCH_STATE: SearchState = {
+  results: [],
+  songsLoading: true,
+  artistsLoading: false,
+  error: null,
+  allSongs: [],
+  allArtists: [],
+  randomSongs: [],
+  hasMoreSongs: true,
+};
+
+// Keeps Search data in memory if the screen is remounted (for example, after tool navigation).
+let persistedSearchState: SearchState | null = null;
+
 interface UseSearchProps {
   query: string;
   filter: "songs" | "artists";
@@ -47,21 +61,26 @@ export const useSearch = ({
   initialFetchDone,
   setInitialFetchDone,
 }: UseSearchProps) => {
-  const [state, setState] = useState<SearchState>({
-    results: [],
-    songsLoading: true,
-    artistsLoading: false,
-    error: null,
-    allSongs: [],
-    allArtists: [],
-    randomSongs: [],
-    hasMoreSongs: true,
+  const [state, setState] = useState<SearchState>(() => {
+    if (persistedSearchState) {
+      return {
+        ...persistedSearchState,
+        songsLoading: false,
+        artistsLoading: false,
+      };
+    }
+
+    return DEFAULT_SEARCH_STATE;
   });
 
   const [songsPage, setSongsPage] = useState(1);
   const [artistsPage, setArtistsPage] = useState(1);
   const [hasMoreArtists, setHasMoreArtists] = useState(true);
   const [endReachedLoading, setEndReachedLoading] = useState(false);
+
+  useEffect(() => {
+    persistedSearchState = state;
+  }, [state]);
 
   // Memoize range checking functions
   const isSongInRange = useCallback(
@@ -317,6 +336,11 @@ export const useSearch = ({
   );
 
   useEffect(() => {
+    // If we restored songs from memory, mark initial fetch complete to avoid relaunching initial loaders.
+    if (!initialFetchDone && state.randomSongs.length > 0) {
+      setInitialFetchDone(true);
+    }
+
     const fetchInitialData = async () => {
       if (state.randomSongs.length > 0) return;
 

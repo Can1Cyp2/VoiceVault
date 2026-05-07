@@ -1,6 +1,6 @@
 // app/screens/SongDetailsScreen/SongDetailsScreen.tsx
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -32,6 +32,7 @@ import { findClosestVocalRangeFit, noteToValue } from "./RangeBestFit";
 import SongRangeRecommendation from "./SongRangeRecommendation";
 import Piano from '../../components/Piano/Piano';
 import { getPianoAudioFile } from "../../util/pianoNotes";
+import SingThisModal from "./SingThisModal";
 
 const { width } = Dimensions.get('window');
 
@@ -53,6 +54,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   const [isIssueModalVisible, setIssueModalVisible] = useState(false);
   const [issueText, setIssueText] = useState("");
   const referenceSoundRef = useRef<Audio.Sound | null>(null);
+  const [isSingModalVisible, setSingModalVisible] = useState(false);
 
   // Parse vocal range to extract lowest and highest notes
   const parseVocalRange = (range: string) => {
@@ -79,6 +81,29 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   };
 
   const { lowest, highest, octaveRange } = parseVocalRange(vocalRange);
+  const singTargets = useMemo(() => {
+    try {
+      if (!lowest || !highest) {
+        return [] as string[];
+      }
+
+      noteToValue(lowest);
+      noteToValue(highest);
+
+      return lowest === highest ? [lowest] : [lowest, highest];
+    } catch {
+      return [] as string[];
+    }
+  }, [lowest, highest]);
+
+  const stopReferenceSound = useCallback(async () => {
+    const currentSound = referenceSoundRef.current;
+    if (!currentSound) return;
+
+    referenceSoundRef.current = null;
+    await currentSound.stopAsync().catch(() => {});
+    await currentSound.unloadAsync().catch(() => {});
+  }, []);
 
   useEffect(() => {
     Audio.setAudioModeAsync({
@@ -89,14 +114,11 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
     }).catch(() => {});
 
     return () => {
-      if (referenceSoundRef.current) {
-        referenceSoundRef.current.unloadAsync().catch(() => {});
-        referenceSoundRef.current = null;
-      }
+      void stopReferenceSound();
     };
-  }, []);
+  }, [stopReferenceSound]);
 
-  const playReferenceNote = async (note: string) => {
+  const playReferenceNote = useCallback(async (note: string) => {
     if (!note) return;
 
     const audioFile = getPianoAudioFile(note);
@@ -106,11 +128,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
     }
 
     try {
-      if (referenceSoundRef.current) {
-        await referenceSoundRef.current.stopAsync().catch(() => {});
-        await referenceSoundRef.current.unloadAsync().catch(() => {});
-        referenceSoundRef.current = null;
-      }
+      await stopReferenceSound();
 
       const { sound } = await Audio.Sound.createAsync(audioFile, {
         shouldPlay: true,
@@ -132,7 +150,16 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       console.error("Error playing reference note:", error);
       Alert.alert("Playback Error", "Could not play this note right now.");
     }
-  };
+  }, [stopReferenceSound]);
+
+  const handleOpenSingModal = useCallback(() => {
+    void stopReferenceSound();
+    setSingModalVisible(true);
+  }, [stopReferenceSound]);
+
+  const handleCloseSingModal = useCallback(() => {
+    setSingModalVisible(false);
+  }, []);
 
   // Check if the user is logged in and set header options
   useEffect(() => {
@@ -402,6 +429,13 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
               )}
             </View>
           </View>
+
+          <View style={styles.singAction}>
+            <TouchableOpacity style={styles.singButton} onPress={handleOpenSingModal}>
+              <Ionicons name="mic-outline" size={18} color={colors.buttonText} />
+              <Text style={styles.singButtonText}>SING THIS!</Text>
+            </TouchableOpacity>
+          </View>
         </>
       )}
 
@@ -409,19 +443,16 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       <SongRangeRecommendation songVocalRange={vocalRange} isLoggedIn={isLoggedIn} />
 
       {/* Action Buttons */}
-      <View style={styles.actionButtons}>
-        {/* <TouchableOpacity style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>COMPARE RANGE</Text> // MIGHT ADD THIS LATER
-        </TouchableOpacity> */}
-        {isLoggedIn && (
-          <TouchableOpacity 
+      {isLoggedIn && (
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
             style={styles.primaryButton}
             onPress={() => setModalVisible(true)}
           >
             <Text style={styles.primaryButtonText}>ADD TO LIST</Text>
           </TouchableOpacity>
-        )}
-      </View>
+        </View>
+      )}
 
       {/* Share Button */}
       {/* <TouchableOpacity style={styles.shareButton}>
@@ -531,6 +562,12 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
           </View>
         </View>
       </Modal>
+
+      <SingThisModal
+        visible={isSingModalVisible}
+        targets={singTargets}
+        onClose={handleCloseSingModal}
+      />
     </ScrollView>
   );
 };
@@ -720,6 +757,11 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     marginTop: 4,
     fontStyle: 'italic',
   },
+  singAction: {
+    paddingHorizontal: 20,
+    marginTop: -10,
+    marginBottom: 22,
+  },
 
   // Action Buttons
   actionButtons: {
@@ -737,6 +779,23 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     alignItems: 'center',
   },
   primaryButtonText: {
+    color: colors.buttonText,
+    fontSize: 14,
+    fontWeight: 'bold',
+    fontFamily: FONTS.primary,
+    letterSpacing: 1,
+  },
+  singButton: {
+    width: '100%',
+    backgroundColor: colors.secondary,
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  singButtonText: {
     color: colors.buttonText,
     fontSize: 14,
     fontWeight: 'bold',

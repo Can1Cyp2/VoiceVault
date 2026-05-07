@@ -1,7 +1,7 @@
 // app/screens/TunerScreen/TunerScreen.tsx
 
 import React, { useMemo, useState, useRef, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, Dimensions, ScrollView } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, Dimensions, ScrollView, Modal, Share, Platform } from "react-native";
 import { useTheme } from "../../contexts/ThemeContext";
 import { Ionicons } from '@expo/vector-icons';
 import { 
@@ -13,6 +13,7 @@ import {
 } from "../../util/pitchDetection";
 import * as Sentry from '@sentry/react-native';
 import Svg, { Line, Circle, Text as SvgText, Path } from 'react-native-svg';
+import { addPitchDebugEvent, buildPitchDebugReport, clearPitchDebugEvents } from "../../util/pitchDebug";
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -34,6 +35,8 @@ export default function TunerScreen() {
   const [cents, setCents] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('tuner');
   const [pitchHistory, setPitchHistory] = useState<PitchHistoryItem[]>([]);
+  const [isDebugModalVisible, setIsDebugModalVisible] = useState(false);
+  const [debugReport, setDebugReport] = useState('');
   
   const stopDetectionRef = useRef<(() => void) | null>(null);
   const needleRotation = useRef(new Animated.Value(0)).current;
@@ -138,6 +141,13 @@ export default function TunerScreen() {
   }, [cents]);
 
   const toggleListening = async () => {
+    addPitchDebugEvent('tuner.toggle_pressed', {
+      nextAction: isListening ? 'stop' : 'start',
+      viewMode,
+      hasCurrentPitch: !!currentPitch,
+      pitchHistoryCount: pitchHistory.length,
+    });
+
     if (isListening) {
       // Stop listening
       if (stopDetectionRef.current) {
@@ -148,6 +158,7 @@ export default function TunerScreen() {
       setCurrentPitch(null);
       setCents(0);
       setPitchHistory([]);
+      addPitchDebugEvent('tuner.stopped_by_user');
       
       // Reset needle
       Animated.spring(needleRotation, {
@@ -158,6 +169,7 @@ export default function TunerScreen() {
       // Start listening
       const hasPermission = await requestMicrophonePermission();
       if (!hasPermission) {
+        addPitchDebugEvent('tuner.permission_denied');
         Alert.alert(
           'Microphone Permission Required',
           'VoiceVault needs microphone access to tune. Please enable it in your device settings.',
@@ -167,6 +179,7 @@ export default function TunerScreen() {
       }
 
       setIsListening(true);
+      addPitchDebugEvent('tuner.starting_detection');
 
       try {
         stopDetectionRef.current = startPitchDetection(
@@ -177,6 +190,10 @@ export default function TunerScreen() {
           },
           (error) => {
             console.error('Pitch detection error:', error);
+            addPitchDebugEvent('tuner.pitch_detection_error', {
+              message: error.message,
+              name: error.name,
+            });
             Sentry.captureException(error, {
               tags: { component: 'TunerScreen', action: 'pitchDetectionError' }
             });
@@ -194,6 +211,11 @@ export default function TunerScreen() {
         );
       } catch (err: any) {
         console.error('Failed to start pitch detection:', err);
+        addPitchDebugEvent('tuner.start_pitch_detection_threw', {
+          message: err?.message,
+          name: err?.name,
+          code: err?.code,
+        });
         Sentry.captureException(err, {
           tags: { component: 'TunerScreen', action: 'startPitchDetectionFailed' }
         });
@@ -201,6 +223,45 @@ export default function TunerScreen() {
         setIsListening(false);
       }
     }
+  };
+
+  const getDebugContext = () => ({
+    screen: 'TunerScreen',
+    isListening,
+    viewMode,
+    currentPitch: currentPitch
+      ? {
+          frequency: currentPitch.frequency,
+          note: `${currentPitch.note}${currentPitch.octave}`,
+          confidence: currentPitch.confidence,
+          timestamp: currentPitch.timestamp,
+        }
+      : null,
+    cents,
+    pitchHistoryCount: pitchHistory.length,
+    lastPitchHistoryItem: pitchHistory[pitchHistory.length - 1] || null,
+  });
+
+  const openDebugReport = async () => {
+    addPitchDebugEvent('debug.report_opened', getDebugContext());
+    const report = await buildPitchDebugReport(getDebugContext());
+    setDebugReport(report);
+    setIsDebugModalVisible(true);
+  };
+
+  const shareDebugReport = async () => {
+    addPitchDebugEvent('debug.report_shared', getDebugContext());
+    const report = await buildPitchDebugReport(getDebugContext());
+    setDebugReport(report);
+    await Share.share({
+      title: 'VoiceVault Pitch Debug Report',
+      message: report,
+    });
+  };
+
+  const clearDebugReport = () => {
+    clearPitchDebugEvents();
+    setDebugReport('Debug log cleared. Start the tuner, play a note for a few seconds, then use Share Debug.');
   };
 
   const getTuningStatus = () => {
@@ -620,12 +681,65 @@ export default function TunerScreen() {
         </Text>
       </TouchableOpacity>
 
+      <View style={styles.debugActions}>
+        <TouchableOpacity style={styles.debugButton} onPress={openDebugReport}>
+          <Ionicons name="document-text-outline" size={17} color={colors.textPrimary} />
+          <Text style={styles.debugButtonText}>Show Debug</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.debugButton} onPress={shareDebugReport}>
+          <Ionicons name="share-outline" size={17} color={colors.textPrimary} />
+          <Text style={styles.debugButtonText}>Share Debug</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.debugButton} onPress={clearDebugReport}>
+          <Ionicons name="trash-outline" size={17} color={colors.textPrimary} />
+          <Text style={styles.debugButtonText}>Clear</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Info text */}
       <Text style={styles.infoText}>
         {viewMode === 'tuner' && 'Perfect tuning is within ±5 cents'}
         {viewMode === 'graph' && 'Swipe to see different views'}
         {viewMode === 'piano' && 'Keys light up based on tuning accuracy'}
       </Text>
+
+      <Modal
+        visible={isDebugModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsDebugModalVisible(false)}
+      >
+        <View style={styles.debugModalBackdrop}>
+          <View style={styles.debugModalContent}>
+            <View style={styles.debugModalHeader}>
+              <Text style={styles.debugModalTitle}>Pitch Debug Report</Text>
+              <TouchableOpacity
+                style={styles.debugIconButton}
+                onPress={() => setIsDebugModalVisible(false)}
+              >
+                <Ionicons name="close" size={22} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.debugReportBox}>
+              <Text selectable style={styles.debugReportText}>
+                {debugReport || 'No report generated yet.'}
+              </Text>
+            </ScrollView>
+
+            <View style={styles.debugModalActions}>
+              <TouchableOpacity style={styles.debugModalButton} onPress={shareDebugReport}>
+                <Ionicons name="share-outline" size={17} color={colors.textPrimary} />
+                <Text style={styles.debugButtonText}>Share</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.debugModalButton} onPress={clearDebugReport}>
+                <Ionicons name="trash-outline" size={17} color={colors.textPrimary} />
+                <Text style={styles.debugButtonText}>Clear</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -958,6 +1072,100 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     color: '#FFF',
     fontSize: 18,
     fontWeight: '600',
+  },
+  debugActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginHorizontal: 20,
+    marginBottom: 8,
+  },
+  debugButton: {
+    flex: 1,
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.backgroundSecondary,
+    paddingHorizontal: 8,
+  },
+  debugButtonText: {
+    color: colors.textPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  debugModalBackdrop: {
+    flex: 1,
+    backgroundColor: colors.overlay,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  debugModalContent: {
+    width: '100%',
+    maxHeight: '86%',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    overflow: 'hidden',
+  },
+  debugModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  debugModalTitle: {
+    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  debugIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.backgroundSecondary,
+  },
+  debugReportBox: {
+    maxHeight: 420,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: colors.backgroundSecondary,
+  },
+  debugReportText: {
+    color: colors.textPrimary,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  debugModalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    padding: 14,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  debugModalButton: {
+    flex: 1,
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.backgroundSecondary,
   },
   infoText: {
     fontSize: 14,

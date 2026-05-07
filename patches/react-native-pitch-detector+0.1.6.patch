@@ -1,0 +1,66 @@
+diff --git a/node_modules/react-native-pitch-detector/ios/PitchDetector/PitchDetectorModule.swift b/node_modules/react-native-pitch-detector/ios/PitchDetector/PitchDetectorModule.swift
+index f635075..57dca83 100644
+--- a/node_modules/react-native-pitch-detector/ios/PitchDetector/PitchDetectorModule.swift
++++ b/node_modules/react-native-pitch-detector/ios/PitchDetector/PitchDetectorModule.swift
+@@ -35,14 +35,17 @@ open class PitchDetectorModule: RCTEventEmitter {
+ 
+     @objc(start:resolve:reject:)
+     func start(_ config: Dictionary<String, Any>, resolve:@escaping RCTPromiseResolveBlock, reject:@escaping RCTPromiseRejectBlock) -> Void {
+-    if (!self.recording) {
+-        let promise = PromiseUtils(resolve, reject)
+-        
+-        processor.start(config)
+-        self.recording = true
++    let promise = PromiseUtils(resolve, reject)
+ 
+-        return promise.resolve(nil)
++    if (self.recording) {
++        processor.stop()
++        self.recording = false
+     }
++
++    processor.start(config)
++    self.recording = true
++
++    return promise.resolve(nil)
+   }
+     
+   @objc(stop:reject:)
+diff --git a/node_modules/react-native-pitch-detector/ios/PitchDetector/Processors/BaseProcessor.swift b/node_modules/react-native-pitch-detector/ios/PitchDetector/Processors/BaseProcessor.swift
+index 8635db4..ed3208f 100644
+--- a/node_modules/react-native-pitch-detector/ios/PitchDetector/Processors/BaseProcessor.swift
++++ b/node_modules/react-native-pitch-detector/ios/PitchDetector/Processors/BaseProcessor.swift
+@@ -31,15 +31,30 @@ class BaseProcessor: PitchEngineDelegate {
+     func prepare(_ config: Dictionary<String, Any>) {
+         let bufferSize = config["bufferSize"] as! Int
+         let algorithm = AlgorithmUtils.parse(for: config["algorithm"] as! String)
++        // VoiceVault fix: honor levelThreshold from JS config so callers can bypass the
++        // broken AVCaptureSession averagePowerLevel gate on iOS 26 (it's stuck at -120 dB).
++        let threshold = (config["levelThreshold"] as? NSNumber)?.floatValue ?? -30.0
+ 
+-        let config = Config(bufferSize: AVAudioFrameCount(bufferSize), estimationStrategy: algorithm)
+-        processor = PitchEngine(config: config, delegate: self)
+-        processor?.levelThreshold = -30.0
++        let cfg = Config(bufferSize: AVAudioFrameCount(bufferSize), estimationStrategy: algorithm)
++        processor = PitchEngine(config: cfg, delegate: self)
++        processor?.levelThreshold = threshold
++    }
++
++    private func configureAudioSessionForPitchDetection() throws {
++        let session = AVAudioSession.sharedInstance()
++        try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetooth])
++        try session.setActive(true)
+     }
+ 
+     func start(_ config: Dictionary<String, Any>) {
+         prepare(config)
+ 
++        do {
++            try configureAudioSessionForPitchDetection()
++        } catch {
++            print("PitchDetector audio session setup failed: \(error)")
++        }
++
+         if ((processor?.active) != nil && !processor!.active) {
+             processor?.start()
+         }

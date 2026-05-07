@@ -1,13 +1,14 @@
 {
   "name": "voice-vault-app",
   "license": "0BSD",
-  "version": "1.4.9",
+  "version": "1.5.4",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@expo/config-plugins": "~54.0.1",
@@ -65,6 +66,8 @@
     "@babel/core": "^7.26.0",
     "@types/lodash.debounce": "^4.0.9",
     "@types/react": "~19.1.10",
+    "patch-package": "^8.0.1",
+    "postinstall-postinstall": "^2.1.0",
     "supabase": "^2.12.1",
     "typescript": "~5.9.2"
   },

@@ -385,7 +385,7 @@ export const startPitchDetection = (
     // Platform-specific config for the pitch detector
     // Android native module requires sampleRate, bufferSize and bufferOverLap.
     const config = Platform.OS === 'ios'
-      ? { algorithm: 'YIN', bufferSize: 1024, levelThreshold: -85 }
+      ? { algorithm: 'YIN', bufferSize: 1024, levelThreshold: -200 }
       : {
           algorithm: 'YIN',
           sampleRate: 22050,

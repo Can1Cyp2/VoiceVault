@@ -47,11 +47,16 @@ import {
     Alert,
     ActivityIndicator,
     Platform,
+    Switch,
 } from "react-native";
 import { supabase } from "../../util/supabase";
 import { checkAdminStatus } from "../../util/adminUtils";
 import { adService } from "../../components/SupportModal/AdService"; // Import your ad service
 import { useTheme } from "../../contexts/ThemeContext";
+import {
+    fetchAdminTunerDebugEnabled,
+    setAdminTunerDebugEnabled,
+} from "../../util/tunerDebugAccess";
 
 import Constants from "expo-constants";
 import * as Updates from "expo-updates";
@@ -177,6 +182,9 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
         isDev: __DEV__
     });
     const [debugLogs, setDebugLogs] = useState<string[]>([]);
+    const [tunerDebugEnabled, setTunerDebugEnabled] = useState(false);
+    const [tunerDebugLoading, setTunerDebugLoading] = useState(false);
+    const [tunerDebugSaving, setTunerDebugSaving] = useState(false);
 
     // Security: Verify admin status on mount and periodically
     useEffect(() => {
@@ -201,6 +209,7 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
         verifyAdminAccess().then(verified => {
             if (verified) {
                 fetchAdminData();
+                fetchTunerDebugSetting();
                 setupAdDebugMonitoring();
                 
                 // Re-verify every 30 seconds to ensure continued admin access
@@ -251,6 +260,51 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
         const timestamp = new Date().toLocaleTimeString();
         const logMessage = `${timestamp}: ${message}`;
         setDebugLogs(prev => [logMessage, ...prev.slice(0, 19)]); // Keep last 20 logs
+    };
+
+    const getErrorMessage = (error: unknown) => {
+        if (error && typeof error === 'object' && 'message' in error) {
+            return String((error as { message?: unknown }).message);
+        }
+
+        return String(error);
+    };
+
+    const fetchTunerDebugSetting = async () => {
+        try {
+            setTunerDebugLoading(true);
+            const enabled = await fetchAdminTunerDebugEnabled();
+            setTunerDebugEnabled(enabled);
+            addDebugLog(`Tuner debug reports ${enabled ? 'enabled' : 'disabled'}`);
+        } catch (error) {
+            addDebugLog(`Tuner debug setting load failed: ${getErrorMessage(error)}`);
+            setTunerDebugEnabled(false);
+        } finally {
+            setTunerDebugLoading(false);
+        }
+    };
+
+    const handleToggleTunerDebug = async (enabled: boolean) => {
+        if (tunerDebugSaving) {
+            return;
+        }
+
+        const previousEnabled = tunerDebugEnabled;
+        setTunerDebugEnabled(enabled);
+        setTunerDebugSaving(true);
+
+        try {
+            const savedEnabled = await setAdminTunerDebugEnabled(enabled);
+            setTunerDebugEnabled(savedEnabled);
+            addDebugLog(`Tuner debug reports ${savedEnabled ? 'enabled' : 'disabled'}`);
+        } catch (error) {
+            setTunerDebugEnabled(previousEnabled);
+            const message = getErrorMessage(error);
+            addDebugLog(`Tuner debug setting update failed: ${message}`);
+            Alert.alert("Tuner Debug", "Could not update tuner debug access.");
+        } finally {
+            setTunerDebugSaving(false);
+        }
     };
 
     // Call the DB RPC to get canonical profile info (email, created_at, is_admin, role)
@@ -602,6 +656,28 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
             <View style={styles.debugSection}>
                 <Text style={styles.sectionTitle}>🐛 Ad Debug Panel</Text>
 
+                <View style={styles.debugCard}>
+                    <View style={styles.tunerDebugHeader}>
+                        <View style={styles.tunerDebugTextBlock}>
+                            <Text style={styles.debugCardTitle}>Tuner Debug Reports</Text>
+                            <Text style={styles.tunerDebugStatus}>
+                                {tunerDebugLoading
+                                    ? 'Checking...'
+                                    : tunerDebugEnabled
+                                        ? 'Enabled'
+                                        : 'Disabled'}
+                            </Text>
+                        </View>
+                        <Switch
+                            value={tunerDebugEnabled}
+                            onValueChange={handleToggleTunerDebug}
+                            disabled={tunerDebugLoading || tunerDebugSaving}
+                            trackColor={{ false: colors.border, true: colors.primary }}
+                            thumbColor={tunerDebugEnabled ? colors.buttonText : colors.backgroundTertiary}
+                        />
+                    </View>
+                </View>
+
                 {/* Ad Status */}
                 <View style={styles.debugCard}>
                     <Text style={styles.debugCardTitle}>Ad System Status</Text>
@@ -813,6 +889,20 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
         fontWeight: "bold",
         color: colors.textPrimary,
         marginBottom: 12,
+    },
+    tunerDebugHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 16,
+    },
+    tunerDebugTextBlock: {
+        flex: 1,
+    },
+    tunerDebugStatus: {
+        fontSize: 13,
+        color: colors.textSecondary,
+        fontWeight: "600",
     },
     statusItem: {
         flexDirection: "row",

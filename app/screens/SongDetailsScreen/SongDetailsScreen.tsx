@@ -433,7 +433,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
           <View style={styles.singAction}>
             <TouchableOpacity style={styles.singButton} onPress={handleOpenSingModal}>
               <Ionicons name="mic-outline" size={18} color={colors.buttonText} />
-              <Text style={styles.singButtonText}>SING THIS!</Text>
+              <Text style={styles.singButtonText}>SING IT!</Text>
             </TouchableOpacity>
           </View>
         </>

@@ -1,9 +1,10 @@
 // app/screens/TunerScreen/TunerScreen.tsx
 
-import React, { useMemo, useState, useRef, useEffect } from "react";
+import React, { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, Dimensions, ScrollView, Modal, Share, Platform } from "react-native";
 import { useTheme } from "../../contexts/ThemeContext";
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from "@react-navigation/native";
 import { 
   startPitchDetection, 
   requestMicrophonePermission, 
@@ -14,6 +15,7 @@ import {
 import * as Sentry from '@sentry/react-native';
 import Svg, { Line, Circle, Text as SvgText, Path } from 'react-native-svg';
 import { addPitchDebugEvent, buildPitchDebugReport, clearPitchDebugEvents } from "../../util/pitchDebug";
+import { useTunerDebugAccess } from "../../util/tunerDebugAccess";
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -37,6 +39,7 @@ export default function TunerScreen() {
   const [pitchHistory, setPitchHistory] = useState<PitchHistoryItem[]>([]);
   const [isDebugModalVisible, setIsDebugModalVisible] = useState(false);
   const [debugReport, setDebugReport] = useState('');
+  const { canViewDebug, refresh: refreshDebugAccess } = useTunerDebugAccess();
   
   const stopDetectionRef = useRef<(() => void) | null>(null);
   const needleRotation = useRef(new Animated.Value(0)).current;
@@ -44,6 +47,12 @@ export default function TunerScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const pianoScrollRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshDebugAccess();
+    }, [refreshDebugAccess])
+  );
 
   // Cleanup on unmount
   useEffect(() => {
@@ -54,6 +63,13 @@ export default function TunerScreen() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!canViewDebug) {
+      setIsDebugModalVisible(false);
+      setDebugReport('');
+    }
+  }, [canViewDebug]);
 
   // Add pitch to history
   useEffect(() => {
@@ -242,7 +258,22 @@ export default function TunerScreen() {
     lastPitchHistoryItem: pitchHistory[pitchHistory.length - 1] || null,
   });
 
+  const verifyDebugAccess = async () => {
+    const isAllowed = await refreshDebugAccess();
+
+    if (!isAllowed) {
+      setIsDebugModalVisible(false);
+      setDebugReport('');
+    }
+
+    return isAllowed;
+  };
+
   const openDebugReport = async () => {
+    if (!(await verifyDebugAccess())) {
+      return;
+    }
+
     addPitchDebugEvent('debug.report_opened', getDebugContext());
     const report = await buildPitchDebugReport(getDebugContext());
     setDebugReport(report);
@@ -250,6 +281,10 @@ export default function TunerScreen() {
   };
 
   const shareDebugReport = async () => {
+    if (!(await verifyDebugAccess())) {
+      return;
+    }
+
     addPitchDebugEvent('debug.report_shared', getDebugContext());
     const report = await buildPitchDebugReport(getDebugContext());
     setDebugReport(report);
@@ -259,7 +294,11 @@ export default function TunerScreen() {
     });
   };
 
-  const clearDebugReport = () => {
+  const clearDebugReport = async () => {
+    if (!(await verifyDebugAccess())) {
+      return;
+    }
+
     clearPitchDebugEvents();
     setDebugReport('Debug log cleared. Start the tuner, play a note for a few seconds, then use Share Debug.');
   };
@@ -681,20 +720,22 @@ export default function TunerScreen() {
         </Text>
       </TouchableOpacity>
 
-      <View style={styles.debugActions}>
-        <TouchableOpacity style={styles.debugButton} onPress={openDebugReport}>
-          <Ionicons name="document-text-outline" size={17} color={colors.textPrimary} />
-          <Text style={styles.debugButtonText}>Show Debug</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.debugButton} onPress={shareDebugReport}>
-          <Ionicons name="share-outline" size={17} color={colors.textPrimary} />
-          <Text style={styles.debugButtonText}>Share Debug</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.debugButton} onPress={clearDebugReport}>
-          <Ionicons name="trash-outline" size={17} color={colors.textPrimary} />
-          <Text style={styles.debugButtonText}>Clear</Text>
-        </TouchableOpacity>
-      </View>
+      {canViewDebug && (
+        <View style={styles.debugActions}>
+          <TouchableOpacity style={styles.debugButton} onPress={openDebugReport}>
+            <Ionicons name="document-text-outline" size={17} color={colors.textPrimary} />
+            <Text style={styles.debugButtonText}>Show Debug</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.debugButton} onPress={shareDebugReport}>
+            <Ionicons name="share-outline" size={17} color={colors.textPrimary} />
+            <Text style={styles.debugButtonText}>Share Debug</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.debugButton} onPress={clearDebugReport}>
+            <Ionicons name="trash-outline" size={17} color={colors.textPrimary} />
+            <Text style={styles.debugButtonText}>Clear</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Info text */}
       <Text style={styles.infoText}>
@@ -704,7 +745,7 @@ export default function TunerScreen() {
       </Text>
 
       <Modal
-        visible={isDebugModalVisible}
+        visible={isDebugModalVisible && canViewDebug}
         animationType="slide"
         transparent
         onRequestClose={() => setIsDebugModalVisible(false)}

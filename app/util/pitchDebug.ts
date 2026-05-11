@@ -12,6 +12,7 @@ type PitchDebugEvent = {
 
 const MAX_DEBUG_EVENTS = 220;
 const pitchDebugEvents: PitchDebugEvent[] = [];
+let isPitchDebugCollectionEnabled = false;
 
 const serializeValue = (value: unknown): string => {
   try {
@@ -43,6 +44,10 @@ export const addPitchDebugEvent = (
   event: string,
   data?: PitchDebugData
 ) => {
+  if (!isPitchDebugCollectionEnabled) {
+    return;
+  }
+
   pitchDebugEvents.push({
     timestamp: new Date().toISOString(),
     event,
@@ -54,16 +59,37 @@ export const addPitchDebugEvent = (
   }
 };
 
+export const setPitchDebugCollectionEnabled = (enabled: boolean) => {
+  const wasEnabled = isPitchDebugCollectionEnabled;
+  isPitchDebugCollectionEnabled = enabled;
+
+  if (!enabled) {
+    pitchDebugEvents.splice(0, pitchDebugEvents.length);
+    return;
+  }
+
+  if (!wasEnabled) {
+    addPitchDebugEvent("debug.enabled");
+  }
+};
+
+export const getPitchDebugCollectionEnabled = () => isPitchDebugCollectionEnabled;
+
 export const clearPitchDebugEvents = () => {
   pitchDebugEvents.splice(0, pitchDebugEvents.length);
   addPitchDebugEvent("debug.cleared");
 };
 
-export const getPitchDebugEvents = () => [...pitchDebugEvents];
+export const getPitchDebugEvents = () =>
+  isPitchDebugCollectionEnabled ? [...pitchDebugEvents] : [];
 
 export const buildPitchDebugReport = async (
   screenContext: PitchDebugData = {}
 ): Promise<string> => {
+  if (!isPitchDebugCollectionEnabled) {
+    return "Pitch debug reports are disabled.";
+  }
+
   const expoConfig = Constants.expoConfig as any;
   const nativeModuleNames = Object.keys(NativeModules || {});
   const pitchDetectorModule = NativeModules?.PitchDetectorModule;

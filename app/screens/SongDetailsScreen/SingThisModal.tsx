@@ -229,7 +229,7 @@ export default function SingThisModal({
         }
       });
     } catch (error) {
-      console.error("Error playing Sing This reference note:", error);
+      console.error("Error playing Sing It reference note:", error);
       Alert.alert("Playback Error", "Could not play this note right now.");
     }
   }, [currentTarget, isListening, stopReferenceSound]);
@@ -299,16 +299,16 @@ export default function SingThisModal({
           }
         },
         (error) => {
-          console.error("Sing This pitch detection error:", error);
-          Alert.alert("Sing This Error", "Could not start the microphone check right now.");
+          console.error("Sing It pitch detection error:", error);
+          Alert.alert("Sing It Error", "Could not start the microphone check right now.");
           stopListening(true);
           updateCurrentStep("failed", 0);
         },
         false
       );
     } catch (error) {
-      console.error("Failed to start Sing This recording:", error);
-      Alert.alert("Sing This Error", "Could not start the microphone check right now.");
+      console.error("Failed to start Sing It recording:", error);
+      Alert.alert("Sing It Error", "Could not start the microphone check right now.");
       stopListening(true);
       updateCurrentStep("failed", 0);
       return;
@@ -332,7 +332,7 @@ export default function SingThisModal({
   const confirmReady = useCallback(() => {
     if (!targets.length) {
       Alert.alert(
-        "Sing This!",
+        "Sing It!",
         "This song does not have a valid vocal range to test right now."
       );
       return;
@@ -398,7 +398,7 @@ export default function SingThisModal({
             contentContainerStyle={styles.modalScrollContent}
             showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.modalTitle}>Sing This!</Text>
+            <Text style={styles.modalTitle}>Sing It!</Text>
 
             {view === "intro" && (
               <>

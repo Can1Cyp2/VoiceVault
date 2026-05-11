@@ -8,6 +8,7 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
+.expo-shared/
 
 # Native
 *.orig.*
@@ -16,71 +17,92 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+*.pem
+*.keystore
+!android/app/debug.keystore
 
-# Android signing
-android/keystore.properties
+# Android
+android/.idea/
+android/.gradle/
+android/app/build/
+android/build/
 android/local.properties
+android/keystore.properties
+*.apk
+*.aab
+
+# iOS
+ios/Pods/
+ios/build/
+ios/Index/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+xcuserdata/
+
+# macOS
+.DS_Store
+*.AppleDouble
+*.LSOverride
 
 # Metro
 .metro-health-check*
 
-# debug
+# debug / logs
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*.log
+coverage/
+.nyc_output/
 
-# macOS
-.DS_Store
-*.pem
+# ide
+.vscode/*
+!.vscode/settings.json
+*.swp
+*.swo
 
 # local env files
+.env
+.env.*
 .env*.local
+process.env
 
 # typescript
 *.tsbuildinfo
-
-# supabase keys
-# these are blocked
-
-# Personal notes
-possible_future_TODO.md
 
 # supabase (private by default)
 supabase/**
 !supabase/migrations/
 supabase/migrations/**
 !supabase/migrations/20260227_add_voice_type_to_user_vocal_ranges.sql
+!supabase/migrations/20260507_add_secure_tuner_debug_settings.sql
+
+# Personal notes
+possible_future_TODO.md
 CONFLICT_CHECK_RESULTS.md
 ANALYTICS_SETUP.md
 CONTENT_MODERATION_GUIDE.md
 VOCAL_RANGE_DETECTION_IMPLEMENTATION.md
 TODO.md
-
-# Allow specific docs that should be public
 !ANDROID_BUILD_TROUBLESHOOTING.md
-
-# Local environment and secrets
-.env
-.env.*
-process.env
-
-# Expo shared local state
-.expo-shared/
-
-# Sensitive keys and certs
-*.pem
-*.p12
-*.p8
-*.key
-*.jks
-*.keystore
 
 # Firebase / Google services
 google-services.json
 **/GoogleService-Info.plist
 
-# IDE
-.vscode/
+# General Security / Certificates
+*.cert
+*.crt
+*.pfx
+*.der
+*.pub
+sentry.properties
+awsconfiguration.json
+amplifyconfiguration.json
 
-# Claude Code temp files
-tmpclaude-*
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+

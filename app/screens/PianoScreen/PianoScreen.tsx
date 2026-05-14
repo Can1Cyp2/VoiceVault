@@ -22,8 +22,9 @@ import { useTheme } from "../../contexts/ThemeContext";
 import * as ScreenOrientation from "expo-screen-orientation";
 
 // ─── Layout ─────────────────────────────────────────────────────
-const WHITE_KEY_WIDTH = 52;
-const BLACK_KEY_WIDTH = 32;
+const INITIAL_KEY_WIDTH = 52;
+const MIN_KEY_WIDTH = 30;
+const MAX_KEY_WIDTH = 90;
 const BLACK_KEY_RATIO = 0.625;
 
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -134,9 +135,9 @@ function noteToFileKey(noteName: string): string {
   return noteName.replace("#", "s");
 }
 
-function getBlackKeyPosition(note: NoteInfo): number {
+function getBlackKeyPosition(note: NoteInfo, whiteKeyWidth: number, blackKeyWidth: number): number {
   const whiteKeysBefore = WHITE_NOTES.filter((w) => w.midiNote < note.midiNote).length;
-  return whiteKeysBefore * WHITE_KEY_WIDTH - BLACK_KEY_WIDTH / 2;
+  return whiteKeysBefore * whiteKeyWidth - blackKeyWidth / 2;
 }
 
 function withAlpha(color: string, alpha: number): string {
@@ -181,6 +182,14 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
   const [pianoHeight, setPianoHeight] = useState(240);
   const whiteKeyHeight = pianoHeight;
   const blackKeyHeight = Math.round(pianoHeight * BLACK_KEY_RATIO);
+
+  const [scrollLocked, setScrollLocked] = useState(false);
+  const [keyWidth, setKeyWidth] = useState(INITIAL_KEY_WIDTH);
+  const whiteKeyWidth = keyWidth;
+  const blackKeyWidth = keyWidth * BLACK_KEY_RATIO;
+  
+  const handleZoomIn = () => setKeyWidth(prev => Math.min(MAX_KEY_WIDTH, prev + 10));
+  const handleZoomOut = () => setKeyWidth(prev => Math.max(MIN_KEY_WIDTH, prev - 10));
 
   const handleExitToSearch = useCallback(() => {
     // Restore portrait before leaving piano to avoid transient landscape artifacts.
@@ -235,7 +244,7 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
         const c4WhiteIndex = WHITE_NOTES.findIndex((n) => n.name === "C4");
         const scrollTo = Math.max(
           0,
-          c4WhiteIndex * WHITE_KEY_WIDTH - Dimensions.get("window").width / 2
+          c4WhiteIndex * whiteKeyWidth - Dimensions.get("window").width / 2
         );
         scrollViewRef.current.scrollTo({ x: scrollTo, animated: false });
       }
@@ -401,7 +410,7 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
     }, sustainRef.current ? 800 : 200);
   }, [triggerNote, fadeOutSound]);
 
-  const totalWidth = WHITE_NOTES.length * WHITE_KEY_WIDTH;
+  const totalWidth = WHITE_NOTES.length * whiteKeyWidth;
 
   return (
     <View style={styles.container}>
@@ -466,6 +475,44 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
                 Labels
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.controlPill,
+                scrollLocked && styles.controlPillActive,
+              ]}
+              onPress={() => setScrollLocked(!scrollLocked)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={scrollLocked ? "lock-closed" : "lock-open"}
+                size={14}
+                color={scrollLocked ? colors.primary : colors.textSecondary}
+              />
+              <Text style={[
+                styles.controlPillText,
+                scrollLocked && { color: colors.primary },
+              ]}>
+                Lock
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.controlPill}
+              onPress={handleZoomOut}
+              activeOpacity={0.7}
+              disabled={keyWidth <= MIN_KEY_WIDTH}
+            >
+              <Ionicons name="remove-circle-outline" size={14} color={keyWidth <= MIN_KEY_WIDTH ? colors.textSecondary + "50" : colors.textSecondary} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.controlPill}
+              onPress={handleZoomIn}
+              activeOpacity={0.7}
+              disabled={keyWidth >= MAX_KEY_WIDTH}
+            >
+              <Ionicons name="add-circle-outline" size={14} color={keyWidth >= MAX_KEY_WIDTH ? colors.textSecondary + "50" : colors.textSecondary} />
+            </TouchableOpacity>
           </View>
         </View>
       </SafeAreaView>
@@ -478,7 +525,7 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
       <ScrollView
         ref={scrollViewRef}
         horizontal
-        scrollEnabled={activeNotes.size === 0}
+        scrollEnabled={!scrollLocked}
         showsHorizontalScrollIndicator={false}
         bounces={false}
         disableScrollViewPanResponder={Platform.OS === "android"}
@@ -493,7 +540,8 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
             const keyStyle = [
               styles.whiteKey,
               {
-                left: index * WHITE_KEY_WIDTH,
+                left: index * whiteKeyWidth,
+                width: whiteKeyWidth,
                 height: whiteKeyHeight,
               },
               isActive && styles.whiteKeyActive,
@@ -544,10 +592,10 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
           {/* Black Keys */}
           {BLACK_NOTES.map((note) => {
             const isActive = activeNotes.has(note.name);
-            const xPos = getBlackKeyPosition(note);
+            const xPos = getBlackKeyPosition(note, whiteKeyWidth, blackKeyWidth);
             const keyStyle = [
               styles.blackKey,
-              { left: xPos, height: blackKeyHeight },
+              { left: xPos, width: blackKeyWidth, height: blackKeyHeight },
               isActive && styles.blackKeyActive,
             ];
 
@@ -672,7 +720,6 @@ const createStyles = (colors: any, isDark: boolean) => {
     whiteKey: {
       position: "absolute",
       top: 0,
-      width: WHITE_KEY_WIDTH,
       backgroundColor: "#F8F8F8",
       borderRightWidth: 1,
       borderRightColor: "#D4D4D4",
@@ -711,7 +758,6 @@ const createStyles = (colors: any, isDark: boolean) => {
     blackKey: {
       position: "absolute",
       top: 0,
-      width: BLACK_KEY_WIDTH,
       backgroundColor: "#1A1A1A",
       borderBottomLeftRadius: 5,
       borderBottomRightRadius: 5,

@@ -4,7 +4,8 @@ import { supabase } from "../../util/supabase";
 export const submitVocalRange = async (
   minRange: string,
   maxRange: string,
-  voiceType: string | null = null
+  voiceType: string | null = null,
+  rangeUpdateReason: string | null = null
 ) => {
   // List of valid notes in order
   const NOTES = [
@@ -45,6 +46,7 @@ export const submitVocalRange = async (
         min_range: minRange,
         max_range: maxRange,
         voice_type: voiceType,
+        range_update_reason: rangeUpdateReason,
       },
     ],
     { onConflict: "user_id" } // Ensures only one row per user_id

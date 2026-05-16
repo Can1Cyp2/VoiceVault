@@ -19,8 +19,54 @@ import { supabase } from "../../util/supabase";
 import { fetchUserVocalRange } from "../../util/api";
 import { useAdminStatus, checkAdminStatus } from "../../util/adminUtils";
 import { useTheme } from "../../contexts/ThemeContext";
+import { calculateRangeStats } from "../../util/audioAnalysis";
 import VocalRangeDetectorModal from "../TunerScreen/VocalRangeDetectorModal";
 import EditProfileModal from "./EditProfileModal";
+
+const VOICE_TYPE_GUIDE = [
+  {
+    name: "Bass",
+    commonRange: "E2 - E4",
+    description: "Lowest common male voice type, typically warm and rich in lower notes.",
+  },
+  {
+    name: "Baritone",
+    commonRange: "A2 - F4",
+    description: "Middle male voice type with balanced low and high register capability.",
+  },
+  {
+    name: "Tenor",
+    commonRange: "C3 - A4",
+    description: "Higher common male voice type, usually brighter and agile in upper notes.",
+  },
+  {
+    name: "Alto",
+    commonRange: "F3 - D5",
+    description: "Lower common female voice type with a fuller lower-mid tone.",
+  },
+  {
+    name: "Mezzo-Soprano",
+    commonRange: "A3 - F5",
+    description: "Middle female voice type with strong versatility across registers.",
+  },
+  {
+    name: "Soprano",
+    commonRange: "C4 - A5",
+    description: "Highest common female voice type, often comfortable in very high notes.",
+  },
+];
+
+const getVoiceTypeGuide = (voiceType: string | null) => {
+  if (!voiceType) return null;
+
+  const exactMatch = VOICE_TYPE_GUIDE.find((entry) => entry.name === voiceType);
+  if (exactMatch) return exactMatch;
+
+  const primaryLabel = voiceType.split("/")[0]?.trim();
+  if (!primaryLabel) return null;
+
+  return VOICE_TYPE_GUIDE.find((entry) => entry.name === primaryLabel) || null;
+};
 
 export default function ProfileScreen({ navigation }: any) {
   const { colors, isDark, setMode } = useTheme();
@@ -32,8 +78,10 @@ export default function ProfileScreen({ navigation }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const [vocalRange, setVocalRange] = useState<string | null>(null);
+  const [voiceType, setVoiceType] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isHelpVisible, setHelpVisible] = useState(false);
+  const [isVoiceTypeInfoVisible, setVoiceTypeInfoVisible] = useState(false);
   const [updateTrigger, setUpdateTrigger] = useState(0); // Triggers refresh
   const [coinBalance, setCoinBalance] = useState<number | null>(null);
   const [isRangeModalVisible, setRangeModalVisible] = useState(false);
@@ -51,6 +99,7 @@ export default function ProfileScreen({ navigation }: any) {
       if (!user) {
         setUsername("Edit your profile to add a username.");
         setVocalRange("Edit your profile to set a vocal range.");
+        setVoiceType(null);
       }
 
       if (user) {
@@ -76,14 +125,22 @@ export default function ProfileScreen({ navigation }: any) {
       // Fetch vocal range
       const rangeData = await fetchUserVocalRange();
       if (rangeData) {
-        const { min_range, max_range } = rangeData;
-        setVocalRange(
-          min_range === "C0" || max_range === "C0"
-            ? "Edit your profile to set a vocal range."
-            : `${min_range} - ${max_range}`
-        );
+        const { min_range, max_range, voice_type } = rangeData;
+        const hasValidRange = min_range !== "C0" && max_range !== "C0";
+
+        if (hasValidRange) {
+          const stats = calculateRangeStats(min_range, max_range);
+          const calculatedType = stats.classification !== "Unknown" ? stats.classification : null;
+
+          setVocalRange(`${min_range} - ${max_range}`);
+          setVoiceType(voice_type || calculatedType || null);
+        } else {
+          setVocalRange("Edit your profile to set a vocal range.");
+          setVoiceType(null);
+        }
       } else {
         setVocalRange("Edit your profile to set a vocal range.");
+        setVoiceType(null);
       }
     } catch (err) {
       console.error("Error fetching user data:", err);
@@ -103,6 +160,7 @@ export default function ProfileScreen({ navigation }: any) {
         } else {
           setUsername("Edit your profile to add a username.");
           setVocalRange("Edit your profile to set a vocal range.");
+          setVoiceType(null);
         }
       }
     );
@@ -128,10 +186,16 @@ export default function ProfileScreen({ navigation }: any) {
       navigation.navigate("Home"),
         setUsername("Edit your profile to add a username.");
       setVocalRange("Edit your profile to set a vocal range.");
+      setVoiceType(null);
       Alert.alert("Logged Out", "You have successfully logged out.");
     }
     setMenuVisible(false);
   };
+
+  const selectedVoiceGuide = useMemo(
+    () => getVoiceTypeGuide(voiceType),
+    [voiceType]
+  );
 
   // Function to reset the user's password
   const handleResetPassword = async () => {
@@ -281,6 +345,18 @@ export default function ProfileScreen({ navigation }: any) {
           <Text style={styles.cardTitle}>Vocal Range</Text>
         </View>
         <Text style={styles.vocalRangeText}>{vocalRange}</Text>
+        <View style={styles.voiceTypeRow}>
+          <Text style={styles.voiceTypeText}>
+            Voice Type: {voiceType || "Set your vocal range to calculate this"}
+          </Text>
+          <TouchableOpacity
+            style={styles.voiceTypeInfoButton}
+            onPress={() => setVoiceTypeInfoVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="information-circle-outline" size={22} color={colors.link} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Action Buttons */}
@@ -445,6 +521,53 @@ export default function ProfileScreen({ navigation }: any) {
       </TouchableOpacity>
 
       <Modal
+        visible={isVoiceTypeInfoVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setVoiceTypeInfoVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.voiceTypeModalContent]}>
+            <Text style={styles.modalTitle}>Voice Type Guide</Text>
+            {voiceType ? (
+              <>
+                <Text style={styles.voiceTypeModalPrimaryText}>Your calculated voice type: {voiceType}</Text>
+                <Text style={styles.voiceTypeModalSecondaryText}>
+                  Common range: {selectedVoiceGuide?.commonRange || "Varies by singer and training"}
+                </Text>
+                <Text style={styles.voiceTypeModalBodyText}>
+                  {selectedVoiceGuide?.description || "Your range overlaps more than one category, which is normal."}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.voiceTypeModalBodyText}>
+                Set your vocal range first to calculate your voice type.
+              </Text>
+            )}
+
+            <Text style={styles.voiceTypeModalListTitle}>Other vocal types (for comparison)</Text>
+            {VOICE_TYPE_GUIDE.map((entry) => (
+              <Text key={entry.name} style={styles.voiceTypeModalListItem}>
+                {entry.name}: {entry.commonRange}
+              </Text>
+            ))}
+
+            <Text style={styles.voiceTypeModalHintText}>
+              If you would like to manually change your Vocal Range or Voice Type,
+              select Edit Profile in the Profile Settings tab.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setVoiceTypeInfoVisible(false)}
+            >
+              <Text style={styles.modalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
         visible={isHelpVisible}
         transparent
         animationType="slide"
@@ -574,6 +697,22 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     fontSize: 16,
     color: colors.textSecondary,
     lineHeight: 22,
+  },
+  voiceTypeRow: {
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  voiceTypeText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.textPrimary,
+    fontWeight: "600",
+  },
+  voiceTypeInfoButton: {
+    padding: 2,
   },
   actionsContainer: {
     paddingHorizontal: 20,
@@ -731,11 +870,51 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     textAlign: "center",
     marginBottom: 20,
   },
+  voiceTypeModalContent: {
+    width: "88%",
+    alignItems: "flex-start",
+    maxHeight: "82%",
+  },
+  voiceTypeModalPrimaryText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    marginBottom: 6,
+  },
+  voiceTypeModalSecondaryText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  voiceTypeModalBodyText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 14,
+  },
+  voiceTypeModalListTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    marginBottom: 8,
+  },
+  voiceTypeModalListItem: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  voiceTypeModalHintText: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: 10,
+    fontStyle: "italic",
+  },
   modalCloseButton: {
     backgroundColor: colors.secondary,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 5,
+    alignSelf: "center",
+    marginTop: 16,
   },
   modalCloseText: {
     color: colors.buttonText,

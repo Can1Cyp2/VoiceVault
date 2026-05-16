@@ -11,6 +11,7 @@ import {
   Platform,
   ActionSheetIOS,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../util/supabase";
 import { fetchUserVocalRange } from "../../util/api";
 import { submitVocalRange } from "../UserVocalRange/UserVocalRangeLogic";
@@ -110,6 +111,15 @@ const VOICE_TYPE_OPTIONS = [
   { label: "Unknown", value: "Unknown" },
 ];
 
+const RANGE_CHANGE_REASONS = [
+  { label: "Learning how to sing", value: "Learning how to sing" },
+  { label: "Incorrect analysis", value: "Incorrect analysis" },
+  { label: "Voice has improved", value: "Voice has improved" },
+  { label: "Temporary vocal condition (e.g. cold/fatigue)", value: "Temporary vocal condition" },
+  { label: "Testing different range", value: "Testing different range" },
+  { label: "Other", value: "Other" },
+];
+
 // Edit profile modal
 export default function EditProfileModal({
   onClose,
@@ -124,8 +134,12 @@ export default function EditProfileModal({
   const [minRange, setMinRange] = useState("C0");
   const [maxRange, setMaxRange] = useState("C0");
   const [voiceType, setVoiceType] = useState("");
+  const [rangeChangeReason, setRangeChangeReason] = useState("");
   const [loading, setLoading] = useState(true);
   const [originalDisplayName, setOriginalDisplayName] = useState(""); // To track if user edits it
+  const [originalMinRange, setOriginalMinRange] = useState("C0");
+  const [originalMaxRange, setOriginalMaxRange] = useState("C0");
+  const [originalVoiceType, setOriginalVoiceType] = useState("");
 
   // Fetch user data and vocal range on component mount
   useEffect(() => {
@@ -144,9 +158,16 @@ export default function EditProfileModal({
         // Fetch vocal range
         const vocalRangeData = await fetchUserVocalRange();
         if (vocalRangeData) {
-          setMinRange(vocalRangeData.min_range || "C0");
-          setMaxRange(vocalRangeData.max_range || "C0");
-          setVoiceType(vocalRangeData.voice_type || "");
+          const loadedMin = vocalRangeData.min_range || "C0";
+          const loadedMax = vocalRangeData.max_range || "C0";
+          setMinRange(loadedMin);
+          setMaxRange(loadedMax);
+          setOriginalMinRange(loadedMin);
+          setOriginalMaxRange(loadedMax);
+          const loadedVoiceType = vocalRangeData.voice_type || "";
+          setVoiceType(loadedVoiceType);
+          setOriginalVoiceType(loadedVoiceType);
+          setRangeChangeReason(vocalRangeData.range_update_reason || "");
         }
       } catch (err) {
         console.error("Error fetching user data:", err);
@@ -160,6 +181,9 @@ export default function EditProfileModal({
 
   // Function to handle vocal range submission
   const handleSave = async () => {
+    const hasRangeChanged = minRange !== originalMinRange || maxRange !== originalMaxRange;
+    const hasVoiceTypeChanged = voiceType !== originalVoiceType;
+
     if (!displayName.trim()) {
       Alert.alert("Error", "Display name cannot be empty.");
       return;
@@ -177,6 +201,14 @@ export default function EditProfileModal({
       maxRange !== "C0"
     ) {
       Alert.alert("Error", "Min range must be lower than max range.");
+      return;
+    }
+
+    if (hasVoiceTypeChanged && !rangeChangeReason) {
+      Alert.alert(
+        "Reason Required",
+        "Please select why you are switching your voice type."
+      );
       return;
     }
 
@@ -203,7 +235,21 @@ export default function EditProfileModal({
       }
 
       // Save Vocal Range
-      await submitVocalRange(minRange, maxRange, voiceType || null);
+      await submitVocalRange(
+        minRange,
+        maxRange,
+        voiceType || null,
+        hasVoiceTypeChanged ? rangeChangeReason : null
+      );
+
+      if (hasRangeChanged) {
+        setOriginalMinRange(minRange);
+        setOriginalMaxRange(maxRange);
+      }
+
+      if (hasVoiceTypeChanged) {
+        setOriginalVoiceType(voiceType);
+      }
 
       // Trigger ProfileScreen to refresh
       if (onSave) onSave();
@@ -263,6 +309,32 @@ export default function EditProfileModal({
     }
   };
 
+  const handleRangeChangeReasonPress = () => {
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Cancel", ...RANGE_CHANGE_REASONS.map((option) => option.label)],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex > 0) {
+            setRangeChangeReason(RANGE_CHANGE_REASONS[buttonIndex - 1].value);
+          }
+        }
+      );
+    }
+  };
+
+  const handleVoiceTypeInfoPress = () => {
+    Alert.alert(
+      "Voice Type Guide",
+      "Voice type is an estimate based on your detected range, but you can also set it manually if needed.\n\nCommon ranges:\nBass: E2 - E4\nBaritone: A2 - F4\nTenor: C3 - A4\nAlto: F3 - D5\nMezzo-Soprano: A3 - F5\nSoprano: C4 - A5",
+      [{ text: "OK" }]
+    );
+  };
+
+  const hasVoiceTypeChanged = voiceType !== originalVoiceType;
+
   return (
     <View style={styles.overlay}>
       <View style={styles.modal}>
@@ -313,7 +385,12 @@ export default function EditProfileModal({
               </Picker>
             )}
 
-            <Text style={styles.label}>Voice Type:</Text>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>Voice Type:</Text>
+              <TouchableOpacity onPress={handleVoiceTypeInfoPress} style={styles.infoIconButton}>
+                <Ionicons name="information-circle-outline" size={20} color={colors.link} />
+              </TouchableOpacity>
+            </View>
             {Platform.OS === "ios" ? (
               <TouchableOpacity style={styles.pickerButton} onPress={handleVoiceTypePress}>
                 <Text style={styles.pickerButtonText}>
@@ -330,6 +407,30 @@ export default function EditProfileModal({
                   <Picker.Item key={option.label} label={option.label} value={option.value} />
                 ))}
               </Picker>
+            )}
+
+            {hasVoiceTypeChanged && (
+              <>
+                <Text style={styles.label}>Reason for changing your voice type:</Text>
+                {Platform.OS === "ios" ? (
+                  <TouchableOpacity style={styles.pickerButton} onPress={handleRangeChangeReasonPress}>
+                    <Text style={styles.pickerButtonText}>
+                      {RANGE_CHANGE_REASONS.find((option) => option.value === rangeChangeReason)?.label || "Select a reason"}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Picker
+                    selectedValue={rangeChangeReason}
+                    style={styles.picker}
+                    onValueChange={(value) => setRangeChangeReason(value)}
+                  >
+                    <Picker.Item label="Select a reason" value="" />
+                    {RANGE_CHANGE_REASONS.map((option) => (
+                      <Picker.Item key={option.label} label={option.label} value={option.value} />
+                    ))}
+                  </Picker>
+                )}
+              </>
             )}
 
             {/* Save Button */}
@@ -404,6 +505,16 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     fontWeight: "bold",
     color: colors.textPrimary,
     marginTop: 10,
+  },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  infoIconButton: {
+    marginTop: 10,
+    padding: 2,
   },
   picker: {
     width: "100%",

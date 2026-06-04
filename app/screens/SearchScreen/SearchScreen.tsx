@@ -80,6 +80,7 @@ export default function SearchScreen() {
     
     return uniqueResults;
   }, [results, filter, vocalRangeFilterActive, isSongInRange, isArtistInRange]);
+  const isLoading = songsLoading || (filter === "artists" && artistsLoading);
 
   // Fetch the user's vocal range when the component mounts
   React.useEffect(() => {
@@ -177,7 +178,7 @@ export default function SearchScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.searchBarContainer}>
-        <SearchBar onSearch={setQuery} />
+        <SearchBar value={query} onSearch={setQuery} />
       </View>
       <View style={styles.filterContainer}>
         <TouchableOpacity style={styles.addButton} onPress={handleAddPress}>
@@ -252,15 +253,18 @@ export default function SearchScreen() {
           </TouchableOpacity>
         </View>
       )}
-      {(songsLoading || (filter === "artists" && artistsLoading)) && (
+      {!error && isLoading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.textPrimary }]}>
             {filter === "songs" ? "Loading songs..." : "Loading artists..."}
           </Text>
+          <View style={[styles.loadingBarTrack, { backgroundColor: colors.lightGray }]}>
+            <View style={[styles.loadingBarFill, { backgroundColor: colors.primary }]} />
+          </View>
         </View>
       )}
-      {!songsLoading && !artistsLoading && initialFetchDone && results.length === 0 && !error && (
+      {!isLoading && initialFetchDone && displayData.length === 0 && !error && (
         <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>No results found.</Text>
       )}
       {filter === "artists" &&
@@ -275,7 +279,7 @@ export default function SearchScreen() {
             </Text>
           </View>
         )}
-      {!songsLoading && !artistsLoading && results.length > 0 && (
+      {!isLoading && displayData.length > 0 && (
         <FlatList
           style={{ minHeight: '88%' }}
           contentContainerStyle={{
@@ -370,6 +374,17 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     paddingHorizontal: 16,
   },
   loadingText: { textAlign: "center", marginVertical: 10 },
+  loadingBarTrack: {
+    width: 140,
+    height: 4,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  loadingBarFill: {
+    width: "65%",
+    height: "100%",
+    borderRadius: 2,
+  },
   filterContainer: {
     flexDirection: "row",
     alignItems: "center",

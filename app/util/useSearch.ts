@@ -409,6 +409,8 @@ export const useSearch = ({
       setState((prev) => ({
         ...prev,
         results: [],
+        songsLoading: filter === "songs",
+        artistsLoading: filter === "artists",
         hasMoreSongs: true,
         hasMoreArtists: true,
       }));

@@ -1,5 +1,5 @@
 // util/useSearch.ts
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import debounce from "lodash.debounce";
 import Fuse from "fuse.js";
 import {
@@ -20,6 +20,7 @@ const artistCache = new Map<
   string,
   { name: string; songs: { vocalRange: any }[]; songCount: number }
 >();
+const SONGS_PAGE_SIZE = 25;
 
 interface SearchState {
   results: any[];
@@ -62,6 +63,7 @@ export const useSearch = ({
   const [artistsPage, setArtistsPage] = useState(1);
   const [hasMoreArtists, setHasMoreArtists] = useState(true);
   const [endReachedLoading, setEndReachedLoading] = useState(false);
+  const loadingMoreRef = useRef(false);
 
   // Memoize range checking functions
   const isSongInRange = useCallback(
@@ -183,7 +185,7 @@ export const useSearch = ({
   };
 
   const fetchResults = async (pageNum = 1, append = false) => {
-    if (endReachedLoading) return;
+    if (append && loadingMoreRef.current) return;
     if (query.trim() === "" && filter === "songs" && !append && pageNum > 1) {
       return;
     }
@@ -194,7 +196,10 @@ export const useSearch = ({
       artistsLoading: filter === "artists",
       error: null,
     }));
-    if (pageNum > 1) setEndReachedLoading(true);
+    if (append) {
+      loadingMoreRef.current = true;
+      setEndReachedLoading(true);
+    }
 
     const connected = await checkInternetConnection();
     if (!connected) {
@@ -205,15 +210,23 @@ export const useSearch = ({
         songsLoading: false,
         artistsLoading: false,
       }));
+      loadingMoreRef.current = false;
       setEndReachedLoading(false);
       return;
     }
 
     const cacheKey = `${filter}-${query}-${pageNum}`;
     if (searchCache.has(cacheKey) && !append) {
+      const cachedResults = searchCache.get(cacheKey)!;
       setState((prev) => ({
         ...prev,
-        results: searchCache.get(cacheKey)!,
+        results: cachedResults,
+        allSongs: filter === "songs" ? cachedResults : prev.allSongs,
+        allArtists: filter === "artists" ? cachedResults : prev.allArtists,
+        hasMoreSongs:
+          filter === "songs"
+            ? cachedResults.length >= SONGS_PAGE_SIZE
+            : prev.hasMoreSongs,
         songsLoading: false,
         artistsLoading: false,
       }));
@@ -231,35 +244,42 @@ export const useSearch = ({
               ...prev,
               allSongs: prev.randomSongs,
               results: prev.randomSongs,
+              hasMoreSongs: prev.randomSongs.length >= SONGS_PAGE_SIZE,
               songsLoading: false,
             }));
+            loadingMoreRef.current = false;
             setEndReachedLoading(false);
             return;
           }
-          newSongs = await getRandomSongs(25);
-          setState((prev) => ({
-            ...prev,
-            hasMoreSongs: newSongs.length >= 25,
-          }));
+          newSongs = await getRandomSongs(SONGS_PAGE_SIZE);
         } else {
-          newSongs = await smartSearchSongs(query.trim());
-          setState((prev) => ({ ...prev, hasMoreSongs: false }));
+          newSongs = await smartSearchSongs(
+            query.trim(),
+            SONGS_PAGE_SIZE,
+            (pageNum - 1) * SONGS_PAGE_SIZE
+          );
         }
 
         if (append) {
-          const uniqueSongs = newSongs.filter(
-            (song: any) => !state.allSongs.some((s) => s.id === song.id)
-          );
-          setState((prev) => ({
-            ...prev,
-            allSongs: [...prev.allSongs, ...uniqueSongs],
-            results: [...prev.results, ...uniqueSongs],
-          }));
+          setState((prev) => {
+            const existingIds = new Set(prev.allSongs.map((song) => song.id));
+            const uniqueSongs = newSongs.filter(
+              (song: any) => !existingIds.has(song.id)
+            );
+
+            return {
+              ...prev,
+              allSongs: [...prev.allSongs, ...uniqueSongs],
+              results: [...prev.results, ...uniqueSongs],
+              hasMoreSongs: newSongs.length >= SONGS_PAGE_SIZE,
+            };
+          });
         } else {
           setState((prev) => ({
             ...prev,
             allSongs: newSongs,
             results: newSongs,
+            hasMoreSongs: newSongs.length >= SONGS_PAGE_SIZE,
           }));
         }
 
@@ -303,6 +323,7 @@ export const useSearch = ({
         songsLoading: false,
         artistsLoading: false,
       }));
+      loadingMoreRef.current = false;
       setEndReachedLoading(false);
     }
   };
@@ -333,13 +354,14 @@ export const useSearch = ({
       }
 
       try {
-        const songs = await getRandomSongs(25);
+        const songs = await getRandomSongs(SONGS_PAGE_SIZE);
         setState((prev) => ({
           ...prev,
           randomSongs: songs,
           allSongs: songs,
           results: songs,
           error: null,
+          hasMoreSongs: songs.length >= SONGS_PAGE_SIZE,
           songsLoading: false,
         }));
         setInitialFetchDone(true);
@@ -369,11 +391,14 @@ export const useSearch = ({
 
   useEffect(() => {
     if (query.trim() === "") {
+      setSongsPage(1);
+      setArtistsPage(1);
       if (filter === "songs") {
         setState((prev) => ({ 
           ...prev, 
           results: prev.randomSongs,
-          allSongs: prev.randomSongs 
+          allSongs: prev.randomSongs,
+          hasMoreSongs: prev.randomSongs.length >= SONGS_PAGE_SIZE,
         }));
       } else {
         setState((prev) => ({ ...prev, results: prev.allArtists }));
@@ -400,25 +425,27 @@ export const useSearch = ({
       error: null,
     }));
     try {
+      setSongsPage(1);
+      setArtistsPage(1);
       if (filter === "songs") {
         let newSongs: any[] = [];
         if (query.trim() === "") {
-          newSongs = await getRandomSongs(25);
+          newSongs = await getRandomSongs(SONGS_PAGE_SIZE);
           const artists = await deriveArtistsFromSongs(newSongs, 20, query);
           setState((prev) => ({
             ...prev,
-            hasMoreSongs: newSongs.length >= 25,
+            hasMoreSongs: newSongs.length >= SONGS_PAGE_SIZE,
             randomSongs: newSongs,
             allSongs: newSongs,
             results: newSongs,
             allArtists: artists,
           }));
         } else {
-          newSongs = await smartSearchSongs(query);
+          newSongs = await smartSearchSongs(query, SONGS_PAGE_SIZE, 0);
           const artists = await deriveArtistsFromSongs(newSongs, 20, query);
           setState((prev) => ({
             ...prev,
-            hasMoreSongs: false,
+            hasMoreSongs: newSongs.length >= SONGS_PAGE_SIZE,
             allSongs: newSongs,
             results: newSongs,
             allArtists: artists,
@@ -427,7 +454,7 @@ export const useSearch = ({
       } else {
         let artists: any[] = [];
         if (query.trim() === "") {
-          const newRandomSongs = await getRandomSongs(25);
+          const newRandomSongs = await getRandomSongs(SONGS_PAGE_SIZE);
           artists = await deriveArtistsFromSongs(newRandomSongs, 20);
           setState((prev) => ({
             ...prev,

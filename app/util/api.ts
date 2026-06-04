@@ -53,7 +53,11 @@ export const searchSongsByQuery = async (query: string): Promise<any[]> => {
 
 // SMART SEARCH: ************************
 // Simplified but effective search with focus on relevance
-export const smartSearchSongs = async (query: string): Promise<any[]> => {
+export const smartSearchSongs = async (
+  query: string,
+  limit: number = 15,
+  offset: number = 0
+): Promise<any[]> => {
   try {
     if (!query.trim()) return [];
 
@@ -87,7 +91,7 @@ export const smartSearchSongs = async (query: string): Promise<any[]> => {
     //   });
     // });
     
-    return uniqueResults.slice(0, 15);
+    return uniqueResults.slice(offset, offset + limit);
     
   } catch (err) {
     console.error("smartSearchSongs failed:", err);

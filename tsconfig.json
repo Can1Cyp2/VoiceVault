@@ -6,6 +6,6 @@
     "target": "ESNext",
     "module": "ESNext",
     "lib": ["ESNext"],
-    "types": ["@supabase/functions-js"]
+    "types": ["@supabase/functions-js", "jest"]
   }
 }

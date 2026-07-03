@@ -4,19 +4,17 @@ import { getSongsByArtist } from "./vocalRange";
 
 export let errorCount = 0;
 
-// Helper function to escape single quotes for PostgreSQL queries
-const escapeQueryString = (query: string): string => {
-  return query.replace(/'/g, "''");
-};
+// Note: Supabase filter values are URL parameters, not SQL literals, so
+// apostrophes must NOT be escaped ("don't" is sent as-is). Doubling quotes
+// here used to silently break every search containing an apostrophe.
 
 // Fetch songs based on a query
 export const searchSongsByQuery = async (query: string): Promise<any[]> => {
   try {
-    const escapedQuery = escapeQueryString(query);
     const { data, error } = await supabase
       .from("songs")
       .select("*")
-      .or(`name.ilike.%${escapedQuery}%, artist.ilike.%${escapedQuery}%`);
+      .or(`name.ilike.%${query}%, artist.ilike.%${query}%`);
 
     if (error) throw error;
 
@@ -118,46 +116,41 @@ const getCandidates = async (originalQuery: string, tokens: string[]): Promise<a
   
   // Strategy 1: Exact and prefix matches (highest priority)
   if (!hasTrailingSpace) {
-    const escapedQuery = escapeQueryString(trimmedQuery);
     searchPromises.push(
       supabase
         .from("songs")
         .select("*")
-        .or(`name.eq.${escapedQuery}, artist.eq.${escapedQuery}`)
+        .or(`name.eq.${trimmedQuery}, artist.eq.${trimmedQuery}`)
         .then(({ data }) => (data || []).map(song => ({ ...song, _searchStrategy: 'exact' })))
     );
   }
   
   // Always do prefix matches, but adjust for trailing space
-  const prefixQuery = hasTrailingSpace ? trimmedQuery : trimmedQuery;
-  const escapedPrefixQuery = escapeQueryString(prefixQuery);
   searchPromises.push(
     supabase
       .from("songs")
       .select("*")
-      .or(`name.ilike.${escapedPrefixQuery}%, artist.ilike.${escapedPrefixQuery}%`)
+      .or(`name.ilike.${trimmedQuery}%, artist.ilike.${trimmedQuery}%`)
       .then(({ data }) => (data || []).map(song => ({ ...song, _searchStrategy: 'prefix' })))
   );
   
   // Strategy 2: Contains matches (always useful)
-  const escapedContainsQuery = escapeQueryString(trimmedQuery);
   searchPromises.push(
     supabase
       .from("songs")
       .select("*")
-      .or(`name.ilike.%${escapedContainsQuery}%, artist.ilike.%${escapedContainsQuery}%`)
+      .or(`name.ilike.%${trimmedQuery}%, artist.ilike.%${trimmedQuery}%`)
       .then(({ data }) => (data || []).map(song => ({ ...song, _searchStrategy: 'contains' })))
   );
   
   // Strategy 3: If there's a trailing space, treat it as potential "song artist" format
   if (hasTrailingSpace && trimmedQuery.length >= 2) {
-    const escapedTitleQuery = escapeQueryString(trimmedQuery);
     // Look for songs where the trimmed query is the complete song title
     searchPromises.push(
       supabase
         .from("songs")
         .select("*")
-        .eq('name', escapedTitleQuery)
+        .eq('name', trimmedQuery)
         .then(({ data }) => (data || []).map(song => ({ 
           ...song, 
           _searchStrategy: 'title_complete',
@@ -170,7 +163,7 @@ const getCandidates = async (originalQuery: string, tokens: string[]): Promise<a
       supabase
         .from("songs")
         .select("*")
-        .ilike('name', `${escapedTitleQuery}%`)
+        .ilike('name', `${trimmedQuery}%`)
         .then(({ data }) => (data || []).map(song => ({ 
           ...song, 
           _searchStrategy: 'title_prefix',
@@ -184,14 +177,12 @@ const getCandidates = async (originalQuery: string, tokens: string[]): Promise<a
     const splits = generateSplits(tokens);
     
     splits.forEach(split => {
-      const escapedTitle = escapeQueryString(split.title);
-      const escapedArtist = escapeQueryString(split.artist);
       searchPromises.push(
         supabase
           .from("songs")
           .select("*")
-          .ilike('name', `%${escapedTitle}%`)
-          .ilike('artist', `%${escapedArtist}%`)
+          .ilike('name', `%${split.title}%`)
+          .ilike('artist', `%${split.artist}%`)
           .then(({ data }) => (data || []).map(song => ({
             ...song,
             _searchStrategy: 'split',
@@ -447,12 +438,11 @@ export const smartSearchArtists = async (
     if (!query.trim()) return [];
     
     const lowerQuery = query.toLowerCase();
-    const escapedQuery = escapeQueryString(query);
-    
+
     const { data: matchingSongs, error } = await supabase
       .from("songs")
       .select("artist")
-      .or(`artist.eq.${escapedQuery}, artist.ilike.${escapedQuery}%, artist.ilike.%${escapedQuery}%`)
+      .or(`artist.eq.${query}, artist.ilike.${query}%, artist.ilike.%${query}%`)
       .limit(100);
     
     if (error || !matchingSongs) return [];
@@ -493,11 +483,10 @@ export const getSearchSuggestions = async (query: string): Promise<string[]> => 
   try {
     if (!query.trim()) return [];
     
-    const escapedQuery = escapeQueryString(query);
     const { data, error } = await supabase
       .from("songs")
       .select("name, artist")
-      .or(`name.ilike.${escapedQuery}%, artist.ilike.${escapedQuery}%`)
+      .or(`name.ilike.${query}%, artist.ilike.${query}%`)
       .limit(20);
     
     if (error || !data) return [];
@@ -526,12 +515,11 @@ export const searchArtistsByQuery = async (
   limit: number = 20
 ): Promise<any[]> => {
   try {
-    const escapedQuery = escapeQueryString(query);
     // Step 1: Find songs where the artist name matches the query
     const { data: matchingSongs, error: songError } = await supabase
       .from("songs")
       .select("artist, name")
-      .ilike("artist", `%${escapedQuery}%`); // Only match on artist name
+      .ilike("artist", `%${query}%`); // Only match on artist name
 
     if (songError) {
       console.error("Error searching songs for artists:", songError.message);
@@ -873,15 +861,12 @@ export const checkForSimilarSong = async (
   artistName: string
 ) => {
   try {
-    const escapedSongName = escapeQueryString(songName);
-    const escapedArtistName = escapeQueryString(artistName);
-    
     // Check in main songs table (assuming it uses 'vocalRange' column)
     const { data: existingSongs, error: songsError } = await supabase
       .from("songs")
       .select("name, artist")
-      .ilike("artist", `%${escapedArtistName}%`)
-      .ilike("name", `%${escapedSongName}%`);
+      .ilike("artist", `%${artistName}%`)
+      .ilike("name", `%${songName}%`);
 
     if (songsError) {
       console.error("Error checking existing songs:", songsError);
@@ -891,8 +876,8 @@ export const checkForSimilarSong = async (
     const { data: pendingSongs, error: pendingError } = await supabase
       .from("pending_songs")
       .select("name, artist, status")
-      .ilike("artist", `%${escapedArtistName}%`)
-      .ilike("name", `%${escapedSongName}%`)
+      .ilike("artist", `%${artistName}%`)
+      .ilike("name", `%${songName}%`)
       .in("status", ["pending", "approved"]); // Don't warn about rejected songs
 
     if (pendingError) {

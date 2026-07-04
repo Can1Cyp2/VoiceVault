@@ -37,6 +37,9 @@ import {
   getCacheAutoClearInterval,
   setCacheAutoClearInterval,
   clearAppCache,
+  getCacheSizeBytes,
+  formatCacheSize,
+  DEFAULT_CACHE_AUTO_CLEAR_INTERVAL,
   CacheAutoClearInterval,
   CACHE_AUTO_CLEAR_INTERVALS,
   CACHE_AUTO_CLEAR_LABELS,
@@ -61,8 +64,17 @@ export default function PreferencesModal({
   const [songImages, setSongImages] = useState(true);
   const [imageSource, setImageSource] = useState<SongImageSource>("auto");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
-  const [autoClearInterval, setAutoClearInterval] = useState<CacheAutoClearInterval>("monthly");
+  const [autoClearInterval, setAutoClearInterval] = useState<CacheAutoClearInterval>(
+    DEFAULT_CACHE_AUTO_CLEAR_INTERVAL
+  );
   const [isClearingCache, setIsClearingCache] = useState(false);
+  const [cacheSizeLabel, setCacheSizeLabel] = useState<string | null>(null);
+
+  const refreshCacheSize = async () => {
+    setCacheSizeLabel(null); // show a loading state while it's measured
+    const bytes = await getCacheSizeBytes();
+    setCacheSizeLabel(formatCacheSize(bytes));
+  };
 
   const loadPreferences = async () => {
     const [recents, images, source, verified, clearInterval] = await Promise.all([
@@ -82,6 +94,7 @@ export default function PreferencesModal({
   useEffect(() => {
     if (visible) {
       void loadPreferences();
+      void refreshCacheSize();
     }
   }, [visible]);
 
@@ -129,6 +142,7 @@ export default function PreferencesModal({
             setIsClearingCache(true);
             try {
               await clearAppCache();
+              await refreshCacheSize();
               Alert.alert("Cache Cleared", "The app cache has been cleared.");
             } catch (error) {
               console.error("Failed to clear app cache:", error);
@@ -248,11 +262,7 @@ export default function PreferencesModal({
             </View>
 
             {/* Auto-clear schedule */}
-            <TouchableOpacity
-              style={[styles.row, styles.rowLast]}
-              onPress={cycleAutoClearInterval}
-              activeOpacity={0.7}
-            >
+            <TouchableOpacity style={styles.row} onPress={cycleAutoClearInterval} activeOpacity={0.7}>
               <Ionicons name="time-outline" size={20} color={colors.textPrimary} />
               <View style={styles.rowText}>
                 <Text style={styles.rowTitle}>Auto-Clear Cache</Text>
@@ -264,24 +274,31 @@ export default function PreferencesModal({
               </View>
             </TouchableOpacity>
 
-            {/* Manual clear */}
+            {/* Cache size + manual clear */}
             <TouchableOpacity
-              style={styles.resetButton}
+              style={[styles.row, styles.rowLast]}
               onPress={handleClearCache}
               activeOpacity={0.7}
               disabled={isClearingCache}
             >
-              <Ionicons name="trash-outline" size={18} color={colors.textSecondary} />
-              <Text style={styles.resetText}>
-                {isClearingCache ? "Clearing..." : "Clear App Cache"}
-              </Text>
+              <Ionicons name="server-outline" size={20} color={colors.textPrimary} />
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>App Cache</Text>
+                <Text style={styles.rowSub}>
+                  {isClearingCache
+                    ? "Clearing..."
+                    : cacheSizeLabel === null
+                      ? "Calculating size..."
+                      : `${cacheSizeLabel} of cached artwork`}
+                </Text>
+              </View>
+              <View style={styles.pill}>
+                <Text style={styles.pillText}>Clear</Text>
+                <Ionicons name="trash-outline" size={14} color={colors.link} />
+              </View>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.resetButton, styles.resetButtonSecondary]}
-              onPress={handleReset}
-              activeOpacity={0.7}
-            >
+            <TouchableOpacity style={styles.resetButton} onPress={handleReset} activeOpacity={0.7}>
               <Ionicons name="refresh-outline" size={18} color={colors.textSecondary} />
               <Text style={styles.resetText}>Reset Preferences to Default</Text>
             </TouchableOpacity>
@@ -389,9 +406,6 @@ const createStyles = (colors: typeof import("../../styles/theme").LightColors) =
       borderRadius: 10,
       paddingVertical: 12,
       marginTop: 18,
-    },
-    resetButtonSecondary: {
-      marginTop: 10,
     },
     resetText: {
       color: colors.textSecondary,

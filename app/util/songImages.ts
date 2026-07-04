@@ -195,6 +195,28 @@ const writePersistentCacheEntry = async (
   }
 };
 
+/**
+ * A snapshot of what's persisted on disk: every cached image record plus
+ * the raw byte size of the URL cache itself (this JSON blob, not the image
+ * files - those are measured separately via expo-image's cache).
+ */
+export const getSongImageCacheSnapshot = async (): Promise<{
+  entries: SongImage[];
+  rawCacheBytes: number;
+}> => {
+  try {
+    const raw = await AsyncStorage.getItem(CACHE_STORAGE_KEY);
+    if (!raw) return { entries: [], rawCacheBytes: 0 };
+
+    const parsed = JSON.parse(raw);
+    const entries: SongImage[] =
+      parsed && typeof parsed === "object" ? Object.values(parsed) : [];
+    return { entries, rawCacheBytes: raw.length };
+  } catch {
+    return { entries: [], rawCacheBytes: 0 };
+  }
+};
+
 export const clearSongImageCache = async (): Promise<void> => {
   memoryCache.clear();
   try {

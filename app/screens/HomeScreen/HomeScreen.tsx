@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Modal,
   Alert,
   Animated,
+  FlatList,
 } from "react-native";
 import { supabase } from "../../util/supabase";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -21,6 +22,11 @@ import { TabParamList } from "../../../App";
 import { SupportModal } from "../../components/SupportModal/SupportModal";
 import { ToolsModal } from "../../components/ToolsModal/ToolsModal";
 import { getLoginGlow, setLoginGlow } from "../../util/loginPrompt";
+import {
+  clearRecentlyViewedSongs,
+  getRecentlyViewedSongs,
+  RecentlyViewedSong,
+} from "../../util/recentlyViewed";
 import { useTheme } from "../../contexts/ThemeContext";
 
 // Combined navigation props for tab and stack navigators
@@ -35,6 +41,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [isLoggedIn, setLoggedIn] = useState(false);
   const [isSupportVisible, setSupportVisible] = useState(false);
   const [isToolsVisible, setToolsVisible] = useState(false);
+  const [isRecentVisible, setRecentVisible] = useState(false);
+  const [recentSongs, setRecentSongs] = useState<RecentlyViewedSong[]>([]);
 
   // Theme hook
   const { colors, isDark, setMode } = useTheme();
@@ -123,6 +131,56 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
     return () => clearInterval(interval);
   }, [blinkAnimation]);
+
+  // Reload the recently viewed songs whenever the Home tab regains focus
+  const refreshRecentSongs = useCallback(async () => {
+    const songs = await getRecentlyViewedSongs();
+    setRecentSongs(songs);
+  }, []);
+
+  useEffect(() => {
+    void refreshRecentSongs();
+    const unsubscribe = navigation.addListener("focus", () => {
+      void refreshRecentSongs();
+    });
+    return unsubscribe;
+  }, [navigation, refreshRecentSongs]);
+
+  const openRecentSong = (song: RecentlyViewedSong) => {
+    setRecentVisible(false);
+    // Details lives inside the Search tab's stack.
+    // @ts-ignore - Nested route typing comes from the tab -> stack relationship.
+    navigation.navigate("Search", {
+      screen: "Details",
+      initial: false,
+      params: {
+        name: song.name,
+        artist: song.artist,
+        vocalRange: song.vocalRange,
+        username: song.username,
+      },
+    });
+  };
+
+  const handleClearRecent = () => {
+    Alert.alert(
+      "Clear History",
+      "Remove all recently viewed songs?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear",
+          style: "destructive",
+          onPress: async () => {
+            await clearRecentlyViewedSongs();
+            setRecentSongs([]);
+            setRecentVisible(false);
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
 
   // Handle logout
   const handleLogout = async () => {
@@ -231,8 +289,69 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           </TouchableOpacity>
         </>
       )}
+      {recentSongs.length > 0 && (
+        <TouchableOpacity
+          style={[styles.recentButton, { borderColor: colors.border, backgroundColor: colors.backgroundCard }]}
+          onPress={() => setRecentVisible(true)}
+        >
+          <Ionicons name="time-outline" size={18} color={colors.textSecondary} />
+          <Text style={[styles.recentButtonText, { color: colors.textSecondary }]}>
+            Recently Viewed
+          </Text>
+        </TouchableOpacity>
+      )}
+
       <Modal visible={isLoginVisible} transparent animationType="slide">
         <LoginModal onClose={() => setLoginVisible(false)} />
+      </Modal>
+
+      {/* Recently viewed songs modal */}
+      <Modal visible={isRecentVisible} transparent animationType="slide">
+        <View style={[styles.recentModalContainer, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.recentModalContent, { backgroundColor: colors.backgroundCard }]}>
+            <Text style={[styles.recentModalTitle, { color: colors.textPrimary }]}>
+              Recently Viewed
+            </Text>
+            <FlatList
+              data={recentSongs}
+              keyExtractor={(item) => `${item.name}::${item.artist}`}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.recentItem, { backgroundColor: colors.backgroundTertiary, borderColor: colors.border }]}
+                  onPress={() => openRecentSong(item)}
+                >
+                  <View style={[styles.recentItemIcon, { backgroundColor: colors.highlightAlt }]}>
+                    <Ionicons name="musical-notes" size={20} color={colors.primary} />
+                  </View>
+                  <View style={styles.recentItemText}>
+                    <Text
+                      style={[styles.recentItemName, { color: colors.textPrimary }]}
+                      numberOfLines={1}
+                    >
+                      {item.name}
+                    </Text>
+                    <Text
+                      style={[styles.recentItemSub, { color: colors.textSecondary }]}
+                      numberOfLines={1}
+                    >
+                      {item.artist} • {item.vocalRange}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity style={styles.recentClearButton} onPress={handleClearRecent}>
+              <Text style={[styles.recentClearText, { color: colors.danger }]}>Clear History</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.recentCloseButton}
+              onPress={() => setRecentVisible(false)}
+            >
+              <Text style={[styles.recentCloseText, { color: colors.textSecondary }]}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
       <Modal visible={isSignupVisible} transparent animationType="slide">
         <SignupModal onClose={() => setSignupVisible(false)} />
@@ -369,5 +488,80 @@ const styles = StyleSheet.create({
   buttonInner: {
     width: "100%",
     alignItems: "center",
+  },
+  recentButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  recentButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  recentModalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  recentModalContent: {
+    borderRadius: 20,
+    padding: 20,
+    width: "90%",
+    maxHeight: "70%",
+  },
+  recentModalTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  recentItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+    marginVertical: 4,
+  },
+  recentItemIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  recentItemText: {
+    flex: 1,
+  },
+  recentItemName: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  recentItemSub: {
+    fontSize: 12.5,
+    marginTop: 2,
+  },
+  recentClearButton: {
+    alignItems: "center",
+    paddingVertical: 10,
+    marginTop: 8,
+  },
+  recentClearText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  recentCloseButton: {
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  recentCloseText: {
+    fontSize: 15,
   },
 });

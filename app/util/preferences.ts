@@ -6,11 +6,13 @@
 // is re-exported here so all preference reads have a single import site.
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-export {
+import {
   getSearchRecentsEnabled,
   setSearchRecentsEnabled,
 } from "./recentlyViewed";
+
+// Re-export so all preference reads/writes have a single import site.
+export { getSearchRecentsEnabled, setSearchRecentsEnabled };
 
 const SONG_IMAGES_ENABLED_KEY = "voicevault:songImagesEnabled";
 const SONG_IMAGE_SOURCE_KEY = "voicevault:songImageSource";
@@ -94,3 +96,21 @@ export const setVerifiedSongsOnly = (enabled: boolean): Promise<void> =>
 /** A song is "verified" when it has no uploader username (added by an admin). */
 export const isVerifiedSong = (song: { username?: string | null }): boolean =>
   !song?.username;
+
+/** Default values for every preference, used by "Reset to default". */
+export const PREFERENCE_DEFAULTS = {
+  searchRecentsEnabled: true,
+  songImagesEnabled: true,
+  songImageSource: "auto" as SongImageSource,
+  verifiedSongsOnly: false,
+};
+
+/** Restore every preference to its default value. */
+export const resetPreferencesToDefault = async (): Promise<void> => {
+  await Promise.all([
+    setSearchRecentsEnabled(PREFERENCE_DEFAULTS.searchRecentsEnabled),
+    setSongImagesEnabled(PREFERENCE_DEFAULTS.songImagesEnabled),
+    setSongImageSource(PREFERENCE_DEFAULTS.songImageSource),
+    setVerifiedSongsOnly(PREFERENCE_DEFAULTS.verifiedSongsOnly),
+  ]);
+};

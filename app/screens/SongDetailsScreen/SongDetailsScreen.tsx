@@ -16,6 +16,7 @@ import {
   Platform,
   ScrollView,
   Dimensions,
+  Linking,
 } from "react-native";
 import { Audio } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
@@ -34,6 +35,8 @@ import SongRangeRecommendation from "./SongRangeRecommendation";
 import Piano from '../../components/Piano/Piano';
 import { getPianoAudioFile } from "../../util/pianoNotes";
 import { showVerifiedRangeInfo } from "../../util/verifiedInfo";
+import SongImage from "../../components/SongImage/SongImage";
+import { SongImage as SongImageData } from "../../util/songImages";
 import SingThisModal from "./SingThisModal";
 
 const { width } = Dimensions.get('window');
@@ -57,6 +60,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   const [issueText, setIssueText] = useState("");
   const referenceSoundRef = useRef<Audio.Sound | null>(null);
   const [isSingModalVisible, setSingModalVisible] = useState(false);
+  const [songImage, setSongImage] = useState<SongImageData | null>(null);
 
   // Parse vocal range to extract lowest and highest notes
   const parseVocalRange = (range: string) => {
@@ -337,13 +341,29 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Album Art Placeholder */}
+      {/* Album / Song Art */}
       <View style={styles.albumArtContainer}>
         <View style={styles.albumArt}>
-          <Text style={styles.albumArtText}>🎵</Text>
-          <Text style={styles.albumTitle}>{name}</Text>
-          <Text style={styles.albumArtist}>{artist?.toUpperCase() || 'UNKNOWN'}</Text>
+          <SongImage
+            name={name}
+            artist={artist}
+            size={280}
+            borderRadius={20}
+            onResolved={setSongImage}
+          />
         </View>
+        {songImage?.attributionUrl ? (
+          <TouchableOpacity
+            onPress={() => Linking.openURL(songImage.attributionUrl!)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.attributionText}>
+              Artwork via {songImage.attributionLabel}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.attributionTextMuted}>{artist?.toUpperCase() || "UNKNOWN"}</Text>
+        )}
       </View>
 
       {/* Song Title */}
@@ -647,6 +667,21 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     fontFamily: FONTS.primary,
     textAlign: 'center',
     letterSpacing: 2,
+  },
+  attributionText: {
+    fontSize: 11,
+    color: colors.link,
+    fontFamily: FONTS.primary,
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  attributionTextMuted: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontFamily: FONTS.primary,
+    textAlign: 'center',
+    letterSpacing: 2,
+    marginTop: 12,
   },
 
   // Song Info

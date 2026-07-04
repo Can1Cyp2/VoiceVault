@@ -409,6 +409,24 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
         </TouchableOpacity>
 
+        {/* Range History Button */}
+        <TouchableOpacity
+          style={styles.secondaryActionButton}
+          onPress={() => navigation.navigate("Search", { screen: "RangeHistory" })}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionButtonContent}>
+            <View style={[styles.actionIconContainer, { backgroundColor: colors.link }]}>
+              <Ionicons name="trending-up" size={24} color="#FFF" />
+            </View>
+            <View style={styles.actionTextContainer}>
+              <Text style={[styles.actionButtonTitle, { color: colors.textPrimary }]}>Range History</Text>
+              <Text style={[styles.actionButtonSubtitle, { color: colors.textSecondary }]}>Track your progress over time</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={colors.textTertiary} />
+          </View>
+        </TouchableOpacity>
+
         {/* Profile Settings Button */}
         <TouchableOpacity
           style={styles.secondaryActionButton}

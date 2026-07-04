@@ -369,6 +369,15 @@ export default function ProfileScreen({ navigation }: any) {
         <View style={styles.cardHeader}>
           <Ionicons name="musical-notes" size={24} color={colors.primary} />
           <Text style={styles.cardTitle}>Vocal Range</Text>
+          {isShareableRange(vocalRange) && (
+            <TouchableOpacity
+              style={styles.shareRangeButton}
+              onPress={() => setShareRangeVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="share-social-outline" size={22} color={colors.link} />
+            </TouchableOpacity>
+          )}
         </View>
         <Text style={styles.vocalRangeText}>{vocalRange}</Text>
         <View style={styles.voiceTypeRow}>
@@ -383,17 +392,18 @@ export default function ProfileScreen({ navigation }: any) {
             <Ionicons name="information-circle-outline" size={22} color={colors.link} />
           </TouchableOpacity>
         </View>
-        {isShareableRange(vocalRange) && (
-          <TouchableOpacity
-            style={styles.shareRangeCardButton}
-            onPress={() => setShareRangeVisible(true)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="share-social" size={18} color={colors.buttonText} />
-            <Text style={styles.shareRangeCardButtonText}>Share My Range</Text>
-          </TouchableOpacity>
-        )}
       </View>
+
+      {/* Small Range History link, tucked under the vocal range card */}
+      <TouchableOpacity
+        style={styles.rangeHistoryLink}
+        onPress={() => resetToSearchStackScreen(navigation, "RangeHistory")}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="trending-up" size={16} color={colors.link} />
+        <Text style={styles.rangeHistoryLinkText}>Range History</Text>
+        <Ionicons name="chevron-forward" size={14} color={colors.textTertiary} />
+      </TouchableOpacity>
 
       {/* Action Buttons */}
       <View style={styles.actionsContainer}>
@@ -428,24 +438,6 @@ export default function ProfileScreen({ navigation }: any) {
             <View style={styles.actionTextContainer}>
               <Text style={[styles.actionButtonTitle, { color: colors.textPrimary }]}>View Saved Lists</Text>
               <Text style={[styles.actionButtonSubtitle, { color: colors.textSecondary }]}>Your collections</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color={colors.textTertiary} />
-          </View>
-        </TouchableOpacity>
-
-        {/* Range History Button */}
-        <TouchableOpacity
-          style={styles.secondaryActionButton}
-          onPress={() => resetToSearchStackScreen(navigation, "RangeHistory")}
-          activeOpacity={0.7}
-        >
-          <View style={styles.actionButtonContent}>
-            <View style={[styles.actionIconContainer, { backgroundColor: colors.link }]}>
-              <Ionicons name="trending-up" size={24} color="#FFF" />
-            </View>
-            <View style={styles.actionTextContainer}>
-              <Text style={[styles.actionButtonTitle, { color: colors.textPrimary }]}>Range History</Text>
-              <Text style={[styles.actionButtonSubtitle, { color: colors.textSecondary }]}>Track your progress over time</Text>
             </View>
             <Ionicons name="chevron-forward" size={24} color={colors.textTertiary} />
           </View>
@@ -778,21 +770,25 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     fontWeight: "600",
     color: colors.textPrimary,
   },
-  shareRangeCardButton: {
+  shareRangeButton: {
+    marginLeft: "auto",
+    padding: 4,
+  },
+  rangeHistoryLink: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: 12,
-    marginTop: 14,
+    alignSelf: "flex-end",
+    gap: 5,
+    marginTop: -8,
+    marginBottom: 4,
+    marginRight: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
   },
-  shareRangeCardButtonText: {
-    color: colors.buttonText,
-    fontSize: 14,
-    fontWeight: "bold",
-    letterSpacing: 0.5,
+  rangeHistoryLinkText: {
+    color: colors.link,
+    fontSize: 13,
+    fontWeight: "600",
   },
   vocalRangeText: {
     fontSize: 16,

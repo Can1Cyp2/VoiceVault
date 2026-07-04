@@ -78,6 +78,7 @@ supabase/migrations/**
 !supabase/migrations/20260507_add_secure_tuner_debug_settings.sql
 
 # Personal notes
+FUTURE_FEATURES.md
 possible_future_TODO.md
 CONFLICT_CHECK_RESULTS.md
 ANALYTICS_SETUP.md

@@ -18,6 +18,7 @@ import AdminAnalyticsScreen from "../screens/AdminAnalyticsScreen/AdminAnalytics
 import ContentModerationScreen from "../screens/ContentModerationScreen/ContentModerationScreen";
 import ForgotPasswordScreen from "../screens/ForgotPasswordScreen/ForgotPasswordScreen";
 import ResetPasswordScreen from "../screens/ResetPasswordScreen/ResetPasswordScreen";
+import RangeHistoryScreen from "../screens/RangeHistoryScreen/RangeHistoryScreen";
 
 // Define the types for navigation parameters
 export type RootStackParamList = {
@@ -41,6 +42,7 @@ export type RootStackParamList = {
   AdminAnalyticsScreen: undefined;
   ContentModerationScreen: undefined;
   ForgotPassword: undefined;
+  RangeHistory: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -207,6 +209,15 @@ export function AppStack() {
         component={ForgotPasswordScreen}
         options={{
           title: "Forgot Password",
+        }}
+      />
+
+      {/* Vocal Range History Screen */}
+      <Stack.Screen
+        name="RangeHistory"
+        component={RangeHistoryScreen}
+        options={{
+          title: "Range History",
         }}
       />
     </Stack.Navigator>

@@ -19,6 +19,7 @@ import { useAdminStatus } from "./app/util/adminUtils";
 import { setLoginGlow } from "./app/util/loginPrompt";
 import { adService } from "./app/components/SupportModal/AdService";
 import PreferencesModal from "./app/components/Settings/PreferencesModal";
+import { maybeAutoClearCache } from "./app/util/cacheManager";
 
 // Initialize Sentry for production error tracking
 try {
@@ -130,6 +131,13 @@ function AppContent() {
   // Lock app to portrait by default (Piano screen overrides this to landscape)
   useEffect(() => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+  }, []);
+
+  // Silently clear the artwork cache on launch if the user's auto-clear
+  // schedule has elapsed (default: monthly). Runs for guests too, since
+  // the image cache is device-wide, not per-account.
+  useEffect(() => {
+    void maybeAutoClearCache();
   }, []);
 
   useEffect(() => {

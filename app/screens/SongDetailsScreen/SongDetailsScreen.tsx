@@ -567,6 +567,9 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
         visible={isSingModalVisible}
         targets={singTargets}
         onClose={handleCloseSingModal}
+        song={{ name, artist, vocalRange }}
+        isLoggedIn={isLoggedIn}
+        onAddToList={() => setModalVisible(true)}
       />
     </ScrollView>
   );

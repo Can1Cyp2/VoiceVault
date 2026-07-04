@@ -12,6 +12,10 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { fetchUserVocalRange } from "../../util/api";
+import {
+  formatTransposeSuggestion,
+  getTransposeSuggestion,
+} from "../../util/transposeSuggestion";
 import { FONTS } from "../../styles/theme";
 import { useTheme } from "../../contexts/ThemeContext";
 
@@ -125,6 +129,7 @@ const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
     high: string;
     isFullyInRange: boolean;
     showSetupMessage: boolean;
+    transposeMessage?: string | null;
   } | null>(null);
 
   if (
@@ -200,6 +205,9 @@ const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
           high: highFeedback,
           isFullyInRange: false,
           showSetupMessage: false,
+          transposeMessage: formatTransposeSuggestion(
+            getTransposeSuggestion(songRange, minRange, maxRange)
+          ),
         });
       }
     } else {
@@ -262,6 +270,14 @@ const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
                   {rangeFeedback.high}
                 </Text>
               </View>
+              {rangeFeedback.transposeMessage && (
+                <View style={[styles.transposeCard, { backgroundColor: colors.backgroundTertiary, borderColor: colors.border }]}>
+                  <Text style={styles.transposeIcon}>🎼</Text>
+                  <Text style={[styles.transposeText, { color: colors.textPrimary }]}>
+                    {rangeFeedback.transposeMessage}
+                  </Text>
+                </View>
+              )}
             </>
           )}
         </View>
@@ -319,6 +335,24 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontFamily: FONTS.primary,
     flex: 1,
+  },
+  transposeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
+    marginTop: 10,
+  },
+  transposeIcon: {
+    fontSize: 18,
+    marginRight: 10,
+  },
+  transposeText: {
+    fontSize: 14,
+    fontFamily: FONTS.primary,
+    flex: 1,
+    lineHeight: 20,
   },
   setupMessage: {
     fontSize: 16,

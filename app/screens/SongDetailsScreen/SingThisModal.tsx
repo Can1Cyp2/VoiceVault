@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { FONTS } from "../../styles/theme";
 import { useTheme } from "../../contexts/ThemeContext";
 import { getPianoAudioFile } from "../../util/pianoNotes";
+import { saveToList } from "../SavedListsScreen/SavedSongLogic";
 import {
   frequencyToNote,
   requestMicrophonePermission,
@@ -37,16 +38,32 @@ import {
   SingTestStepResult,
 } from "./singThisUtils";
 
+export const IN_RANGE_LIST_NAME = "In Range";
+
+type SingThisSong = {
+  name: string;
+  artist: string;
+  vocalRange: string;
+};
+
 type SingThisModalProps = {
   visible: boolean;
   targets: string[];
   onClose: () => void;
+  /** Song under test; enables the "add to a list" prompt after a pass. */
+  song?: SingThisSong | null;
+  isLoggedIn?: boolean;
+  /** Called when the user wants to pick a list themselves (parent opens its list modal). */
+  onAddToList?: () => void;
 };
 
 export default function SingThisModal({
   visible,
   targets,
   onClose,
+  song = null,
+  isLoggedIn = false,
+  onAddToList,
 }: SingThisModalProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -59,6 +76,8 @@ export default function SingThisModal({
   const [centsOff, setCentsOff] = useState<number | null>(null);
   const [heldMs, setHeldMs] = useState(0);
   const [isListening, setIsListening] = useState(false);
+  const [isSavingToList, setIsSavingToList] = useState(false);
+  const [savedToInRange, setSavedToInRange] = useState(false);
 
   const detectionStopRef = useRef<(() => void) | null>(null);
   const recordTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -156,6 +175,8 @@ export default function SingThisModal({
     setView("intro");
     setStepIndex(0);
     setStepResults([]);
+    setIsSavingToList(false);
+    setSavedToInRange(false);
   }, [stopListening]);
 
   useEffect(() => {
@@ -385,6 +406,25 @@ export default function SingThisModal({
     onClose();
   }, [onClose, resetModalState, stopReferenceSound]);
 
+  // Save the tested song straight into the "In Range" list.
+  // saveToList creates the list automatically if it doesn't exist yet.
+  const handleAddToInRangeList = useCallback(async () => {
+    if (!song || isSavingToList) return;
+
+    setIsSavingToList(true);
+    try {
+      await saveToList(song.name, song.artist, song.vocalRange, IN_RANGE_LIST_NAME);
+      setSavedToInRange(true);
+    } finally {
+      setIsSavingToList(false);
+    }
+  }, [isSavingToList, song]);
+
+  const handlePickAnotherList = useCallback(() => {
+    closeModal();
+    onAddToList?.();
+  }, [closeModal, onAddToList]);
+
   return (
     <Modal
       visible={visible}
@@ -605,6 +645,54 @@ export default function SingThisModal({
                     ? "You should be able to approach this song's listed range."
                     : "Try again to confirm the full listed range."}
                 </Text>
+
+                {allTargetsPassed && song && isLoggedIn && (
+                  <View style={styles.addToListCard}>
+                    <Text style={styles.resultCardTitle}>Add this song to a list?</Text>
+                    {savedToInRange ? (
+                      <View style={styles.statusRow}>
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={22}
+                          color={getToneColor("perfect", colors)}
+                        />
+                        <Text style={styles.statusText}>
+                          Saved to your "{IN_RANGE_LIST_NAME}" list
+                        </Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={[
+                          styles.primaryButton,
+                          isSavingToList && styles.disabledButton,
+                        ]}
+                        onPress={handleAddToInRangeList}
+                        disabled={isSavingToList}
+                      >
+                        <Ionicons name="bookmark-outline" size={18} color={colors.buttonText} />
+                        <Text style={styles.primaryButtonText}>
+                          {isSavingToList
+                            ? "Saving..."
+                            : `Add to "${IN_RANGE_LIST_NAME}" List`}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    {onAddToList && (
+                      <TouchableOpacity
+                        style={styles.secondaryButton}
+                        onPress={handlePickAnotherList}
+                      >
+                        <Text style={styles.secondaryButtonText}>Pick Another List</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+                {allTargetsPassed && song && !isLoggedIn && (
+                  <Text style={styles.resultCardBody}>
+                    Log in to save songs you can sing to a list.
+                  </Text>
+                )}
+
                 <TouchableOpacity style={styles.primaryButton} onPress={confirmReady}>
                   <Text style={styles.primaryButtonText}>Test Again</Text>
                 </TouchableOpacity>
@@ -987,6 +1075,15 @@ const createStyles = (colors: typeof import("../../styles/theme").LightColors) =
       fontSize: 14,
       lineHeight: 20,
       marginBottom: 12,
+    },
+    addToListCard: {
+      backgroundColor: colors.backgroundTertiary,
+      borderColor: colors.border,
+      borderRadius: 12,
+      borderWidth: 1,
+      padding: 14,
+      marginBottom: 12,
+      gap: 10,
     },
     cancelButton: {
       alignItems: "center",

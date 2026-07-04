@@ -25,7 +25,15 @@ import VocalRangeDetectorModal from "../TunerScreen/VocalRangeDetectorModal";
 import EditProfileModal from "./EditProfileModal";
 import ShareRangeModal from "../../components/ShareRange/ShareRangeModal";
 import { isShareableRange } from "../../util/shareRange";
-import { getSearchRecentsEnabled, setSearchRecentsEnabled } from "../../util/recentlyViewed";
+import {
+  getSearchRecentsEnabled,
+  setSearchRecentsEnabled,
+  getSongImagesEnabled,
+  setSongImagesEnabled,
+  getVerifiedSongsOnly,
+  setVerifiedSongsOnly,
+} from "../../util/preferences";
+import { showVerifiedRangeInfo } from "../../util/verifiedInfo";
 import { resetToSearchStackScreen } from "../../navigation/searchStackReset";
 
 const VOICE_TYPE_GUIDE = [
@@ -92,6 +100,8 @@ export default function ProfileScreen({ navigation }: any) {
   const [isRangeModalVisible, setRangeModalVisible] = useState(false);
   const [isShareRangeVisible, setShareRangeVisible] = useState(false);
   const [searchRecentsEnabled, setSearchRecentsEnabledState] = useState(true);
+  const [songImagesEnabled, setSongImagesEnabledState] = useState(true);
+  const [verifiedSongsOnly, setVerifiedSongsOnlyState] = useState(false);
 
   // Admin status hook
   const { isAdmin, loading: adminLoading, adminDetails } = useAdminStatus();
@@ -180,9 +190,15 @@ export default function ProfileScreen({ navigation }: any) {
   useEffect(() => {
     let isMounted = true;
 
-    getSearchRecentsEnabled().then((enabled) => {
+    Promise.all([
+      getSearchRecentsEnabled(),
+      getSongImagesEnabled(),
+      getVerifiedSongsOnly(),
+    ]).then(([recents, images, verifiedOnly]) => {
       if (isMounted) {
-        setSearchRecentsEnabledState(enabled);
+        setSearchRecentsEnabledState(recents);
+        setSongImagesEnabledState(images);
+        setVerifiedSongsOnlyState(verifiedOnly);
       }
     });
 
@@ -320,6 +336,16 @@ export default function ProfileScreen({ navigation }: any) {
     await setSearchRecentsEnabled(enabled);
   };
 
+  const handleSongImagesToggle = async (enabled: boolean) => {
+    setSongImagesEnabledState(enabled);
+    await setSongImagesEnabled(enabled);
+  };
+
+  const handleVerifiedSongsOnlyToggle = async (enabled: boolean) => {
+    setVerifiedSongsOnlyState(enabled);
+    await setVerifiedSongsOnly(enabled);
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView 
@@ -394,37 +420,21 @@ export default function ProfileScreen({ navigation }: any) {
         </View>
       </View>
 
-      {/* Small Range History link, tucked under the vocal range card */}
-      <TouchableOpacity
-        style={styles.rangeHistoryLink}
-        onPress={() => resetToSearchStackScreen(navigation, "RangeHistory")}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="trending-up" size={16} color={colors.link} />
-        <Text style={styles.rangeHistoryLinkText}>Range History</Text>
-        <Ionicons name="chevron-forward" size={14} color={colors.textTertiary} />
-      </TouchableOpacity>
+      {/* Small Range History chip, tucked under the vocal range card */}
+      <View style={styles.rangeHistoryRow}>
+        <TouchableOpacity
+          style={styles.rangeHistoryChip}
+          onPress={() => resetToSearchStackScreen(navigation, "RangeHistory")}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="trending-up" size={15} color={colors.link} />
+          <Text style={styles.rangeHistoryChipText}>Range History</Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.link} />
+        </TouchableOpacity>
+      </View>
 
       {/* Action Buttons */}
       <View style={styles.actionsContainer}>
-        {/* Set My Range Button */}
-        <TouchableOpacity
-          style={styles.primaryActionButton}
-          onPress={() => setRangeModalVisible(true)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.actionButtonContent}>
-            <View style={styles.actionIconContainer}>
-              <Ionicons name="mic" size={24} color="#FFF" />
-            </View>
-            <View style={styles.actionTextContainer}>
-              <Text style={styles.actionButtonTitle}>Set My Vocal Range</Text>
-              <Text style={styles.actionButtonSubtitle}>Auto-detect your range</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.7)" />
-          </View>
-        </TouchableOpacity>
-
         {/* Saved Lists Button */}
         <TouchableOpacity
           style={styles.secondaryActionButton}
@@ -465,10 +475,29 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
         </TouchableOpacity>
 
-        {/* Expandable Dropdown Options */}
+        {/* Expandable Dropdown Options, grouped into small categories */}
         {isMenuVisible && (
           <View style={styles.dropdownContainer}>
-            {/* Edit Profile */}
+            {/* --- Vocal Range --- */}
+            <Text style={styles.dropdownCategory}>Vocal Range</Text>
+            <TouchableOpacity
+              style={styles.dropdownOption}
+              onPress={() => {
+                setRangeModalVisible(true);
+                setMenuVisible(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="mic-outline" size={20} color={colors.textPrimary} />
+              <View style={styles.dropdownTextContainer}>
+                <Text style={styles.dropdownText}>Set My Vocal Range</Text>
+                <Text style={styles.dropdownSubText}>Auto-detect your range</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+            </TouchableOpacity>
+
+            {/* --- Profile --- */}
+            <Text style={styles.dropdownCategory}>Profile</Text>
             <TouchableOpacity
               style={styles.dropdownOption}
               onPress={() => {
@@ -481,7 +510,36 @@ export default function ProfileScreen({ navigation }: any) {
               <Text style={styles.dropdownText}>Edit Profile</Text>
             </TouchableOpacity>
 
-            {/* Search Recents Setting */}
+            <TouchableOpacity
+              style={styles.dropdownOption}
+              onPress={() => {
+                handleResetPassword();
+                setMenuVisible(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="key-outline" size={20} color={colors.textPrimary} />
+              <Text style={styles.dropdownText}>Reset Password</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.dropdownOption}
+              onPress={handleDeleteAccount}
+              disabled={isDeleting}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={20} color={colors.danger} />
+              {isDeleting ? (
+                <ActivityIndicator size="small" color={colors.danger} style={{ marginLeft: 12 }} />
+              ) : (
+                <Text style={[styles.dropdownText, { color: colors.danger }]}>Delete Account</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* --- Preferences --- */}
+            <Text style={styles.dropdownCategory}>Preferences</Text>
+
+            {/* Show Recents on Search */}
             <View style={styles.dropdownOption}>
               <Ionicons name="time-outline" size={20} color={colors.textPrimary} />
               <View style={styles.dropdownTextContainer}>
@@ -498,35 +556,52 @@ export default function ProfileScreen({ navigation }: any) {
               />
             </View>
 
-            {/* Reset Password */}
-            <TouchableOpacity
-              style={styles.dropdownOption}
-              onPress={() => {
-                handleResetPassword();
-                setMenuVisible(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="key-outline" size={20} color={colors.textPrimary} />
-              <Text style={styles.dropdownText}>Reset Password</Text>
-            </TouchableOpacity>
+            {/* Song Images (future feature) */}
+            <View style={styles.dropdownOption}>
+              <Ionicons name="image-outline" size={20} color={colors.textPrimary} />
+              <View style={styles.dropdownTextContainer}>
+                <Text style={styles.dropdownText}>Show Song Images</Text>
+                <Text style={styles.dropdownSubText}>Coming soon</Text>
+              </View>
+              <Switch
+                value={songImagesEnabled}
+                onValueChange={(enabled) => {
+                  void handleSongImagesToggle(enabled);
+                }}
+                trackColor={{ false: colors.backgroundTertiary, true: colors.highlightAlt }}
+                thumbColor={songImagesEnabled ? colors.primary : colors.textTertiary}
+              />
+            </View>
 
-            {/* Delete Account */}
-            <TouchableOpacity
-              style={styles.dropdownOption}
-              onPress={handleDeleteAccount}
-              disabled={isDeleting}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="trash-outline" size={20} color={colors.danger} />
-              {isDeleting ? (
-                <ActivityIndicator size="small" color={colors.danger} style={{ marginLeft: 12 }} />
-              ) : (
-                <Text style={[styles.dropdownText, { color: colors.danger }]}>Delete Account</Text>
-              )}
-            </TouchableOpacity>
+            {/* Verified songs only */}
+            <View style={styles.dropdownOption}>
+              <Ionicons name="shield-checkmark-outline" size={20} color={colors.textPrimary} />
+              <View style={styles.dropdownTextContainer}>
+                <View style={styles.dropdownLabelRow}>
+                  <Text style={styles.dropdownText}>Verified Songs Only</Text>
+                  <TouchableOpacity
+                    onPress={showVerifiedRangeInfo}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="information-circle-outline" size={17} color={colors.link} />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.dropdownSubText}>Hide community uploads in search</Text>
+              </View>
+              <Switch
+                value={verifiedSongsOnly}
+                onValueChange={(enabled) => {
+                  void handleVerifiedSongsOnlyToggle(enabled);
+                }}
+                trackColor={{ false: colors.backgroundTertiary, true: colors.highlightAlt }}
+                thumbColor={verifiedSongsOnly ? colors.primary : colors.textTertiary}
+              />
+            </View>
 
-            {/* Admin Access - Only visible to admins */}
+            {/* --- Account actions --- */}
+            <View style={styles.dropdownDivider} />
+
+            {/* Admin Access - Only visible to admins, re-verified on press */}
             {!adminLoading && isAdmin && (
               <TouchableOpacity
                 style={styles.dropdownOption}
@@ -774,21 +849,27 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     marginLeft: "auto",
     padding: 4,
   },
-  rangeHistoryLink: {
+  rangeHistoryRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 8,
+    marginHorizontal: 20,
+  },
+  rangeHistoryChip: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-end",
-    gap: 5,
-    marginTop: -8,
-    marginBottom: 4,
-    marginRight: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    gap: 6,
+    backgroundColor: colors.highlightAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 20,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
   },
-  rangeHistoryLinkText: {
+  rangeHistoryChipText: {
     color: colors.link,
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   vocalRangeText: {
     fontSize: 16,
@@ -893,6 +974,17 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   dropdownOptionLast: {
     borderBottomWidth: 0,
   },
+  dropdownCategory: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    color: colors.textTertiary,
+    backgroundColor: colors.backgroundTertiary,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 6,
+  },
   dropdownText: {
     fontSize: 16,
     color: colors.textPrimary,
@@ -901,10 +993,19 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   dropdownTextContainer: {
     flex: 1,
   },
+  dropdownLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
   dropdownSubText: {
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  dropdownDivider: {
+    height: 8,
+    backgroundColor: colors.backgroundTertiary,
   },
   adminRoleDropdown: {
     fontSize: 11,

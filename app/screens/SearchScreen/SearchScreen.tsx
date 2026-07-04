@@ -28,6 +28,7 @@ import {
   removeRecentHistoryItem,
   RecentHistoryItem,
 } from "../../util/recentlyViewed";
+import { getVerifiedSongsOnly, isVerifiedSong } from "../../util/preferences";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Search">;
 
@@ -44,6 +45,7 @@ export default function SearchScreen() {
   const [recentItems, setRecentItems] = useState<RecentHistoryItem[]>([]);
   const [isRecentVisible, setRecentVisible] = useState(false);
   const [searchRecentsEnabled, setSearchRecentsEnabledState] = useState(true);
+  const [verifiedSongsOnly, setVerifiedSongsOnlyState] = useState(false);
 
 
   const {
@@ -72,14 +74,19 @@ export default function SearchScreen() {
   // Deduplicate and filter results
   const displayData = useMemo(() => {
     let filteredResults = results;
-    
+
     // Apply vocal range filter if active
     if (vocalRangeFilterActive) {
       filteredResults = filter === "songs"
         ? results.filter((item) => isSongInRange(item.vocalRange))
         : results.filter((item) => isArtistInRange(item));
     }
-    
+
+    // Verified-only preference: hide community uploads from song results
+    if (verifiedSongsOnly && filter === "songs") {
+      filteredResults = filteredResults.filter((item) => isVerifiedSong(item));
+    }
+
     // Deduplicate by ID (for songs) or name (for artists)
     const seen = new Set();
     const uniqueResults = filteredResults.filter((item) => {
@@ -92,16 +99,18 @@ export default function SearchScreen() {
     });
     
     return uniqueResults;
-  }, [results, filter, vocalRangeFilterActive, isSongInRange, isArtistInRange]);
+  }, [results, filter, vocalRangeFilterActive, verifiedSongsOnly, isSongInRange, isArtistInRange]);
   const isLoading = songsLoading || (filter === "artists" && artistsLoading);
 
   const refreshRecentHistory = useCallback(async () => {
-    const [items, enabled] = await Promise.all([
+    const [items, enabled, verifiedOnly] = await Promise.all([
       getRecentHistoryItems(),
       getSearchRecentsEnabled(),
+      getVerifiedSongsOnly(),
     ]);
     setRecentItems(items);
     setSearchRecentsEnabledState(enabled);
+    setVerifiedSongsOnlyState(verifiedOnly);
   }, []);
 
   useFocusEffect(

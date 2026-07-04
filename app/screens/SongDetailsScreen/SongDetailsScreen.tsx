@@ -33,6 +33,7 @@ import { findClosestVocalRangeFit, noteToValue } from "./RangeBestFit";
 import SongRangeRecommendation from "./SongRangeRecommendation";
 import Piano from '../../components/Piano/Piano';
 import { getPianoAudioFile } from "../../util/pianoNotes";
+import { showVerifiedRangeInfo } from "../../util/verifiedInfo";
 import SingThisModal from "./SingThisModal";
 
 const { width } = Dimensions.get('window');
@@ -356,13 +357,25 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       )}
 
       {/* Status Badge */}
-      <View style={styles.statusBadge}>
-        {route.params.username ? (
+      {route.params.username ? (
+        <View style={styles.statusBadge}>
           <Text style={styles.statusText}>Uploaded by: {route.params.username}</Text>
-        ) : (
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={styles.statusBadge}
+          onPress={showVerifiedRangeInfo}
+          activeOpacity={0.7}
+        >
           <Text style={styles.statusTextVerified}>✅ Verified Vocal Range</Text>
-        )}
-      </View>
+          <Ionicons
+            name="information-circle-outline"
+            size={16}
+            color={colors.primary}
+            style={{ marginLeft: 5 }}
+          />
+        </TouchableOpacity>
+      )}
 
       {/* Vocal Range Header */}
       {vocalRange && (
@@ -656,6 +669,8 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
 
   // Status Badge
   statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'center',
     backgroundColor: colors.backgroundTertiary,
     paddingHorizontal: 16,

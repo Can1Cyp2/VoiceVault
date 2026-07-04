@@ -13,7 +13,6 @@ import {
   Image,
   ScrollView,
   RefreshControl,
-  Switch,
 } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from "../../util/supabase";
@@ -25,20 +24,9 @@ import VocalRangeDetectorModal from "../TunerScreen/VocalRangeDetectorModal";
 import EditProfileModal from "./EditProfileModal";
 import ShareRangeModal from "../../components/ShareRange/ShareRangeModal";
 import { isShareableRange } from "../../util/shareRange";
-import {
-  getSearchRecentsEnabled,
-  setSearchRecentsEnabled,
-  getSongImagesEnabled,
-  setSongImagesEnabled,
-  getSongImageSource,
-  setSongImageSource,
-  getVerifiedSongsOnly,
-  setVerifiedSongsOnly,
-  SongImageSource,
-  SONG_IMAGE_SOURCES,
-  SONG_IMAGE_SOURCE_LABELS,
-} from "../../util/preferences";
-import { showVerifiedRangeInfo } from "../../util/verifiedInfo";
+import PreferencesModal from "../../components/Settings/PreferencesModal";
+import AccountSettingsModal from "../../components/Settings/AccountSettingsModal";
+import VocalRangeEditModal from "../../components/Settings/VocalRangeEditModal";
 import { resetToSearchStackScreen } from "../../navigation/searchStackReset";
 
 const VOICE_TYPE_GUIDE = [
@@ -104,10 +92,9 @@ export default function ProfileScreen({ navigation }: any) {
   const [coinBalance, setCoinBalance] = useState<number | null>(null);
   const [isRangeModalVisible, setRangeModalVisible] = useState(false);
   const [isShareRangeVisible, setShareRangeVisible] = useState(false);
-  const [searchRecentsEnabled, setSearchRecentsEnabledState] = useState(true);
-  const [songImagesEnabled, setSongImagesEnabledState] = useState(true);
-  const [songImageSource, setSongImageSourceState] = useState<SongImageSource>("auto");
-  const [verifiedSongsOnly, setVerifiedSongsOnlyState] = useState(false);
+  const [isPreferencesVisible, setPreferencesVisible] = useState(false);
+  const [isAccountModalVisible, setAccountModalVisible] = useState(false);
+  const [isVocalRangeEditVisible, setVocalRangeEditVisible] = useState(false);
 
   // Admin status hook
   const { isAdmin, loading: adminLoading, adminDetails } = useAdminStatus();
@@ -192,28 +179,6 @@ export default function ProfileScreen({ navigation }: any) {
       subscription?.unsubscribe();
     };
   }, [updateTrigger]); // Refresh on updates
-
-  useEffect(() => {
-    let isMounted = true;
-
-    Promise.all([
-      getSearchRecentsEnabled(),
-      getSongImagesEnabled(),
-      getSongImageSource(),
-      getVerifiedSongsOnly(),
-    ]).then(([recents, images, imageSource, verifiedOnly]) => {
-      if (isMounted) {
-        setSearchRecentsEnabledState(recents);
-        setSongImagesEnabledState(images);
-        setSongImageSourceState(imageSource);
-        setVerifiedSongsOnlyState(verifiedOnly);
-      }
-    });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   // Handle pull-to-refresh
   const onRefresh = async () => {
@@ -339,29 +304,6 @@ export default function ProfileScreen({ navigation }: any) {
     resetToSearchStackScreen(navigation, "AdminProfileScreen");
   }
 
-  const handleSearchRecentsToggle = async (enabled: boolean) => {
-    setSearchRecentsEnabledState(enabled);
-    await setSearchRecentsEnabled(enabled);
-  };
-
-  const handleSongImagesToggle = async (enabled: boolean) => {
-    setSongImagesEnabledState(enabled);
-    await setSongImagesEnabled(enabled);
-  };
-
-  // Cycle Automatic -> Apple Music -> Deezer -> Automatic
-  const handleCycleImageSource = async () => {
-    const currentIndex = SONG_IMAGE_SOURCES.indexOf(songImageSource);
-    const next = SONG_IMAGE_SOURCES[(currentIndex + 1) % SONG_IMAGE_SOURCES.length];
-    setSongImageSourceState(next);
-    await setSongImageSource(next);
-  };
-
-  const handleVerifiedSongsOnlyToggle = async (enabled: boolean) => {
-    setVerifiedSongsOnlyState(enabled);
-    await setVerifiedSongsOnly(enabled);
-  };
-
   return (
     <View style={styles.container}>
       <ScrollView 
@@ -434,23 +376,44 @@ export default function ProfileScreen({ navigation }: any) {
             <Ionicons name="information-circle-outline" size={22} color={colors.link} />
           </TouchableOpacity>
         </View>
-      </View>
 
-      {/* Small Range History chip, tucked under the vocal range card */}
-      <View style={styles.rangeHistoryRow}>
+        {/* Range History lives inside the card (neutral blue, never orange) */}
         <TouchableOpacity
-          style={styles.rangeHistoryChip}
+          style={styles.rangeHistoryInCard}
           onPress={() => resetToSearchStackScreen(navigation, "RangeHistory")}
           activeOpacity={0.7}
         >
-          <Ionicons name="trending-up" size={15} color={colors.link} />
-          <Text style={styles.rangeHistoryChipText}>Range History</Text>
-          <Ionicons name="chevron-forward" size={14} color={colors.link} />
+          <Ionicons name="trending-up" size={16} color={colors.secondary} />
+          <Text style={styles.rangeHistoryInCardText}>Range History</Text>
+          <Ionicons
+            name="chevron-forward"
+            size={15}
+            color={colors.textTertiary}
+            style={{ marginLeft: "auto" }}
+          />
         </TouchableOpacity>
       </View>
 
       {/* Action Buttons */}
       <View style={styles.actionsContainer}>
+        {/* Set My Vocal Range - primary auto-detect button */}
+        <TouchableOpacity
+          style={styles.primaryActionButton}
+          onPress={() => setRangeModalVisible(true)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionButtonContent}>
+            <View style={styles.actionIconContainer}>
+              <Ionicons name="mic" size={24} color="#FFF" />
+            </View>
+            <View style={styles.actionTextContainer}>
+              <Text style={styles.actionButtonTitle}>Set My Vocal Range</Text>
+              <Text style={styles.actionButtonSubtitle}>Auto-detect your range</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.7)" />
+          </View>
+        </TouchableOpacity>
+
         {/* Saved Lists Button */}
         <TouchableOpacity
           style={styles.secondaryActionButton}
@@ -481,161 +444,59 @@ export default function ProfileScreen({ navigation }: any) {
             </View>
             <View style={styles.actionTextContainer}>
               <Text style={[styles.actionButtonTitle, { color: colors.textPrimary }]}>Profile Settings</Text>
-              <Text style={[styles.actionButtonSubtitle, { color: colors.textSecondary }]}>Edit your profile</Text>
+              <Text style={[styles.actionButtonSubtitle, { color: colors.textSecondary }]}>Account, vocal range & preferences</Text>
             </View>
-            <Ionicons 
-              name={isMenuVisible ? "chevron-up" : "chevron-down"} 
-              size={24} 
-              color={colors.textTertiary} 
+            <Ionicons
+              name={isMenuVisible ? "chevron-up" : "chevron-down"}
+              size={24}
+              color={colors.textTertiary}
             />
           </View>
         </TouchableOpacity>
 
-        {/* Expandable Dropdown Options, grouped into small categories */}
+        {/* Expandable settings: each category opens its own popup */}
         {isMenuVisible && (
           <View style={styles.dropdownContainer}>
-            {/* --- Vocal Range --- */}
-            <Text style={styles.dropdownCategory}>Vocal Range</Text>
             <TouchableOpacity
               style={styles.dropdownOption}
               onPress={() => {
-                setRangeModalVisible(true);
-                setMenuVisible(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="mic-outline" size={20} color={colors.textPrimary} />
-              <View style={styles.dropdownTextContainer}>
-                <Text style={styles.dropdownText}>Set My Vocal Range</Text>
-                <Text style={styles.dropdownSubText}>Auto-detect your range</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-            </TouchableOpacity>
-
-            {/* --- Profile --- */}
-            <Text style={styles.dropdownCategory}>Profile</Text>
-            <TouchableOpacity
-              style={styles.dropdownOption}
-              onPress={() => {
-                setEditProfileVisible(true);
+                setAccountModalVisible(true);
                 setMenuVisible(false);
               }}
               activeOpacity={0.7}
             >
               <Ionicons name="create-outline" size={20} color={colors.textPrimary} />
               <Text style={styles.dropdownText}>Edit Profile</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} style={{ marginLeft: "auto" }} />
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.dropdownOption}
               onPress={() => {
-                handleResetPassword();
+                setVocalRangeEditVisible(true);
                 setMenuVisible(false);
               }}
               activeOpacity={0.7}
             >
-              <Ionicons name="key-outline" size={20} color={colors.textPrimary} />
-              <Text style={styles.dropdownText}>Reset Password</Text>
+              <Ionicons name="musical-notes-outline" size={20} color={colors.textPrimary} />
+              <Text style={styles.dropdownText}>Vocal Range</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} style={{ marginLeft: "auto" }} />
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.dropdownOption}
-              onPress={handleDeleteAccount}
-              disabled={isDeleting}
+              onPress={() => {
+                setPreferencesVisible(true);
+                setMenuVisible(false);
+              }}
               activeOpacity={0.7}
             >
-              <Ionicons name="trash-outline" size={20} color={colors.danger} />
-              {isDeleting ? (
-                <ActivityIndicator size="small" color={colors.danger} style={{ marginLeft: 12 }} />
-              ) : (
-                <Text style={[styles.dropdownText, { color: colors.danger }]}>Delete Account</Text>
-              )}
+              <Ionicons name="options-outline" size={20} color={colors.textPrimary} />
+              <Text style={styles.dropdownText}>Preferences</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} style={{ marginLeft: "auto" }} />
             </TouchableOpacity>
 
-            {/* --- Preferences --- */}
-            <Text style={styles.dropdownCategory}>Preferences</Text>
-
-            {/* Show Recents on Search */}
-            <View style={styles.dropdownOption}>
-              <Ionicons name="time-outline" size={20} color={colors.textPrimary} />
-              <View style={styles.dropdownTextContainer}>
-                <Text style={styles.dropdownText}>Show Recents on Search</Text>
-                <Text style={styles.dropdownSubText}>Songs and search queries</Text>
-              </View>
-              <Switch
-                value={searchRecentsEnabled}
-                onValueChange={(enabled) => {
-                  void handleSearchRecentsToggle(enabled);
-                }}
-                trackColor={{ false: colors.backgroundTertiary, true: colors.highlightAlt }}
-                thumbColor={searchRecentsEnabled ? colors.primary : colors.textTertiary}
-              />
-            </View>
-
-            {/* Song Images */}
-            <View style={styles.dropdownOption}>
-              <Ionicons name="image-outline" size={20} color={colors.textPrimary} />
-              <View style={styles.dropdownTextContainer}>
-                <Text style={styles.dropdownText}>Show Song Images</Text>
-                <Text style={styles.dropdownSubText}>Album & single artwork</Text>
-              </View>
-              <Switch
-                value={songImagesEnabled}
-                onValueChange={(enabled) => {
-                  void handleSongImagesToggle(enabled);
-                }}
-                trackColor={{ false: colors.backgroundTertiary, true: colors.highlightAlt }}
-                thumbColor={songImagesEnabled ? colors.primary : colors.textTertiary}
-              />
-            </View>
-
-            {/* Image source picker (only relevant when images are on) */}
-            {songImagesEnabled && (
-              <TouchableOpacity
-                style={styles.dropdownOption}
-                onPress={handleCycleImageSource}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="server-outline" size={20} color={colors.textPrimary} />
-                <View style={styles.dropdownTextContainer}>
-                  <Text style={styles.dropdownText}>Image Source</Text>
-                  <Text style={styles.dropdownSubText}>Tap to change where artwork comes from</Text>
-                </View>
-                <View style={styles.sourcePill}>
-                  <Text style={styles.sourcePillText}>
-                    {SONG_IMAGE_SOURCE_LABELS[songImageSource]}
-                  </Text>
-                  <Ionicons name="swap-horizontal" size={15} color={colors.link} />
-                </View>
-              </TouchableOpacity>
-            )}
-
-            {/* Verified songs only */}
-            <View style={styles.dropdownOption}>
-              <Ionicons name="shield-checkmark-outline" size={20} color={colors.textPrimary} />
-              <View style={styles.dropdownTextContainer}>
-                <View style={styles.dropdownLabelRow}>
-                  <Text style={styles.dropdownText}>Verified Songs Only</Text>
-                  <TouchableOpacity
-                    onPress={showVerifiedRangeInfo}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="information-circle-outline" size={17} color={colors.link} />
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.dropdownSubText}>Hide community uploads in search</Text>
-              </View>
-              <Switch
-                value={verifiedSongsOnly}
-                onValueChange={(enabled) => {
-                  void handleVerifiedSongsOnlyToggle(enabled);
-                }}
-                trackColor={{ false: colors.backgroundTertiary, true: colors.highlightAlt }}
-                thumbColor={verifiedSongsOnly ? colors.primary : colors.textTertiary}
-              />
-            </View>
-
-            {/* --- Account actions --- */}
+            {/* --- General (not in a category) --- */}
             <View style={styles.dropdownDivider} />
 
             {/* Admin Access - Only visible to admins, re-verified on press */}
@@ -783,7 +644,7 @@ export default function ProfileScreen({ navigation }: any) {
         }}
       />
 
-      {/* Edit Profile Modal */}
+      {/* Edit Profile (name) Modal */}
       {isEditProfileVisible && (
         <Modal visible={isEditProfileVisible} transparent animationType="slide">
           <EditProfileModal
@@ -794,6 +655,32 @@ export default function ProfileScreen({ navigation }: any) {
           />
         </Modal>
       )}
+
+      {/* Edit Profile category popup: name / password / delete */}
+      <AccountSettingsModal
+        visible={isAccountModalVisible}
+        onClose={() => setAccountModalVisible(false)}
+        onEditName={() => {
+          setAccountModalVisible(false);
+          setEditProfileVisible(true);
+        }}
+        onResetPassword={handleResetPassword}
+        onDeleteAccount={handleDeleteAccount}
+        isDeleting={isDeleting}
+      />
+
+      {/* Vocal Range category popup: manual low/high/voice type */}
+      <VocalRangeEditModal
+        visible={isVocalRangeEditVisible}
+        onClose={() => setVocalRangeEditVisible(false)}
+        onSaved={() => setUpdateTrigger((prev) => prev + 1)}
+      />
+
+      {/* Preferences category popup */}
+      <PreferencesModal
+        visible={isPreferencesVisible}
+        onClose={() => setPreferencesVisible(false)}
+      />
     </View>
   );
 }
@@ -886,26 +773,18 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     marginLeft: "auto",
     padding: 4,
   },
-  rangeHistoryRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    marginTop: 8,
-    marginHorizontal: 20,
-  },
-  rangeHistoryChip: {
+  rangeHistoryInCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    backgroundColor: colors.highlightAlt,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 20,
-    paddingVertical: 7,
-    paddingHorizontal: 14,
+    gap: 8,
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
-  rangeHistoryChipText: {
-    color: colors.link,
-    fontSize: 13,
+  rangeHistoryInCardText: {
+    color: colors.secondary,
+    fontSize: 14,
     fontWeight: "700",
   },
   vocalRangeText: {

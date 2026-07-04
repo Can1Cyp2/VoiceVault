@@ -2,16 +2,18 @@
 //
 // Modal that shows a branded, shareable card with the user's vocal range.
 // "Share Image" snapshots the card (react-native-view-shot) and hands the
-// PNG to the native share sheet (expo-sharing), so users can text it,
-// post it, or send it anywhere their phone supports. "Share as Text"
-// falls back to a plain message with the download link.
+// PNG to the native share sheet, so users can text it, post it, or send it
+// anywhere their phone supports. The primary action attempts to pass both
+// the PNG URI and the message through React Native's built-in share sheet,
+// then falls back to the Expo image share path if the platform rejects it.
 
 import React, { useCallback, useRef, useState } from "react";
 import {
   Alert,
   Image,
   Modal,
-  Share,
+  Platform,
+  Share as NativeShare,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -23,8 +25,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { FONTS } from "../../styles/theme";
 import { useTheme } from "../../contexts/ThemeContext";
 import {
-  APP_DOWNLOAD_URL,
   buildShareRangeMessage,
+  getStoreDownloadUrl,
+  StoreLinkType,
 } from "../../util/shareRange";
 
 // The card uses fixed brand colors (dark + orange) so shared images look
@@ -55,31 +58,37 @@ export default function ShareRangeModal({
   const { colors } = useTheme();
   const viewShotRef = useRef<ViewShot>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [storeLinkType, setStoreLinkType] = useState<StoreLinkType>(
+    Platform.OS === "ios" ? "apple" : "android"
+  );
+  const selectedStoreUrl = getStoreDownloadUrl(storeLinkType);
 
   const shareAsText = useCallback(async () => {
     try {
-      await Share.share({
-        message: buildShareRangeMessage(vocalRange, voiceType),
+      await NativeShare.share({
+        message: buildShareRangeMessage(vocalRange, voiceType, storeLinkType),
       });
     } catch (error) {
       console.error("Error sharing range as text:", error);
     }
-  }, [vocalRange, voiceType]);
+  }, [storeLinkType, vocalRange, voiceType]);
+
+  const captureCard = useCallback(async () => {
+    const capture = viewShotRef.current?.capture;
+    if (!capture) return null;
+    return capture();
+  }, []);
 
   const shareAsImage = useCallback(async () => {
-    if (isSharing) return;
-    setIsSharing(true);
-
     try {
       const canShareFiles = await Sharing.isAvailableAsync();
-      const capture = viewShotRef.current?.capture;
-      if (!canShareFiles || !capture) {
+      const uri = await captureCard();
+      if (!canShareFiles || !uri) {
         // No file sharing on this device - fall back to text.
         await shareAsText();
         return;
       }
 
-      const uri = await capture();
       await Sharing.shareAsync(uri, {
         mimeType: "image/png",
         dialogTitle: "Share your vocal range",
@@ -91,10 +100,48 @@ export default function ShareRangeModal({
         "Could not create the image. Sharing as text instead."
       );
       await shareAsText();
+    }
+  }, [captureCard, shareAsText]);
+
+  const handleShareImage = useCallback(async () => {
+    if (isSharing) return;
+    setIsSharing(true);
+    try {
+      await shareAsImage();
     } finally {
       setIsSharing(false);
     }
-  }, [isSharing, shareAsText]);
+  }, [isSharing, shareAsImage]);
+
+  const shareImageWithText = useCallback(async () => {
+    if (isSharing) return;
+    setIsSharing(true);
+
+    try {
+      const uri = await captureCard();
+      const message = buildShareRangeMessage(vocalRange, voiceType, storeLinkType);
+
+      if (!uri) {
+        await shareAsText();
+        return;
+      }
+
+      await NativeShare.share({
+        title: "Share your vocal range",
+        message,
+        url: uri,
+      });
+    } catch (error) {
+      console.error("Error sharing range image with text:", error);
+      Alert.alert(
+        "Sharing failed",
+        "Could not send both the image and text together. Sharing the image instead."
+      );
+      await shareAsImage();
+    } finally {
+      setIsSharing(false);
+    }
+  }, [captureCard, isSharing, shareAsImage, shareAsText, storeLinkType, vocalRange, voiceType]);
 
   const displayName = username && !username.startsWith("Edit") ? username : null;
 
@@ -131,29 +178,94 @@ export default function ShareRangeModal({
             <Text style={styles.cardFooter}>
               What's your range? Find out free with VoiceVault 🎤
             </Text>
-            <Text style={styles.cardLink}>{APP_DOWNLOAD_URL}</Text>
+            <Text style={styles.cardLink}>{selectedStoreUrl}</Text>
           </ViewShot>
+
+          <View style={styles.storeSelectorRow}>
+            <Text style={[styles.storeSelectorLabel, { color: colors.textSecondary }]}>
+              Link:
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.storeSelectorButton,
+                { borderColor: colors.border, backgroundColor: colors.backgroundTertiary },
+                storeLinkType === "android" && { borderColor: colors.primary, backgroundColor: colors.highlightAlt },
+              ]}
+              onPress={() => setStoreLinkType("android")}
+              activeOpacity={0.75}
+            >
+              <Ionicons
+                name="logo-google-playstore"
+                size={14}
+                color={storeLinkType === "android" ? colors.primary : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.storeSelectorText,
+                  { color: storeLinkType === "android" ? colors.primary : colors.textSecondary },
+                ]}
+              >
+                Android
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.storeSelectorButton,
+                { borderColor: colors.border, backgroundColor: colors.backgroundTertiary },
+                storeLinkType === "apple" && { borderColor: colors.primary, backgroundColor: colors.highlightAlt },
+              ]}
+              onPress={() => setStoreLinkType("apple")}
+              activeOpacity={0.75}
+            >
+              <Ionicons
+                name="logo-apple"
+                size={14}
+                color={storeLinkType === "apple" ? colors.primary : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.storeSelectorText,
+                  { color: storeLinkType === "apple" ? colors.primary : colors.textSecondary },
+                ]}
+              >
+                Apple
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
             style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-            onPress={shareAsImage}
+            onPress={shareImageWithText}
             disabled={isSharing}
           >
-            <Ionicons name="image-outline" size={18} color={colors.buttonText} />
+            <Ionicons name="share-social-outline" size={18} color={colors.buttonText} />
             <Text style={[styles.primaryButtonText, { color: colors.buttonText }]}>
-              {isSharing ? "Preparing..." : "Share Image"}
+              {isSharing ? "Preparing..." : "Share Image + Text"}
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.secondaryButton, { borderColor: colors.border, backgroundColor: colors.backgroundTertiary }]}
-            onPress={shareAsText}
-          >
-            <Ionicons name="chatbubble-outline" size={18} color={colors.textPrimary} />
-            <Text style={[styles.secondaryButtonText, { color: colors.textPrimary }]}>
-              Share as Text
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.secondaryButtonRow}>
+            <TouchableOpacity
+              style={[styles.secondaryButton, { borderColor: colors.border, backgroundColor: colors.backgroundTertiary }]}
+              onPress={shareAsText}
+            >
+              <Ionicons name="chatbubble-outline" size={16} color={colors.textPrimary} />
+              <Text style={[styles.secondaryButtonText, { color: colors.textPrimary }]}>
+                Text
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.secondaryButton, { borderColor: colors.border, backgroundColor: colors.backgroundTertiary }]}
+              onPress={handleShareImage}
+              disabled={isSharing}
+            >
+              <Ionicons name="image-outline" size={16} color={colors.textPrimary} />
+              <Text style={[styles.secondaryButtonText, { color: colors.textPrimary }]}>
+                Image
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
             <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Close</Text>
@@ -247,6 +359,32 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.primary,
     textAlign: "center",
   },
+  storeSelectorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 12,
+  },
+  storeSelectorLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    fontFamily: FONTS.primary,
+  },
+  storeSelectorButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  storeSelectorText: {
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: FONTS.primary,
+  },
   primaryButton: {
     flexDirection: "row",
     justifyContent: "center",
@@ -262,13 +400,18 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.primary,
   },
   secondaryButton: {
+    flex: 1,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 8,
     borderRadius: 8,
     borderWidth: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
+  },
+  secondaryButtonRow: {
+    flexDirection: "row",
+    gap: 10,
     marginTop: 10,
   },
   secondaryButtonText: {

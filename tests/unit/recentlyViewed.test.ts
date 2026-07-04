@@ -12,10 +12,17 @@ jest.mock("@react-native-async-storage/async-storage", () =>
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   addToRecentlyViewed,
+  addToRecentHistory,
+  getRecentHistoryItems,
+  getSearchRecentsEnabled,
   getRecentlyViewedSongs,
+  logRecentSearchQuery,
   logRecentlyViewedSong,
   clearRecentlyViewedSongs,
+  removeRecentHistoryItem,
+  setSearchRecentsEnabled,
   RECENTLY_VIEWED_LIMIT,
+  RecentHistoryItem,
   RecentlyViewedSong,
 } from "../../app/util/recentlyViewed";
 
@@ -70,6 +77,38 @@ describe("addToRecentlyViewed (pure)", () => {
   });
 });
 
+describe("addToRecentHistory (pure)", () => {
+  const query = (
+    text: string,
+    filter: "songs" | "artists" = "songs",
+    searchedAt = Date.now()
+  ): RecentHistoryItem => ({
+    type: "query",
+    query: text,
+    filter,
+    searchedAt,
+  });
+
+  it("keeps songs and search queries together, newest first", () => {
+    const list = addToRecentHistory([song("Older")], query("Adele"));
+
+    expect(list).toHaveLength(2);
+    expect(list[0]).toMatchObject({ type: "query", query: "Adele" });
+    expect(list[1]).toMatchObject({ name: "Older" });
+  });
+
+  it("deduplicates matching queries by query text and filter", () => {
+    const list = addToRecentHistory(
+      [query("Adele", "songs"), query("Adele", "artists")],
+      query(" adele ", "songs")
+    );
+
+    expect(list).toHaveLength(2);
+    expect(list[0]).toMatchObject({ query: " adele ", filter: "songs" });
+    expect(list[1]).toMatchObject({ query: "Adele", filter: "artists" });
+  });
+});
+
 describe("storage round-trip", () => {
   it("logs and reads back songs, newest first", async () => {
     await logRecentlyViewedSong({ name: "First", artist: "A", vocalRange: "C3 - C4" });
@@ -79,6 +118,23 @@ describe("storage round-trip", () => {
 
     expect(songs.map((entry) => entry.name)).toEqual(["Second", "First"]);
     expect(songs[0].viewedAt).toBeGreaterThan(0);
+  });
+
+  it("logs and reads back mixed songs and searches", async () => {
+    const nowSpy = jest.spyOn(Date, "now")
+      .mockReturnValueOnce(1000)
+      .mockReturnValueOnce(2000);
+
+    await logRecentlyViewedSong({ name: "First", artist: "A", vocalRange: "C3 - C4" });
+    await logRecentSearchQuery("Adele", "artists");
+
+    const history = await getRecentHistoryItems();
+
+    nowSpy.mockRestore();
+
+    expect(history).toHaveLength(2);
+    expect(history[0]).toMatchObject({ type: "query", query: "Adele", filter: "artists" });
+    expect(history[1]).toMatchObject({ type: "song", name: "First" });
   });
 
   it("ignores songs without a name or artist", async () => {
@@ -100,5 +156,34 @@ describe("storage round-trip", () => {
     await clearRecentlyViewedSongs();
 
     expect(await getRecentlyViewedSongs()).toEqual([]);
+  });
+
+  it("removes a single item, leaving the rest of the history intact", async () => {
+    await logRecentlyViewedSong({ name: "Keep Me", artist: "A", vocalRange: "C3 - C4" });
+    await logRecentSearchQuery("delete me", "songs");
+    await logRecentSearchQuery("keep me too", "artists");
+
+    const history = await getRecentHistoryItems();
+    const target = history.find(
+      (item) => item.type === "query" && item.query === "delete me"
+    )!;
+    await removeRecentHistoryItem(target);
+
+    const remaining = await getRecentHistoryItems();
+    expect(remaining).toHaveLength(2);
+    expect(
+      remaining.some((item) => item.type === "query" && item.query === "delete me")
+    ).toBe(false);
+    expect(remaining.some((item) => item.type === "song")).toBe(true);
+  });
+
+  it("defaults the search-recents setting to enabled and persists changes", async () => {
+    expect(await getSearchRecentsEnabled()).toBe(true);
+
+    await setSearchRecentsEnabled(false);
+    expect(await getSearchRecentsEnabled()).toBe(false);
+
+    await setSearchRecentsEnabled(true);
+    expect(await getSearchRecentsEnabled()).toBe(true);
   });
 });

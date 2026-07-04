@@ -8,6 +8,9 @@ import {
   isShareableRange,
   buildShareRangeMessage,
   APP_DOWNLOAD_URL,
+  APP_STORE_URL,
+  GOOGLE_PLAY_URL,
+  getStoreDownloadUrl,
 } from "../../app/util/shareRange";
 
 describe("isShareableRange", () => {
@@ -31,11 +34,26 @@ describe("buildShareRangeMessage", () => {
     expect(message).toContain("F2 - A4");
     expect(message).toContain("(Baritone)");
     expect(message).toContain(APP_DOWNLOAD_URL);
+    expect(message).toContain(GOOGLE_PLAY_URL);
   });
 
   it("omits the voice type when unknown", () => {
     const message = buildShareRangeMessage("F2 - A4", null);
     expect(message).not.toContain("(");
     expect(message).toContain("F2 - A4");
+  });
+
+  it("can use the Apple App Store link", () => {
+    const message = buildShareRangeMessage("F2 - A4", "Baritone", "apple");
+
+    expect(message).toContain(APP_STORE_URL);
+    expect(message).not.toContain(GOOGLE_PLAY_URL);
+  });
+});
+
+describe("getStoreDownloadUrl", () => {
+  it("returns the right URL for each store", () => {
+    expect(getStoreDownloadUrl("android")).toBe(GOOGLE_PLAY_URL);
+    expect(getStoreDownloadUrl("apple")).toBe(APP_STORE_URL);
   });
 });

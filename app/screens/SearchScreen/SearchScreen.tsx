@@ -1,5 +1,5 @@
 // File location: app/screens/SearchScreen/SearchScreen.tsx
-import React, { useState, useMemo } from "react";
+import React, { useCallback, useState, useMemo } from "react";
 import {
   View,
   FlatList,
@@ -8,9 +8,10 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Modal,
   RefreshControl,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/StackNavigator";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +19,15 @@ import { SearchBar } from "../../components/SearchBar/SearchBar";
 import { supabase } from "../../util/supabase";
 import { useSearch } from "../../util/useSearch";
 import { useTheme } from "../../contexts/ThemeContext";
+import {
+  clearRecentHistory,
+  getRecentHistoryItems,
+  getSearchRecentsEnabled,
+  isRecentSearchQuery,
+  logRecentSearchQuery,
+  removeRecentHistoryItem,
+  RecentHistoryItem,
+} from "../../util/recentlyViewed";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Search">;
 
@@ -31,6 +41,9 @@ export default function SearchScreen() {
   const [vocalRange, setVocalRange] = useState<{ min_range: string; max_range: string } | null>(null);
   const [vocalRangeFilterActive, setVocalRangeFilterActive] = useState(false);
   const [initialFetchDone, setInitialFetchDone] = useState(false);
+  const [recentItems, setRecentItems] = useState<RecentHistoryItem[]>([]);
+  const [isRecentVisible, setRecentVisible] = useState(false);
+  const [searchRecentsEnabled, setSearchRecentsEnabledState] = useState(true);
 
 
   const {
@@ -81,6 +94,32 @@ export default function SearchScreen() {
     return uniqueResults;
   }, [results, filter, vocalRangeFilterActive, isSongInRange, isArtistInRange]);
   const isLoading = songsLoading || (filter === "artists" && artistsLoading);
+
+  const refreshRecentHistory = useCallback(async () => {
+    const [items, enabled] = await Promise.all([
+      getRecentHistoryItems(),
+      getSearchRecentsEnabled(),
+    ]);
+    setRecentItems(items);
+    setSearchRecentsEnabledState(enabled);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshRecentHistory();
+    }, [refreshRecentHistory])
+  );
+
+  React.useEffect(() => {
+    const trimmedQuery = query.trim().replace(/\s+/g, " ");
+    if (!searchRecentsEnabled || trimmedQuery.length < 2) return;
+
+    const timeout = setTimeout(() => {
+      void logRecentSearchQuery(trimmedQuery, filter).then(refreshRecentHistory);
+    }, 900);
+
+    return () => clearTimeout(timeout);
+  }, [filter, query, refreshRecentHistory, searchRecentsEnabled]);
 
   // Fetch the user's vocal range when the component mounts
   React.useEffect(() => {
@@ -149,6 +188,53 @@ export default function SearchScreen() {
     }
   };
 
+  const openRecentItem = (item: RecentHistoryItem) => {
+    setRecentVisible(false);
+
+    if (isRecentSearchQuery(item)) {
+      setFilter(item.filter);
+      setQuery(item.query);
+      void logRecentSearchQuery(item.query, item.filter).then(refreshRecentHistory);
+      return;
+    }
+
+    navigation.navigate("Details", {
+      name: item.name,
+      artist: item.artist,
+      vocalRange: item.vocalRange,
+      username: item.username,
+    });
+  };
+
+  const handleRemoveRecentItem = async (item: RecentHistoryItem) => {
+    await removeRecentHistoryItem(item);
+    const remaining = await getRecentHistoryItems();
+    setRecentItems(remaining);
+    if (remaining.length === 0) {
+      setRecentVisible(false);
+    }
+  };
+
+  const handleClearRecent = () => {
+    Alert.alert(
+      "Clear History",
+      "Remove all recently viewed songs and searches?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear",
+          style: "destructive",
+          onPress: async () => {
+            await clearRecentHistory();
+            setRecentItems([]);
+            setRecentVisible(false);
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   // Function to handle pressing the "In Range" button:
   const handleInRangePress = () => {
     if (!isLoggedIn) {
@@ -158,7 +244,7 @@ export default function SearchScreen() {
         [
           {
             text: "Yes",
-            onPress: () => navigation.navigate("Home"),
+            onPress: () => (navigation.getParent() as any)?.navigate("Home"),
           },
           { text: "No", style: "cancel" },
         ],
@@ -178,7 +264,18 @@ export default function SearchScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.searchBarContainer}>
-        <SearchBar value={query} onSearch={setQuery} />
+        <SearchBar value={query} onSearch={setQuery} containerStyle={styles.searchInput} />
+        {searchRecentsEnabled && recentItems.length > 0 && (
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Open recent songs and searches"
+            style={[styles.recentSearchButton, { borderColor: colors.border, backgroundColor: colors.backgroundCard }]}
+            onPress={() => setRecentVisible(true)}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="time-outline" size={24} color={colors.primary} />
+          </TouchableOpacity>
+        )}
       </View>
       <View style={styles.filterContainer}>
         <TouchableOpacity style={styles.addButton} onPress={handleAddPress}>
@@ -363,6 +460,93 @@ export default function SearchScreen() {
           bounces={true} // overscroll on ios
         />
       )}
+
+      <Modal
+        visible={isRecentVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setRecentVisible(false)}
+      >
+        <View style={[styles.recentModalContainer, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.recentModalContent, { backgroundColor: colors.backgroundCard }]}>
+            <View style={styles.recentModalHeader}>
+              <Text style={[styles.recentModalTitle, { color: colors.textPrimary }]}>
+                Recent
+              </Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Close recent history"
+                style={styles.recentCloseIcon}
+                onPress={() => setRecentVisible(false)}
+              >
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              data={recentItems}
+              keyExtractor={(item) =>
+                isRecentSearchQuery(item)
+                  ? `query-${item.filter}-${item.query}`
+                  : `song-${item.name}-${item.artist}`
+              }
+              renderItem={({ item }) => {
+                const isQuery = isRecentSearchQuery(item);
+                return (
+                  <TouchableOpacity
+                    style={[styles.recentItem, { backgroundColor: colors.backgroundTertiary, borderColor: colors.border }]}
+                    onPress={() => openRecentItem(item)}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[styles.recentItemIcon, { backgroundColor: colors.highlightAlt }]}>
+                      <Ionicons
+                        name={isQuery ? "search" : "musical-notes"}
+                        size={20}
+                        color={colors.primary}
+                      />
+                    </View>
+                    <View style={styles.recentItemText}>
+                      <Text
+                        style={[styles.recentItemName, { color: colors.textPrimary }]}
+                        numberOfLines={1}
+                      >
+                        {isQuery ? item.query : item.name}
+                      </Text>
+                      <Text
+                        style={[styles.recentItemSub, { color: colors.textSecondary }]}
+                        numberOfLines={1}
+                      >
+                        {isQuery
+                          ? `Search ${item.filter}`
+                          : `${item.artist} - ${item.vocalRange}`}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        isQuery
+                          ? `Remove search ${item.query} from history`
+                          : `Remove ${item.name} from history`
+                      }
+                      style={styles.recentItemDelete}
+                      onPress={() => {
+                        void handleRemoveRecentItem(item);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="close-circle" size={20} color={colors.textTertiary} />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+
+            <TouchableOpacity style={styles.recentClearButton} onPress={handleClearRecent}>
+              <Text style={[styles.recentClearText, { color: colors.danger }]}>Clear History</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -372,6 +556,20 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   searchBarContainer: {
     marginTop: 20,
     paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+  },
+  recentSearchButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   loadingText: { textAlign: "center", marginVertical: 10 },
   loadingBarTrack: {
@@ -504,5 +702,72 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   swipeMessageText: {
     fontSize: 14,
     textAlign: "center",
+  },
+  recentModalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  recentModalContent: {
+    borderRadius: 16,
+    padding: 18,
+    width: "90%",
+    maxHeight: "72%",
+  },
+  recentModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  recentModalTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+  },
+  recentCloseIcon: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  recentItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+    marginVertical: 4,
+  },
+  recentItemIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  recentItemText: {
+    flex: 1,
+  },
+  recentItemName: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  recentItemSub: {
+    fontSize: 12.5,
+    marginTop: 2,
+  },
+  recentItemDelete: {
+    marginLeft: 8,
+    padding: 2,
+  },
+  recentClearButton: {
+    alignItems: "center",
+    paddingVertical: 10,
+    marginTop: 8,
+  },
+  recentClearText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

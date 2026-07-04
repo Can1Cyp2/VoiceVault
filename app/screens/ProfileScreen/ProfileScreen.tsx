@@ -13,6 +13,7 @@ import {
   Image,
   ScrollView,
   RefreshControl,
+  Switch,
 } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from "../../util/supabase";
@@ -24,6 +25,8 @@ import VocalRangeDetectorModal from "../TunerScreen/VocalRangeDetectorModal";
 import EditProfileModal from "./EditProfileModal";
 import ShareRangeModal from "../../components/ShareRange/ShareRangeModal";
 import { isShareableRange } from "../../util/shareRange";
+import { getSearchRecentsEnabled, setSearchRecentsEnabled } from "../../util/recentlyViewed";
+import { resetToSearchStackScreen } from "../../navigation/searchStackReset";
 
 const VOICE_TYPE_GUIDE = [
   {
@@ -88,6 +91,7 @@ export default function ProfileScreen({ navigation }: any) {
   const [coinBalance, setCoinBalance] = useState<number | null>(null);
   const [isRangeModalVisible, setRangeModalVisible] = useState(false);
   const [isShareRangeVisible, setShareRangeVisible] = useState(false);
+  const [searchRecentsEnabled, setSearchRecentsEnabledState] = useState(true);
 
   // Admin status hook
   const { isAdmin, loading: adminLoading, adminDetails } = useAdminStatus();
@@ -172,6 +176,20 @@ export default function ProfileScreen({ navigation }: any) {
       subscription?.unsubscribe();
     };
   }, [updateTrigger]); // Refresh on updates
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getSearchRecentsEnabled().then((enabled) => {
+      if (isMounted) {
+        setSearchRecentsEnabledState(enabled);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Handle pull-to-refresh
   const onRefresh = async () => {
@@ -294,8 +312,13 @@ export default function ProfileScreen({ navigation }: any) {
       return;
     }
     
-    navigation.navigate("Search", { screen: "AdminProfileScreen" });
+    resetToSearchStackScreen(navigation, "AdminProfileScreen");
   }
+
+  const handleSearchRecentsToggle = async (enabled: boolean) => {
+    setSearchRecentsEnabledState(enabled);
+    await setSearchRecentsEnabled(enabled);
+  };
 
   return (
     <View style={styles.container}>
@@ -346,15 +369,6 @@ export default function ProfileScreen({ navigation }: any) {
         <View style={styles.cardHeader}>
           <Ionicons name="musical-notes" size={24} color={colors.primary} />
           <Text style={styles.cardTitle}>Vocal Range</Text>
-          {isShareableRange(vocalRange) && (
-            <TouchableOpacity
-              style={styles.shareRangeButton}
-              onPress={() => setShareRangeVisible(true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="share-social-outline" size={22} color={colors.link} />
-            </TouchableOpacity>
-          )}
         </View>
         <Text style={styles.vocalRangeText}>{vocalRange}</Text>
         <View style={styles.voiceTypeRow}>
@@ -369,6 +383,16 @@ export default function ProfileScreen({ navigation }: any) {
             <Ionicons name="information-circle-outline" size={22} color={colors.link} />
           </TouchableOpacity>
         </View>
+        {isShareableRange(vocalRange) && (
+          <TouchableOpacity
+            style={styles.shareRangeCardButton}
+            onPress={() => setShareRangeVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="share-social" size={18} color={colors.buttonText} />
+            <Text style={styles.shareRangeCardButtonText}>Share My Range</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Action Buttons */}
@@ -394,7 +418,7 @@ export default function ProfileScreen({ navigation }: any) {
         {/* Saved Lists Button */}
         <TouchableOpacity
           style={styles.secondaryActionButton}
-          onPress={() => navigation.navigate("Search", { screen: "SavedLists" })}
+          onPress={() => resetToSearchStackScreen(navigation, "SavedLists")}
           activeOpacity={0.7}
         >
           <View style={styles.actionButtonContent}>
@@ -412,7 +436,7 @@ export default function ProfileScreen({ navigation }: any) {
         {/* Range History Button */}
         <TouchableOpacity
           style={styles.secondaryActionButton}
-          onPress={() => navigation.navigate("Search", { screen: "RangeHistory" })}
+          onPress={() => resetToSearchStackScreen(navigation, "RangeHistory")}
           activeOpacity={0.7}
         >
           <View style={styles.actionButtonContent}>
@@ -464,6 +488,23 @@ export default function ProfileScreen({ navigation }: any) {
               <Ionicons name="create-outline" size={20} color={colors.textPrimary} />
               <Text style={styles.dropdownText}>Edit Profile</Text>
             </TouchableOpacity>
+
+            {/* Search Recents Setting */}
+            <View style={styles.dropdownOption}>
+              <Ionicons name="time-outline" size={20} color={colors.textPrimary} />
+              <View style={styles.dropdownTextContainer}>
+                <Text style={styles.dropdownText}>Show Recents on Search</Text>
+                <Text style={styles.dropdownSubText}>Songs and search queries</Text>
+              </View>
+              <Switch
+                value={searchRecentsEnabled}
+                onValueChange={(enabled) => {
+                  void handleSearchRecentsToggle(enabled);
+                }}
+                trackColor={{ false: colors.backgroundTertiary, true: colors.highlightAlt }}
+                thumbColor={searchRecentsEnabled ? colors.primary : colors.textTertiary}
+              />
+            </View>
 
             {/* Reset Password */}
             <TouchableOpacity
@@ -732,14 +773,26 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     marginBottom: 12,
     gap: 8,
   },
-  shareRangeButton: {
-    marginLeft: "auto",
-    padding: 4,
-  },
   cardTitle: {
     fontSize: 18,
     fontWeight: "600",
     color: colors.textPrimary,
+  },
+  shareRangeCardButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 12,
+    marginTop: 14,
+  },
+  shareRangeCardButtonText: {
+    color: colors.buttonText,
+    fontSize: 14,
+    fontWeight: "bold",
+    letterSpacing: 0.5,
   },
   vocalRangeText: {
     fontSize: 16,
@@ -848,6 +901,14 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     fontSize: 16,
     color: colors.textPrimary,
     fontWeight: "500",
+  },
+  dropdownTextContainer: {
+    flex: 1,
+  },
+  dropdownSubText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   adminRoleDropdown: {
     fontSize: 11,

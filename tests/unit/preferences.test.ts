@@ -8,6 +8,12 @@
 jest.mock("@react-native-async-storage/async-storage", () =>
   require("@react-native-async-storage/async-storage/jest/async-storage-mock")
 );
+jest.mock("expo-image", () => ({
+  Image: {
+    clearDiskCache: jest.fn().mockResolvedValue(true),
+    clearMemoryCache: jest.fn().mockResolvedValue(true),
+  },
+}));
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -16,7 +22,10 @@ import {
   getVerifiedSongsOnly,
   setVerifiedSongsOnly,
   isVerifiedSong,
+  resetPreferencesToDefault,
+  PREFERENCE_DEFAULTS,
 } from "../../app/util/preferences";
+import { getCacheAutoClearInterval } from "../../app/util/cacheManager";
 
 beforeEach(async () => {
   await AsyncStorage.clear();
@@ -60,5 +69,18 @@ describe("isVerifiedSong", () => {
 
   it("treats community uploads (with a username) as unverified", () => {
     expect(isVerifiedSong({ username: "singer42" })).toBe(false);
+  });
+});
+
+describe("resetPreferencesToDefault", () => {
+  it("restores every preference, including the cache auto-clear schedule", async () => {
+    await setSongImagesEnabled(false);
+    await setVerifiedSongsOnly(true);
+
+    await resetPreferencesToDefault();
+
+    expect(await getSongImagesEnabled()).toBe(PREFERENCE_DEFAULTS.songImagesEnabled);
+    expect(await getVerifiedSongsOnly()).toBe(PREFERENCE_DEFAULTS.verifiedSongsOnly);
+    expect(await getCacheAutoClearInterval()).toBe(PREFERENCE_DEFAULTS.cacheAutoClearInterval);
   });
 });

@@ -10,6 +10,10 @@ import {
   getSearchRecentsEnabled,
   setSearchRecentsEnabled,
 } from "./recentlyViewed";
+import {
+  setCacheAutoClearInterval,
+  DEFAULT_CACHE_AUTO_CLEAR_INTERVAL,
+} from "./cacheManager";
 
 // Re-export so all preference reads/writes have a single import site.
 export { getSearchRecentsEnabled, setSearchRecentsEnabled };
@@ -103,14 +107,20 @@ export const PREFERENCE_DEFAULTS = {
   songImagesEnabled: true,
   songImageSource: "auto" as SongImageSource,
   verifiedSongsOnly: false,
+  cacheAutoClearInterval: DEFAULT_CACHE_AUTO_CLEAR_INTERVAL,
 };
 
-/** Restore every preference to its default value. */
+/**
+ * Restore every preference to its default value. Note: this resets the
+ * auto-clear *schedule*, it does not clear the cache itself - that's a
+ * separate, explicit action (see cacheManager.clearAppCache).
+ */
 export const resetPreferencesToDefault = async (): Promise<void> => {
   await Promise.all([
     setSearchRecentsEnabled(PREFERENCE_DEFAULTS.searchRecentsEnabled),
     setSongImagesEnabled(PREFERENCE_DEFAULTS.songImagesEnabled),
     setSongImageSource(PREFERENCE_DEFAULTS.songImageSource),
     setVerifiedSongsOnly(PREFERENCE_DEFAULTS.verifiedSongsOnly),
+    setCacheAutoClearInterval(PREFERENCE_DEFAULTS.cacheAutoClearInterval),
   ]);
 };

@@ -33,6 +33,14 @@ import {
   SONG_IMAGE_SOURCES,
   SONG_IMAGE_SOURCE_LABELS,
 } from "../../util/preferences";
+import {
+  getCacheAutoClearInterval,
+  setCacheAutoClearInterval,
+  clearAppCache,
+  CacheAutoClearInterval,
+  CACHE_AUTO_CLEAR_INTERVALS,
+  CACHE_AUTO_CLEAR_LABELS,
+} from "../../util/cacheManager";
 
 type PreferencesModalProps = {
   visible: boolean;
@@ -53,18 +61,22 @@ export default function PreferencesModal({
   const [songImages, setSongImages] = useState(true);
   const [imageSource, setImageSource] = useState<SongImageSource>("auto");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [autoClearInterval, setAutoClearInterval] = useState<CacheAutoClearInterval>("monthly");
+  const [isClearingCache, setIsClearingCache] = useState(false);
 
   const loadPreferences = async () => {
-    const [recents, images, source, verified] = await Promise.all([
+    const [recents, images, source, verified, clearInterval] = await Promise.all([
       getSearchRecentsEnabled(),
       getSongImagesEnabled(),
       getSongImageSource(),
       getVerifiedSongsOnly(),
+      getCacheAutoClearInterval(),
     ]);
     setSearchRecents(recents);
     setSongImages(images);
     setImageSource(source);
     setVerifiedOnly(verified);
+    setAutoClearInterval(clearInterval);
   };
 
   useEffect(() => {
@@ -94,6 +106,41 @@ export default function PreferencesModal({
   const toggleVerified = async (value: boolean) => {
     setVerifiedOnly(value);
     await setVerifiedSongsOnly(value);
+  };
+
+  const cycleAutoClearInterval = async () => {
+    const nextIndex =
+      (CACHE_AUTO_CLEAR_INTERVALS.indexOf(autoClearInterval) + 1) %
+      CACHE_AUTO_CLEAR_INTERVALS.length;
+    const next = CACHE_AUTO_CLEAR_INTERVALS[nextIndex];
+    setAutoClearInterval(next);
+    await setCacheAutoClearInterval(next);
+  };
+
+  const handleClearCache = () => {
+    Alert.alert(
+      "Clear App Cache",
+      "This removes cached song artwork so it will be re-downloaded next time you view it. Your saved lists, vocal range, and account are not affected.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear Cache",
+          onPress: async () => {
+            setIsClearingCache(true);
+            try {
+              await clearAppCache();
+              Alert.alert("Cache Cleared", "The app cache has been cleared.");
+            } catch (error) {
+              console.error("Failed to clear app cache:", error);
+              Alert.alert("Error", "Could not clear the cache right now.");
+            } finally {
+              setIsClearingCache(false);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const handleReset = () => {
@@ -178,7 +225,7 @@ export default function PreferencesModal({
             )}
 
             {/* Verified songs only */}
-            <View style={[styles.row, styles.rowLast]}>
+            <View style={styles.row}>
               <Ionicons name="shield-checkmark-outline" size={20} color={colors.textPrimary} />
               <View style={styles.rowText}>
                 <View style={styles.labelRow}>
@@ -200,7 +247,41 @@ export default function PreferencesModal({
               />
             </View>
 
-            <TouchableOpacity style={styles.resetButton} onPress={handleReset} activeOpacity={0.7}>
+            {/* Auto-clear schedule */}
+            <TouchableOpacity
+              style={[styles.row, styles.rowLast]}
+              onPress={cycleAutoClearInterval}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="time-outline" size={20} color={colors.textPrimary} />
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Auto-Clear Cache</Text>
+                <Text style={styles.rowSub}>How often artwork cache clears itself</Text>
+              </View>
+              <View style={styles.pill}>
+                <Text style={styles.pillText}>{CACHE_AUTO_CLEAR_LABELS[autoClearInterval]}</Text>
+                <Ionicons name="swap-horizontal" size={15} color={colors.link} />
+              </View>
+            </TouchableOpacity>
+
+            {/* Manual clear */}
+            <TouchableOpacity
+              style={styles.resetButton}
+              onPress={handleClearCache}
+              activeOpacity={0.7}
+              disabled={isClearingCache}
+            >
+              <Ionicons name="trash-outline" size={18} color={colors.textSecondary} />
+              <Text style={styles.resetText}>
+                {isClearingCache ? "Clearing..." : "Clear App Cache"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.resetButton, styles.resetButtonSecondary]}
+              onPress={handleReset}
+              activeOpacity={0.7}
+            >
               <Ionicons name="refresh-outline" size={18} color={colors.textSecondary} />
               <Text style={styles.resetText}>Reset Preferences to Default</Text>
             </TouchableOpacity>
@@ -308,6 +389,9 @@ const createStyles = (colors: typeof import("../../styles/theme").LightColors) =
       borderRadius: 10,
       paddingVertical: 12,
       marginTop: 18,
+    },
+    resetButtonSecondary: {
+      marginTop: 10,
     },
     resetText: {
       color: colors.textSecondary,

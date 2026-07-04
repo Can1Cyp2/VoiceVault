@@ -1,27 +1,41 @@
 // app/components/SearchBar/SearchBar.tsx
 
 import React, { useMemo } from "react";
-import { TextInput, StyleSheet, View } from "react-native";
+import { TextInput, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../contexts/ThemeContext";
 
 export const SearchBar = ({
+  value,
   onSearch,
 }: {
+  value: string;
   onSearch: (query: string) => void;
 }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const handleClear = () => onSearch("");
   
   return (
     <View style={styles.container}>
       <Ionicons name="search" size={20} color={colors.textTertiary} style={styles.searchIcon} />
       <TextInput
         style={styles.input}
+        value={value}
         placeholder="Search for an artist or song..."
         placeholderTextColor={colors.textPlaceholder}
         onChangeText={onSearch} // Call onSearch on every keystroke
       />
+      {value.length > 0 && (
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Clear search"
+          onPress={handleClear}
+          style={styles.clearButton}
+        >
+          <Ionicons name="close-circle" size={20} color={colors.textTertiary} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -42,5 +56,13 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     flex: 1,
     fontSize: 16,
     color: colors.textPrimary,
+    paddingVertical: 0,
+  },
+  clearButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
+    width: 28,
+    height: 28,
   },
 });

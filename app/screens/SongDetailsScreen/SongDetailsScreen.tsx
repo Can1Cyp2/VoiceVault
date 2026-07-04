@@ -28,6 +28,7 @@ import {
 } from "../SavedListsScreen/SavedListsLogic";
 import { saveToList } from "../SavedListsScreen/SavedSongLogic";
 import { supabase } from "../../util/supabase";
+import { logRecentlyViewedSong } from "../../util/recentlyViewed";
 import { findClosestVocalRangeFit, noteToValue } from "./RangeBestFit";
 import SongRangeRecommendation from "./SongRangeRecommendation";
 import Piano from '../../components/Piano/Piano';
@@ -160,6 +161,16 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   const handleCloseSingModal = useCallback(() => {
     setSingModalVisible(false);
   }, []);
+
+  // Record this song in the device-local "recently viewed" history
+  useEffect(() => {
+    void logRecentlyViewedSong({
+      name,
+      artist,
+      vocalRange,
+      username: route.params.username,
+    });
+  }, [name, artist, vocalRange]);
 
   // Check if the user is logged in and set header options
   useEffect(() => {

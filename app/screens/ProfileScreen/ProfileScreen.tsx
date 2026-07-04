@@ -22,6 +22,8 @@ import { useTheme } from "../../contexts/ThemeContext";
 import { calculateRangeStats } from "../../util/audioAnalysis";
 import VocalRangeDetectorModal from "../TunerScreen/VocalRangeDetectorModal";
 import EditProfileModal from "./EditProfileModal";
+import ShareRangeModal from "../../components/ShareRange/ShareRangeModal";
+import { isShareableRange } from "../../util/shareRange";
 
 const VOICE_TYPE_GUIDE = [
   {
@@ -85,6 +87,7 @@ export default function ProfileScreen({ navigation }: any) {
   const [updateTrigger, setUpdateTrigger] = useState(0); // Triggers refresh
   const [coinBalance, setCoinBalance] = useState<number | null>(null);
   const [isRangeModalVisible, setRangeModalVisible] = useState(false);
+  const [isShareRangeVisible, setShareRangeVisible] = useState(false);
 
   // Admin status hook
   const { isAdmin, loading: adminLoading, adminDetails } = useAdminStatus();
@@ -343,6 +346,15 @@ export default function ProfileScreen({ navigation }: any) {
         <View style={styles.cardHeader}>
           <Ionicons name="musical-notes" size={24} color={colors.primary} />
           <Text style={styles.cardTitle}>Vocal Range</Text>
+          {isShareableRange(vocalRange) && (
+            <TouchableOpacity
+              style={styles.shareRangeButton}
+              onPress={() => setShareRangeVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="share-social-outline" size={22} color={colors.link} />
+            </TouchableOpacity>
+          )}
         </View>
         <Text style={styles.vocalRangeText}>{vocalRange}</Text>
         <View style={styles.voiceTypeRow}>
@@ -591,6 +603,14 @@ export default function ProfileScreen({ navigation }: any) {
       </Modal>
 
       {/* Vocal Range Detector Modal */}
+      <ShareRangeModal
+        visible={isShareRangeVisible}
+        onClose={() => setShareRangeVisible(false)}
+        vocalRange={vocalRange ?? ""}
+        voiceType={voiceType}
+        username={username}
+      />
+
       <VocalRangeDetectorModal
         visible={isRangeModalVisible}
         onClose={() => setRangeModalVisible(false)}
@@ -693,6 +713,10 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     alignItems: "center",
     marginBottom: 12,
     gap: 8,
+  },
+  shareRangeButton: {
+    marginLeft: "auto",
+    padding: 4,
   },
   cardTitle: {
     fontSize: 18,

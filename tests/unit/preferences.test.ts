@@ -12,6 +12,13 @@ jest.mock("expo-image", () => ({
   Image: {
     clearDiskCache: jest.fn().mockResolvedValue(true),
     clearMemoryCache: jest.fn().mockResolvedValue(true),
+    getCachePathAsync: jest.fn().mockResolvedValue(null),
+  },
+}));
+jest.mock("expo-file-system", () => ({
+  File: class {
+    exists = false;
+    size = 0;
   },
 }));
 

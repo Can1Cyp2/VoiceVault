@@ -8,7 +8,8 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
-import { clearSongImageCache } from "./songImages";
+import { File } from "expo-file-system";
+import { clearSongImageCache, getSongImageCacheSnapshot } from "./songImages";
 
 export type CacheAutoClearInterval = "never" | "weekly" | "monthly";
 
@@ -24,10 +25,11 @@ export const CACHE_AUTO_CLEAR_LABELS: Record<CacheAutoClearInterval, string> = {
   monthly: "Monthly",
 };
 
-// Monthly is the sensible default: long enough that the cache still saves
-// almost all repeat lookups/network calls, short enough that stale or
-// broken artwork URLs and unbounded disk usage don't linger indefinitely.
-export const DEFAULT_CACHE_AUTO_CLEAR_INTERVAL: CacheAutoClearInterval = "monthly";
+// Weekly is the sensible default: images are small and re-fetch quickly
+// (cheap on the free APIs we use), so clearing often keeps disk usage low
+// and flushes any stale/broken artwork links without a noticeable hit to
+// the cache-hit rate most users see.
+export const DEFAULT_CACHE_AUTO_CLEAR_INTERVAL: CacheAutoClearInterval = "weekly";
 
 const INTERVAL_MS: Record<CacheAutoClearInterval, number | null> = {
   never: null,
@@ -92,6 +94,47 @@ export const clearAppCache = async (): Promise<void> => {
     console.error("Failed to clear expo-image cache:", error);
   }
   await setLastCacheClearAt(Date.now());
+};
+
+/** Formats a byte count as a short human-readable size, e.g. "3.2 MB". */
+export const formatCacheSize = (bytes: number): string => {
+  if (bytes <= 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+
+  const units = ["KB", "MB", "GB"];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex++;
+  }
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unitIndex]}`;
+};
+
+/**
+ * Best-effort measurement of the artwork cache's disk footprint: the URL
+ * cache itself (a small JSON blob) plus every cached image file's actual
+ * size on disk (looked up via expo-image's cache path for each cached URL).
+ * Missing/unreadable files are skipped rather than failing the whole call.
+ */
+export const getCacheSizeBytes = async (): Promise<number> => {
+  const { entries, rawCacheBytes } = await getSongImageCacheSnapshot();
+
+  const imageSizes = await Promise.all(
+    entries.map(async (entry) => {
+      try {
+        const path = await Image.getCachePathAsync(entry.imageUrl);
+        if (!path) return 0;
+
+        const file = new File(path);
+        return file.exists ? file.size : 0;
+      } catch {
+        return 0;
+      }
+    })
+  );
+
+  return rawCacheBytes + imageSizes.reduce((total, size) => total + size, 0);
 };
 
 /**

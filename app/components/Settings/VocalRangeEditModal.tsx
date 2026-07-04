@@ -25,15 +25,38 @@ import { submitVocalRange } from "../../screens/UserVocalRange/UserVocalRangeLog
 // Notes users can actually sing; skip the extreme sub-bass octave 0.
 const SELECTABLE_NOTES = NOTES.filter((note) => !note.endsWith("0"));
 
-const VOICE_TYPES = [
-  "Auto",
-  "Bass",
-  "Baritone",
-  "Tenor",
-  "Alto",
-  "Mezzo-Soprano",
-  "Soprano",
+// "" means Auto: leave voice_type null so the app derives it from the range.
+const VOICE_TYPE_OPTIONS = [
+  { label: "Auto (Based on Range)", value: "" },
+  { label: "Bass", value: "Bass" },
+  { label: "Baritone", value: "Baritone" },
+  { label: "Tenor", value: "Tenor" },
+  { label: "Alto", value: "Alto" },
+  { label: "Mezzo-Soprano", value: "Mezzo-Soprano" },
+  { label: "Soprano", value: "Soprano" },
+  { label: "Countertenor / Alto", value: "Countertenor / Alto" },
+  { label: "Baritone / Tenor", value: "Baritone / Tenor" },
+  { label: "Soprano / High Voice", value: "Soprano / High Voice" },
+  { label: "Bass / Low Voice", value: "Bass / Low Voice" },
+  { label: "Unknown", value: "Unknown" },
 ];
+
+const RANGE_CHANGE_REASONS = [
+  { label: "Learning how to sing", value: "Learning how to sing" },
+  { label: "Incorrect analysis", value: "Incorrect analysis" },
+  { label: "Voice has improved", value: "Voice has improved" },
+  { label: "Temporary vocal condition (e.g. cold/fatigue)", value: "Temporary vocal condition" },
+  { label: "Testing different range", value: "Testing different range" },
+  { label: "Other", value: "Other" },
+];
+
+const showVoiceTypeGuide = () => {
+  Alert.alert(
+    "Voice Type Guide",
+    "Voice type is an estimate based on your detected range, but you can also set it manually if needed.\n\nCommon ranges:\nBass: E2 - E4\nBaritone: A2 - F4\nTenor: C3 - A4\nAlto: F3 - D5\nMezzo-Soprano: A3 - F5\nSoprano: C4 - A5",
+    [{ text: "OK" }]
+  );
+};
 
 type VocalRangeEditModalProps = {
   visible: boolean;
@@ -51,11 +74,17 @@ export default function VocalRangeEditModal({
 
   const [lowNote, setLowNote] = useState("C3");
   const [highNote, setHighNote] = useState("C5");
-  const [voiceType, setVoiceType] = useState("Auto");
+  const [voiceType, setVoiceType] = useState(""); // "" = Auto
+  const [originalVoiceType, setOriginalVoiceType] = useState("");
+  const [rangeChangeReason, setRangeChangeReason] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  const hasVoiceTypeChanged = voiceType !== originalVoiceType;
 
   useEffect(() => {
     if (!visible) return;
+
+    setRangeChangeReason("");
 
     const loadCurrentRange = async () => {
       const user = supabase.auth.user();
@@ -70,7 +99,9 @@ export default function VocalRangeEditModal({
       if (data) {
         if (data.min_range && data.min_range !== "C0") setLowNote(data.min_range);
         if (data.max_range && data.max_range !== "C0") setHighNote(data.max_range);
-        setVoiceType(data.voice_type || "Auto");
+        const loadedVoiceType = data.voice_type || "";
+        setVoiceType(loadedVoiceType);
+        setOriginalVoiceType(loadedVoiceType);
       }
     };
 
@@ -83,14 +114,18 @@ export default function VocalRangeEditModal({
       return;
     }
 
+    if (hasVoiceTypeChanged && !rangeChangeReason) {
+      Alert.alert("Reason Required", "Please select why you are switching your voice type.");
+      return;
+    }
+
     setIsSaving(true);
     try {
-      // "Auto" leaves voice_type null so the app derives it from the range.
       await submitVocalRange(
         lowNote,
         highNote,
-        voiceType === "Auto" ? null : voiceType,
-        "manual"
+        voiceType || null,
+        hasVoiceTypeChanged ? rangeChangeReason : "manual"
       );
       onSaved();
       onClose();
@@ -148,22 +183,58 @@ export default function VocalRangeEditModal({
             {renderNotePicker("Highest", highNote, setHighNote)}
           </View>
 
-          <View style={styles.pickerBlock}>
+          <View style={styles.voiceTypeLabelRow}>
             <Text style={styles.pickerLabel}>Voice Type</Text>
-            <View style={styles.pickerWrap}>
-              <Picker
-                selectedValue={voiceType}
-                onValueChange={(v) => setVoiceType(String(v))}
-                style={styles.picker}
-                itemStyle={{ color: colors.textPrimary }}
-                dropdownIconColor={colors.textPrimary}
-              >
-                {VOICE_TYPES.map((type) => (
-                  <Picker.Item key={type} label={type} value={type} color={Platform.OS === "android" ? colors.textPrimary : undefined} />
-                ))}
-              </Picker>
-            </View>
+            <TouchableOpacity
+              onPress={showVoiceTypeGuide}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="information-circle-outline" size={17} color={colors.link} />
+            </TouchableOpacity>
           </View>
+          <View style={[styles.pickerWrap, styles.pickerBlock]}>
+            <Picker
+              selectedValue={voiceType}
+              onValueChange={(v) => setVoiceType(String(v))}
+              style={styles.picker}
+              itemStyle={{ color: colors.textPrimary }}
+              dropdownIconColor={colors.textPrimary}
+            >
+              {VOICE_TYPE_OPTIONS.map((option) => (
+                <Picker.Item
+                  key={option.label}
+                  label={option.label}
+                  value={option.value}
+                  color={Platform.OS === "android" ? colors.textPrimary : undefined}
+                />
+              ))}
+            </Picker>
+          </View>
+
+          {hasVoiceTypeChanged && (
+            <View style={styles.pickerBlock}>
+              <Text style={styles.pickerLabel}>Reason for Changing Voice Type</Text>
+              <View style={styles.pickerWrap}>
+                <Picker
+                  selectedValue={rangeChangeReason}
+                  onValueChange={(v) => setRangeChangeReason(String(v))}
+                  style={styles.picker}
+                  itemStyle={{ color: colors.textPrimary }}
+                  dropdownIconColor={colors.textPrimary}
+                >
+                  <Picker.Item label="Select a reason" value="" color={Platform.OS === "android" ? colors.textPrimary : undefined} />
+                  {RANGE_CHANGE_REASONS.map((option) => (
+                    <Picker.Item
+                      key={option.label}
+                      label={option.label}
+                      value={option.value}
+                      color={Platform.OS === "android" ? colors.textPrimary : undefined}
+                    />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+          )}
 
           <TouchableOpacity
             style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
@@ -230,6 +301,12 @@ const createStyles = (colors: typeof import("../../styles/theme").LightColors) =
       marginBottom: 6,
       textTransform: "uppercase",
       letterSpacing: 0.5,
+    },
+    voiceTypeLabelRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginBottom: 6,
     },
     pickerWrap: {
       backgroundColor: colors.inputBackground,

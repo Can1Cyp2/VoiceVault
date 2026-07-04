@@ -13,7 +13,22 @@ export {
 } from "./recentlyViewed";
 
 const SONG_IMAGES_ENABLED_KEY = "voicevault:songImagesEnabled";
+const SONG_IMAGE_SOURCE_KEY = "voicevault:songImageSource";
 const VERIFIED_SONGS_ONLY_KEY = "voicevault:verifiedSongsOnly";
+
+/**
+ * Which catalog to pull song artwork from.
+ * - "auto": try Apple Music (iTunes), then Deezer as a fallback (recommended)
+ * - "itunes" / "deezer": force a single source
+ */
+export type SongImageSource = "auto" | "itunes" | "deezer";
+export const SONG_IMAGE_SOURCES: SongImageSource[] = ["auto", "itunes", "deezer"];
+
+export const SONG_IMAGE_SOURCE_LABELS: Record<SongImageSource, string> = {
+  auto: "Automatic",
+  itunes: "Apple Music",
+  deezer: "Deezer",
+};
 
 // Generic boolean helpers with an explicit default when nothing is stored.
 const getBool = async (key: string, defaultValue: boolean): Promise<boolean> => {
@@ -45,6 +60,26 @@ export const getSongImagesEnabled = (): Promise<boolean> =>
 
 export const setSongImagesEnabled = (enabled: boolean): Promise<void> =>
   setBool(SONG_IMAGES_ENABLED_KEY, enabled);
+
+/** Which artwork catalog to use. Defaults to "auto" (Apple Music then Deezer). */
+export const getSongImageSource = async (): Promise<SongImageSource> => {
+  try {
+    const raw = await AsyncStorage.getItem(SONG_IMAGE_SOURCE_KEY);
+    if (raw === "itunes" || raw === "deezer" || raw === "auto") return raw;
+    return "auto";
+  } catch (error) {
+    console.error("Failed to read song image source preference:", error);
+    return "auto";
+  }
+};
+
+export const setSongImageSource = async (source: SongImageSource): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(SONG_IMAGE_SOURCE_KEY, source);
+  } catch (error) {
+    console.error("Failed to save song image source preference:", error);
+  }
+};
 
 /**
  * When true, search only shows admin-added ("verified") songs. Defaults to

@@ -30,8 +30,13 @@ import {
   setSearchRecentsEnabled,
   getSongImagesEnabled,
   setSongImagesEnabled,
+  getSongImageSource,
+  setSongImageSource,
   getVerifiedSongsOnly,
   setVerifiedSongsOnly,
+  SongImageSource,
+  SONG_IMAGE_SOURCES,
+  SONG_IMAGE_SOURCE_LABELS,
 } from "../../util/preferences";
 import { showVerifiedRangeInfo } from "../../util/verifiedInfo";
 import { resetToSearchStackScreen } from "../../navigation/searchStackReset";
@@ -101,6 +106,7 @@ export default function ProfileScreen({ navigation }: any) {
   const [isShareRangeVisible, setShareRangeVisible] = useState(false);
   const [searchRecentsEnabled, setSearchRecentsEnabledState] = useState(true);
   const [songImagesEnabled, setSongImagesEnabledState] = useState(true);
+  const [songImageSource, setSongImageSourceState] = useState<SongImageSource>("auto");
   const [verifiedSongsOnly, setVerifiedSongsOnlyState] = useState(false);
 
   // Admin status hook
@@ -193,11 +199,13 @@ export default function ProfileScreen({ navigation }: any) {
     Promise.all([
       getSearchRecentsEnabled(),
       getSongImagesEnabled(),
+      getSongImageSource(),
       getVerifiedSongsOnly(),
-    ]).then(([recents, images, verifiedOnly]) => {
+    ]).then(([recents, images, imageSource, verifiedOnly]) => {
       if (isMounted) {
         setSearchRecentsEnabledState(recents);
         setSongImagesEnabledState(images);
+        setSongImageSourceState(imageSource);
         setVerifiedSongsOnlyState(verifiedOnly);
       }
     });
@@ -339,6 +347,14 @@ export default function ProfileScreen({ navigation }: any) {
   const handleSongImagesToggle = async (enabled: boolean) => {
     setSongImagesEnabledState(enabled);
     await setSongImagesEnabled(enabled);
+  };
+
+  // Cycle Automatic -> Apple Music -> Deezer -> Automatic
+  const handleCycleImageSource = async () => {
+    const currentIndex = SONG_IMAGE_SOURCES.indexOf(songImageSource);
+    const next = SONG_IMAGE_SOURCES[(currentIndex + 1) % SONG_IMAGE_SOURCES.length];
+    setSongImageSourceState(next);
+    await setSongImageSource(next);
   };
 
   const handleVerifiedSongsOnlyToggle = async (enabled: boolean) => {
@@ -556,12 +572,12 @@ export default function ProfileScreen({ navigation }: any) {
               />
             </View>
 
-            {/* Song Images (future feature) */}
+            {/* Song Images */}
             <View style={styles.dropdownOption}>
               <Ionicons name="image-outline" size={20} color={colors.textPrimary} />
               <View style={styles.dropdownTextContainer}>
                 <Text style={styles.dropdownText}>Show Song Images</Text>
-                <Text style={styles.dropdownSubText}>Coming soon</Text>
+                <Text style={styles.dropdownSubText}>Album & single artwork</Text>
               </View>
               <Switch
                 value={songImagesEnabled}
@@ -572,6 +588,27 @@ export default function ProfileScreen({ navigation }: any) {
                 thumbColor={songImagesEnabled ? colors.primary : colors.textTertiary}
               />
             </View>
+
+            {/* Image source picker (only relevant when images are on) */}
+            {songImagesEnabled && (
+              <TouchableOpacity
+                style={styles.dropdownOption}
+                onPress={handleCycleImageSource}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="server-outline" size={20} color={colors.textPrimary} />
+                <View style={styles.dropdownTextContainer}>
+                  <Text style={styles.dropdownText}>Image Source</Text>
+                  <Text style={styles.dropdownSubText}>Tap to change where artwork comes from</Text>
+                </View>
+                <View style={styles.sourcePill}>
+                  <Text style={styles.sourcePillText}>
+                    {SONG_IMAGE_SOURCE_LABELS[songImageSource]}
+                  </Text>
+                  <Ionicons name="swap-horizontal" size={15} color={colors.link} />
+                </View>
+              </TouchableOpacity>
+            )}
 
             {/* Verified songs only */}
             <View style={styles.dropdownOption}>
@@ -1006,6 +1043,20 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   dropdownDivider: {
     height: 8,
     backgroundColor: colors.backgroundTertiary,
+  },
+  sourcePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: colors.highlightAlt,
+    borderRadius: 14,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+  },
+  sourcePillText: {
+    color: colors.link,
+    fontSize: 12.5,
+    fontWeight: "700",
   },
   adminRoleDropdown: {
     fontSize: 11,

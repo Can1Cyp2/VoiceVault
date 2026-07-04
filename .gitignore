@@ -85,6 +85,7 @@ CONTENT_MODERATION_GUIDE.md
 VOCAL_RANGE_DETECTION_IMPLEMENTATION.md
 TODO.md
 !ANDROID_BUILD_TROUBLESHOOTING.md
+tests/README.md
 
 # Firebase / Google services
 google-services.json

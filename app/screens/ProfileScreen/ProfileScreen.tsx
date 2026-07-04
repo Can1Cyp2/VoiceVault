@@ -271,7 +271,7 @@ export default function ProfileScreen({ navigation }: any) {
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
@@ -619,6 +619,12 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: "center",
+    alignItems: "center",
   },
   scrollView: {
     flex: 1,

@@ -11,10 +11,11 @@ export let errorCount = 0;
 // Fetch songs based on a query
 export const searchSongsByQuery = async (query: string): Promise<any[]> => {
   try {
+    const tolerantPattern = buildTolerantPattern(query);
     const { data, error } = await supabase
       .from("songs")
       .select("*")
-      .or(`name.ilike.%${query}%, artist.ilike.%${query}%`);
+      .or(`name.ilike.%${query}%, artist.ilike.%${query}%, name.ilike.${tolerantPattern}, artist.ilike.${tolerantPattern}`);
 
     if (error) throw error;
 
@@ -29,6 +30,8 @@ export const searchSongsByQuery = async (query: string): Promise<any[]> => {
         score += 75;
       else if (name.includes(lowerQuery) || artist.includes(lowerQuery))
         score += 50;
+      else if (tolerantIncludes(name, query) || tolerantIncludes(artist, query))
+        score += 40; // matched only once punctuation like apostrophes is ignored
 
       return { ...song, _score: score };
     });
@@ -105,6 +108,27 @@ const normalizeQuery = (query: string): string[] => {
     .replace(/[^\w\s]/g, '')
     .split(' ')
     .filter(token => token.length > 0);
+};
+
+/**
+ * Builds an ILIKE pattern that matches even when the stored name has
+ * punctuation the user didn't type - e.g. typing "guns n roses" (no
+ * apostrophe) still finds "Guns N' Roses", because wildcards are inserted
+ * between each word so any characters (including punctuation) can sit
+ * between them. Falls back to a plain contains pattern for an empty query.
+ */
+const buildTolerantPattern = (query: string): string => {
+  const tokens = normalizeQuery(query);
+  if (tokens.length === 0) return `%${query}%`;
+  return `%${tokens.join('%')}%`;
+};
+
+/** True when every normalized token of the query appears somewhere in the haystack. */
+const tolerantIncludes = (haystack: string, query: string): boolean => {
+  const tokens = normalizeQuery(query);
+  if (tokens.length === 0) return false;
+  const lowerHaystack = haystack.toLowerCase();
+  return tokens.every(token => lowerHaystack.includes(token));
 };
 
 const getCandidates = async (originalQuery: string, tokens: string[]): Promise<any[]> => {
@@ -191,7 +215,21 @@ const getCandidates = async (originalQuery: string, tokens: string[]): Promise<a
       );
     });
   }
-  
+
+  // Strategy 5: Punctuation-tolerant match - lets a query typed without
+  // apostrophes (e.g. "guns n roses") find names that do have them
+  // ("Guns N' Roses"), by wildcarding between each word.
+  if (tokens.length >= 2) {
+    const tolerantPattern = `%${tokens.join('%')}%`;
+    searchPromises.push(
+      supabase
+        .from("songs")
+        .select("*")
+        .or(`name.ilike.${tolerantPattern}, artist.ilike.${tolerantPattern}`)
+        .then(({ data }) => (data || []).map(song => ({ ...song, _searchStrategy: 'fuzzy' })))
+    );
+  }
+
   const results = await Promise.all(searchPromises);
   const allCandidates = results.flat();
   
@@ -262,6 +300,7 @@ const getStrategyPriority = (strategy: string) => {
     title_prefix: 85,   // Title prefix with trailing space
     split: 80,
     contains: 70,
+    fuzzy: 65,
     token: 60
   };
   return priorities[strategy] || 0;
@@ -337,6 +376,18 @@ const scoreResults = (candidates: any[], tokens: string[], originalQuery: string
         }
         break;
         
+      case 'fuzzy':
+        // Every token must appear somewhere in the field - punctuation the
+        // user didn't type (like a missing apostrophe) doesn't block a match.
+        if (tokens.every(token => name.includes(token))) {
+          score = 5600;
+          matchDetails.titleMatch = true;
+        } else if (tokens.every(token => artist.includes(token))) {
+          score = 5400;
+          matchDetails.artistMatch = true;
+        }
+        break;
+
       case 'split':
         if (song._splitInfo) {
           const split = song._splitInfo;
@@ -438,28 +489,30 @@ export const smartSearchArtists = async (
     if (!query.trim()) return [];
     
     const lowerQuery = query.toLowerCase();
+    const tolerantPattern = buildTolerantPattern(query);
 
     const { data: matchingSongs, error } = await supabase
       .from("songs")
       .select("artist")
-      .or(`artist.eq.${query}, artist.ilike.${query}%, artist.ilike.%${query}%`)
+      .or(`artist.eq.${query}, artist.ilike.${query}%, artist.ilike.%${query}%, artist.ilike.${tolerantPattern}`)
       .limit(100);
-    
+
     if (error || !matchingSongs) return [];
-    
+
     const artistMap = new Map();
-    
+
     matchingSongs.forEach(song => {
       if (!song.artist) return;
-      
+
       const artistLower = song.artist.toLowerCase();
       const current = artistMap.get(song.artist) || { name: song.artist, score: 0, count: 0 };
-      
+
       let score = current.score;
       if (artistLower === lowerQuery) score += 1000;
       else if (artistLower.startsWith(lowerQuery)) score += 500;
       else if (artistLower.includes(lowerQuery)) score += 200;
-      
+      else if (tolerantIncludes(song.artist, query)) score += 150; // e.g. missing apostrophe
+
       artistMap.set(song.artist, {
         name: song.artist,
         score,
@@ -483,10 +536,11 @@ export const getSearchSuggestions = async (query: string): Promise<string[]> => 
   try {
     if (!query.trim()) return [];
     
+    const tolerantPattern = buildTolerantPattern(query);
     const { data, error } = await supabase
       .from("songs")
       .select("name, artist")
-      .or(`name.ilike.${query}%, artist.ilike.${query}%`)
+      .or(`name.ilike.${query}%, artist.ilike.${query}%, name.ilike.${tolerantPattern}, artist.ilike.${tolerantPattern}`)
       .limit(20);
     
     if (error || !data) return [];
@@ -515,11 +569,14 @@ export const searchArtistsByQuery = async (
   limit: number = 20
 ): Promise<any[]> => {
   try {
-    // Step 1: Find songs where the artist name matches the query
+    // Step 1: Find songs where the artist name matches the query. The
+    // tolerant pattern also catches names with punctuation the user didn't
+    // type, e.g. "guns n roses" finding "Guns N' Roses".
+    const tolerantPattern = buildTolerantPattern(query);
     const { data: matchingSongs, error: songError } = await supabase
       .from("songs")
       .select("artist, name")
-      .ilike("artist", `%${query}%`); // Only match on artist name
+      .or(`artist.ilike.%${query}%, artist.ilike.${tolerantPattern}`);
 
     if (songError) {
       console.error("Error searching songs for artists:", songError.message);
@@ -534,10 +591,12 @@ export const searchArtistsByQuery = async (
     matchingSongs.forEach((song) => {
       if (!song.artist) return;
 
-      // Skip if the artist name doesn't contain the query (case-insensitive)
       const queryLower = query.toLowerCase();
       const artistLower = song.artist.toLowerCase();
-      if (!artistLower.includes(queryLower)) return;
+      const isTolerantMatch = tolerantIncludes(song.artist, query);
+
+      // Skip if the artist name doesn't match at all, even tolerantly
+      if (!artistLower.includes(queryLower) && !isTolerantMatch) return;
 
       const current = artistMap.get(song.artist) || {
         name: song.artist,
@@ -551,6 +610,8 @@ export const searchArtistsByQuery = async (
         score += 100; // Exact match
       } else if (artistLower.includes(queryLower)) {
         score += 50; // Partial match
+      } else if (isTolerantMatch) {
+        score += 30; // Matched only once punctuation like apostrophes is ignored
       }
 
       artistMap.set(song.artist, {

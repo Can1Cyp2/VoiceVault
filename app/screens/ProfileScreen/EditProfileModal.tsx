@@ -12,6 +12,8 @@ import {
   Alert,
   StyleSheet,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { supabase } from "../../util/supabase";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -73,7 +75,10 @@ export default function EditProfileModal({
   };
 
   return (
-    <View style={styles.overlay}>
+    <KeyboardAvoidingView
+      style={styles.overlay}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
       <View style={styles.modal}>
         <Text style={styles.title}>Edit Name</Text>
 
@@ -104,7 +109,7 @@ export default function EditProfileModal({
           <Text style={styles.closeButton}>Cancel</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

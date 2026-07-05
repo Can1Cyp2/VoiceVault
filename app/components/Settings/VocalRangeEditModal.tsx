@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -173,77 +174,84 @@ export default function VocalRangeEditModal({
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.hint}>
-            Set your comfortable lowest and highest notes. Leave voice type on
-            Auto to calculate it from your range.
-          </Text>
-
-          <View style={styles.pickerRow}>
-            {renderNotePicker("Lowest", lowNote, setLowNote)}
-            {renderNotePicker("Highest", highNote, setHighNote)}
-          </View>
-
-          <View style={styles.voiceTypeLabelRow}>
-            <Text style={styles.pickerLabel}>Voice Type</Text>
-            <TouchableOpacity
-              onPress={showVoiceTypeGuide}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="information-circle-outline" size={17} color={colors.link} />
-            </TouchableOpacity>
-          </View>
-          <View style={[styles.pickerWrap, styles.pickerBlock]}>
-            <Picker
-              selectedValue={voiceType}
-              onValueChange={(v) => setVoiceType(String(v))}
-              style={styles.picker}
-              itemStyle={{ color: colors.textPrimary }}
-              dropdownIconColor={colors.textPrimary}
-            >
-              {VOICE_TYPE_OPTIONS.map((option) => (
-                <Picker.Item
-                  key={option.label}
-                  label={option.label}
-                  value={option.value}
-                  color={Platform.OS === "android" ? colors.textPrimary : undefined}
-                />
-              ))}
-            </Picker>
-          </View>
-
-          {hasVoiceTypeChanged && (
-            <View style={styles.pickerBlock}>
-              <Text style={styles.pickerLabel}>Reason for Changing Voice Type</Text>
-              <View style={styles.pickerWrap}>
-                <Picker
-                  selectedValue={rangeChangeReason}
-                  onValueChange={(v) => setRangeChangeReason(String(v))}
-                  style={styles.picker}
-                  itemStyle={{ color: colors.textPrimary }}
-                  dropdownIconColor={colors.textPrimary}
-                >
-                  <Picker.Item label="Select a reason" value="" color={Platform.OS === "android" ? colors.textPrimary : undefined} />
-                  {RANGE_CHANGE_REASONS.map((option) => (
-                    <Picker.Item
-                      key={option.label}
-                      label={option.label}
-                      value={option.value}
-                      color={Platform.OS === "android" ? colors.textPrimary : undefined}
-                    />
-                  ))}
-                </Picker>
-              </View>
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-            onPress={handleSave}
-            disabled={isSaving}
-            activeOpacity={0.8}
+          <ScrollView
+            style={styles.scrollBody}
+            contentContainerStyle={styles.scrollBodyContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.saveButtonText}>{isSaving ? "Saving..." : "Save Range"}</Text>
-          </TouchableOpacity>
+            <Text style={styles.hint}>
+              Set your comfortable lowest and highest notes. Leave voice type on
+              Auto to calculate it from your range.
+            </Text>
+
+            <View style={styles.pickerRow}>
+              {renderNotePicker("Lowest", lowNote, setLowNote)}
+              {renderNotePicker("Highest", highNote, setHighNote)}
+            </View>
+
+            <View style={styles.voiceTypeLabelRow}>
+              <Text style={styles.pickerLabel}>Voice Type</Text>
+              <TouchableOpacity
+                onPress={showVoiceTypeGuide}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="information-circle-outline" size={17} color={colors.link} />
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.pickerWrap, styles.pickerBlock]}>
+              <Picker
+                selectedValue={voiceType}
+                onValueChange={(v) => setVoiceType(String(v))}
+                style={styles.picker}
+                itemStyle={{ color: colors.textPrimary }}
+                dropdownIconColor={colors.textPrimary}
+              >
+                {VOICE_TYPE_OPTIONS.map((option) => (
+                  <Picker.Item
+                    key={option.label}
+                    label={option.label}
+                    value={option.value}
+                    color={Platform.OS === "android" ? colors.textPrimary : undefined}
+                  />
+                ))}
+              </Picker>
+            </View>
+
+            {hasVoiceTypeChanged && (
+              <View style={styles.pickerBlock}>
+                <Text style={styles.pickerLabel}>Reason for Changing Voice Type</Text>
+                <View style={styles.pickerWrap}>
+                  <Picker
+                    selectedValue={rangeChangeReason}
+                    onValueChange={(v) => setRangeChangeReason(String(v))}
+                    style={styles.picker}
+                    itemStyle={{ color: colors.textPrimary }}
+                    dropdownIconColor={colors.textPrimary}
+                  >
+                    <Picker.Item label="Select a reason" value="" color={Platform.OS === "android" ? colors.textPrimary : undefined} />
+                    {RANGE_CHANGE_REASONS.map((option) => (
+                      <Picker.Item
+                        key={option.label}
+                        label={option.label}
+                        value={option.value}
+                        color={Platform.OS === "android" ? colors.textPrimary : undefined}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+              onPress={handleSave}
+              disabled={isSaving}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.saveButtonText}>{isSaving ? "Saving..." : "Save Range"}</Text>
+            </TouchableOpacity>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -262,6 +270,7 @@ const createStyles = (colors: typeof import("../../styles/theme").LightColors) =
       backgroundColor: colors.backgroundCard,
       borderRadius: 20,
       width: "92%",
+      maxHeight: "88%",
       paddingHorizontal: 20,
       paddingTop: 18,
       paddingBottom: 20,
@@ -270,6 +279,12 @@ const createStyles = (colors: typeof import("../../styles/theme").LightColors) =
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
+    },
+    scrollBody: {
+      marginTop: 4,
+    },
+    scrollBodyContent: {
+      paddingBottom: 8,
     },
     title: {
       fontSize: 22,

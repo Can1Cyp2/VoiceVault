@@ -14,6 +14,7 @@ import {
   searchSongsByQuery,
   smartSearchSongs,
   smartSearchArtists,
+  searchArtistsByQuery,
   getSearchSuggestions,
 } from "../../app/util/api";
 import { seedTable, setTableError, resetDb } from "../helpers/supabaseMock";
@@ -27,6 +28,7 @@ const CATALOG = [
   { id: 6, name: "Blue Monday", artist: "New Order", vocalRange: "C3 - C4" },
   { id: 7, name: "Yellow Submarine", artist: "The Beatles", vocalRange: "D3 - D4" },
   { id: 8, name: "Don't Stop Me Now", artist: "Queen", vocalRange: "F2 - A5" },
+  { id: 9, name: "Sweet Child O' Mine", artist: "Guns N' Roses", vocalRange: "A2 - D5" },
 ];
 
 beforeEach(() => {
@@ -59,6 +61,13 @@ describe("searchSongsByQuery", () => {
     jest.spyOn(console, "error").mockImplementation(() => {});
     setTableError("songs", { message: "backend down" });
     expect(await searchSongsByQuery("Yellow")).toEqual([]);
+  });
+
+  it("finds an apostrophe-containing artist when the apostrophe is omitted (regression)", async () => {
+    const results = await searchSongsByQuery("guns n roses");
+
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results.some((song) => song.name === "Sweet Child O' Mine")).toBe(true);
   });
 });
 
@@ -121,6 +130,20 @@ describe("smartSearchSongs", () => {
   it("returns nothing for a query matching no songs", async () => {
     expect(await smartSearchSongs("zzzz qqqq")).toEqual([]);
   });
+
+  it("finds an apostrophe-containing artist when the apostrophe is omitted (regression)", async () => {
+    const results = await smartSearchSongs("guns n roses");
+
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results[0].name).toBe("Sweet Child O' Mine");
+  });
+
+  it("still finds the song when the apostrophe is typed as in the title", async () => {
+    const results = await smartSearchSongs("sweet child o mine");
+
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results[0].name).toBe("Sweet Child O' Mine");
+  });
 });
 
 describe("smartSearchArtists", () => {
@@ -145,6 +168,31 @@ describe("smartSearchArtists", () => {
   it("returns an empty array when the backend errors", async () => {
     setTableError("songs", { message: "backend down" });
     expect(await smartSearchArtists("queen")).toEqual([]);
+  });
+
+  it("finds an apostrophe-containing artist when the apostrophe is omitted (regression)", async () => {
+    const results = await smartSearchArtists("guns n roses");
+
+    expect(results.map((artist) => artist.name)).toContain("Guns N' Roses");
+  });
+});
+
+describe("searchArtistsByQuery", () => {
+  it("finds an artist by an exact substring match", async () => {
+    const results = await searchArtistsByQuery("Queen");
+    expect(results.map((artist) => artist.name)).toContain("Queen");
+  });
+
+  it("finds an apostrophe-containing artist when the apostrophe is omitted (regression)", async () => {
+    const results = await searchArtistsByQuery("guns n roses");
+
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results[0].name).toBe("Guns N' Roses");
+    expect(results[0].songs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("returns nothing for a query matching no artists", async () => {
+    expect(await searchArtistsByQuery("zzzz qqqq")).toEqual([]);
   });
 });
 

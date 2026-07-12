@@ -249,7 +249,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           openToolFromSearch("Piano");
         }}
       />
-      <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.5.7</Text>
+      <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.5.9</Text>
     </View>
   );
 }

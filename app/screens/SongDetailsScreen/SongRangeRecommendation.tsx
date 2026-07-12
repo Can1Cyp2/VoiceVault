@@ -13,7 +13,9 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { fetchUserVocalRange } from "../../util/api";
 import {
+  formatOctaveSuggestion,
   formatTransposeSuggestion,
+  getOctaveShiftSuggestion,
   getTransposeSuggestion,
 } from "../../util/transposeSuggestion";
 import { FONTS } from "../../styles/theme";
@@ -130,6 +132,7 @@ const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
     isFullyInRange: boolean;
     showSetupMessage: boolean;
     transposeMessage?: string | null;
+    octaveMessage?: string | null;
   } | null>(null);
 
   if (
@@ -200,14 +203,31 @@ const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
             ? `Too high by ${songMaxIndex - userMaxIndex} notes`
             : "In range! ✅";
 
+        const transposeSuggestion = getTransposeSuggestion(
+          songRange,
+          minRange,
+          maxRange
+        );
+        const octaveMessage = formatOctaveSuggestion(
+          getOctaveShiftSuggestion(songRange, minRange, maxRange)
+        );
+        // When the minimal transposition is itself a whole number of
+        // octaves, the octave tip says the same thing in friendlier terms —
+        // show it alone instead of both.
+        const transposeIsWholeOctaves =
+          transposeSuggestion?.type === "transpose" &&
+          transposeSuggestion.semitones % 12 === 0;
+
         setRangeFeedback({
           low: lowFeedback,
           high: highFeedback,
           isFullyInRange: false,
           showSetupMessage: false,
-          transposeMessage: formatTransposeSuggestion(
-            getTransposeSuggestion(songRange, minRange, maxRange)
-          ),
+          transposeMessage:
+            octaveMessage && transposeIsWholeOctaves
+              ? null
+              : formatTransposeSuggestion(transposeSuggestion),
+          octaveMessage,
         });
       }
     } else {
@@ -275,6 +295,14 @@ const SongRangeRecommendation: React.FC<SongRangeRecommendationProps> = ({
                   <Text style={styles.transposeIcon}>🎼</Text>
                   <Text style={[styles.transposeText, { color: colors.textPrimary }]}>
                     {rangeFeedback.transposeMessage}
+                  </Text>
+                </View>
+              )}
+              {rangeFeedback.octaveMessage && (
+                <View style={[styles.transposeCard, { backgroundColor: colors.backgroundTertiary, borderColor: colors.border }]}>
+                  <Text style={styles.transposeIcon}>🎹</Text>
+                  <Text style={[styles.transposeText, { color: colors.textPrimary }]}>
+                    {rangeFeedback.octaveMessage}
                   </Text>
                 </View>
               )}

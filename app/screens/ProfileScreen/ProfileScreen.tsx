@@ -334,7 +334,7 @@ export default function ProfileScreen({ navigation }: any) {
             style={styles.coinBadge}
             onPress={() => Alert.alert(
               "What are Coins? 🪙",
-              "Coins represent your support for VoiceVault — a small token of gratitude for helping keep the app running!\n\nIn the future, I'd love to reward supporters with special perks and gifts. Stay tuned! 💜",
+              "Coins represent your support for VoiceVault: a small token of gratitude for helping keep the app running!\n\nIn the future, I'd love to reward supporters with special perks and gifts. Stay tuned! 💜",
               [{ text: "Got it!", style: "default" }]
             )}
             activeOpacity={0.7}
@@ -590,7 +590,7 @@ export default function ProfileScreen({ navigation }: any) {
 
             <Text style={styles.voiceTypeModalHintText}>
               If you would like to manually change your Vocal Range or Voice Type,
-              select Edit Profile in the Profile Settings tab.
+              select Vocal Range in the Profile Settings menu.
             </Text>
 
             <TouchableOpacity

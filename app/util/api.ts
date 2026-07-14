@@ -786,6 +786,48 @@ export const getRandomSongs = async (limit: number = 50): Promise<any[]> => {
   }
 };
 
+// Fire-and-forget: log that a song was opened from search, so the
+// "Trending" filter can rank songs by recent popularity. Never throws -
+// trending is a nice-to-have and must not break navigation.
+export const logSongSearch = async (
+  songId: number | null | undefined
+): Promise<void> => {
+  if (!songId) return;
+  try {
+    const { error } = await supabase
+      .from("song_search_events")
+      .insert([{ song_id: songId }]);
+    if (error) {
+      console.error("Failed to log song search event:", error.message);
+    }
+  } catch (err) {
+    console.error("Failed to log song search event:", err);
+  }
+};
+
+// Fetch the most-searched songs over the recent window (see the
+// get_trending_songs SQL function). Returns [] on any failure so callers
+// can fall back to random songs.
+export const getTrendingSongs = async (
+  limit: number = 50,
+  days: number = 7
+): Promise<any[]> => {
+  try {
+    const { data, error } = await supabase.rpc("get_trending_songs", {
+      p_days: days,
+      p_limit: limit,
+    });
+    if (error) {
+      console.error("Error fetching trending songs:", error.message);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.error("Error in getTrendingSongs:", err);
+    return [];
+  }
+};
+
 // Report an issue about a song
 export const reportIssue = async (
   songId: number | null,

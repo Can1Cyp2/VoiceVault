@@ -170,6 +170,15 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Tool Hint Tooltip */}
+      {isToolHintVisible && (
+        <ToolHintPopup
+          visible={isToolHintVisible}
+          onClose={() => setToolHintVisible(false)}
+          hint={toolHint ?? undefined}
+        />
+      )}
+
       {/* Top Button Row */}
       <View style={styles.topButtonRow}>
         {/* Tools Button in Top Left */}
@@ -276,11 +285,6 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         onPianoPress={() => {
           openToolFromSearch("Piano");
         }}
-      />
-      <ToolHintPopup
-        visible={isToolHintVisible}
-        onClose={() => setToolHintVisible(false)}
-        hint={toolHint ?? undefined}
       />
       <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.5.9</Text>
     </View>

@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Modal } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
 import { useTheme } from "../../contexts/ThemeContext";
-import { recordHintShown, shouldShowToolHint, getRandomToolHint, ToolHint } from "../../util/toolHints";
+import { recordHintShown, ToolHint } from "../../util/toolHints";
 
 interface ToolHintPopupProps {
   visible: boolean;
@@ -18,7 +17,7 @@ export function ToolHintPopup({ visible, onClose, hint }: ToolHintPopupProps) {
     if (visible) {
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 300,
+        duration: 400,
         useNativeDriver: true,
       }).start();
 
@@ -32,168 +31,79 @@ export function ToolHintPopup({ visible, onClose, hint }: ToolHintPopupProps) {
     }
   }, [visible, fadeAnim]);
 
-  if (!hint) return null;
-
-  const getIconForTool = (tool: ToolHint) => {
-    switch (tool) {
-      case "metronome":
-        return "timer";
-      case "tuner":
-        return "pulse";
-      case "piano":
-        return "musical-note";
-      default:
-        return "lightbulb";
-    }
-  };
+  if (!hint || !visible) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="none">
-      <Animated.View
+    <Animated.View
+      pointerEvents={visible ? "auto" : "none"}
+      style={[
+        styles.container,
+        {
+          opacity: fadeAnim,
+        },
+      ]}
+    >
+      <View
         style={[
-          styles.overlay,
+          styles.tooltip,
           {
-            backgroundColor: colors.overlay,
-            opacity: fadeAnim,
+            backgroundColor: colors.backgroundCard,
+            borderColor: colors.borderLight,
           },
         ]}
       >
-        <View style={styles.container}>
-          <Animated.View
-            style={[
-              styles.popup,
-              {
-                backgroundColor: colors.backgroundCard,
-                borderColor: colors.primary,
-                transform: [
-                  {
-                    scale: fadeAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.8, 1],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            {/* Icon */}
-            <View
-              style={[styles.iconContainer, { backgroundColor: colors.highlight }]}
-            >
-              <Ionicons
-                name={getIconForTool(hint.tool)}
-                size={28}
-                color={colors.primary}
-              />
-            </View>
-
-            {/* Message */}
-            <Text
-              style={[styles.message, { color: colors.textPrimary }]}
-              numberOfLines={3}
-            >
-              💡 {hint.message}
-            </Text>
-
-            {/* Buttons */}
-            <View style={styles.buttonRow}>
-              <TouchableOpacity
-                style={[styles.button, { backgroundColor: colors.inputBackground }]}
-                onPress={onClose}
-              >
-                <Text style={[styles.buttonText, { color: colors.textSecondary }]}>
-                  Dismiss
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.button, styles.actionButton, { backgroundColor: colors.primary }]}
-                onPress={onClose}
-              >
-                <Text style={[styles.buttonText, { color: colors.buttonText }]}>
-                  Got it
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Close Icon */}
-            <TouchableOpacity
-              style={styles.closeIcon}
-              onPress={onClose}
-            >
-              <Ionicons name="close" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-      </Animated.View>
-    </Modal>
+        <Text
+          style={[styles.message, { color: colors.textPrimary }]}
+          numberOfLines={2}
+        >
+          ✨ {hint.message}
+        </Text>
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={onClose}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={[styles.closeX, { color: colors.textTertiary }]}>×</Text>
+        </TouchableOpacity>
+      </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
+    position: "absolute",
+    top: 50,
+    right: 16,
+    zIndex: 50,
   },
-  popup: {
-    borderRadius: 16,
-    padding: 20,
-    width: "85%",
-    maxWidth: 340,
-    borderWidth: 1.5,
+  tooltip: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    maxWidth: 200,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
-    alignSelf: "center",
-    marginBottom: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
   },
   message: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "500",
-    textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 16,
-  },
-  buttonRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  button: {
+    lineHeight: 18,
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: "center",
   },
-  actionButton: {
-    // Colors applied inline
+  closeButton: {
+    paddingLeft: 4,
   },
-  buttonText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  closeIcon: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    width: 32,
-    height: 32,
-    justifyContent: "center",
-    alignItems: "center",
+  closeX: {
+    fontSize: 20,
+    fontWeight: "300",
+    lineHeight: 20,
   },
 });

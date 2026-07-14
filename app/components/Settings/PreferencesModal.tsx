@@ -4,7 +4,7 @@
 // saves each change immediately. Reused for both signed-in users (from
 // Profile Settings) and guests (with a sign-in call to action).
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Modal,
@@ -38,12 +38,16 @@ import {
   setCacheAutoClearInterval,
   clearAppCache,
   getCacheSizeBytes,
+  getLastCacheClearAt,
+  getNextAutoClearAt,
   formatCacheSize,
+  formatCacheDate,
   DEFAULT_CACHE_AUTO_CLEAR_INTERVAL,
   CacheAutoClearInterval,
   CACHE_AUTO_CLEAR_INTERVALS,
   CACHE_AUTO_CLEAR_LABELS,
 } from "../../util/cacheManager";
+import { disableToolHints, enableToolHintsForAdminTest } from "../../util/toolHints";
 
 type PreferencesModalProps = {
   visible: boolean;
@@ -69,12 +73,20 @@ export default function PreferencesModal({
   );
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [cacheSizeLabel, setCacheSizeLabel] = useState<string | null>(null);
+  const [lastClearAt, setLastClearAt] = useState(0);
+  const [toolHintsEnabled, setToolHintsEnabledState] = useState(true);
 
-  const refreshCacheSize = async () => {
+  const refreshCacheInfo = async () => {
     setCacheSizeLabel(null); // show a loading state while it's measured
-    const bytes = await getCacheSizeBytes();
+    const [bytes, lastClear] = await Promise.all([getCacheSizeBytes(), getLastCacheClearAt()]);
     setCacheSizeLabel(formatCacheSize(bytes));
+    setLastClearAt(lastClear);
   };
+
+  const nextAutoClearAt = useMemo(
+    () => getNextAutoClearAt(lastClearAt, autoClearInterval),
+    [lastClearAt, autoClearInterval]
+  );
 
   const loadPreferences = async () => {
     const [recents, images, source, verified, clearInterval] = await Promise.all([
@@ -94,7 +106,7 @@ export default function PreferencesModal({
   useEffect(() => {
     if (visible) {
       void loadPreferences();
-      void refreshCacheSize();
+      void refreshCacheInfo();
     }
   }, [visible]);
 
@@ -121,6 +133,15 @@ export default function PreferencesModal({
     await setVerifiedSongsOnly(value);
   };
 
+  const toggleToolHints = async (value: boolean) => {
+    setToolHintsEnabledState(value);
+    if (!value) {
+      await disableToolHints();
+    } else if (value) {
+      await enableToolHintsForAdminTest();
+    }
+  };
+
   const cycleAutoClearInterval = async () => {
     const nextIndex =
       (CACHE_AUTO_CLEAR_INTERVALS.indexOf(autoClearInterval) + 1) %
@@ -142,7 +163,7 @@ export default function PreferencesModal({
             setIsClearingCache(true);
             try {
               await clearAppCache();
-              await refreshCacheSize();
+              await refreshCacheInfo();
               Alert.alert("Cache Cleared", "The app cache has been cleared.");
             } catch (error) {
               console.error("Failed to clear app cache:", error);
@@ -261,12 +282,33 @@ export default function PreferencesModal({
               />
             </View>
 
+            {/* Tool Hints */}
+            <View style={styles.row}>
+              <Ionicons name="bulb-outline" size={20} color={colors.textPrimary} />
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Feature Tips</Text>
+                <Text style={styles.rowSub}>Hints about Metronome, Tuner, Piano</Text>
+              </View>
+              <Switch
+                value={toolHintsEnabled}
+                onValueChange={(v) => void toggleToolHints(v)}
+                trackColor={{ false: colors.backgroundTertiary, true: colors.highlightAlt }}
+                thumbColor={toolHintsEnabled ? colors.primary : colors.textTertiary}
+              />
+            </View>
+
             {/* Auto-clear schedule */}
             <TouchableOpacity style={styles.row} onPress={cycleAutoClearInterval} activeOpacity={0.7}>
               <Ionicons name="time-outline" size={20} color={colors.textPrimary} />
               <View style={styles.rowText}>
                 <Text style={styles.rowTitle}>Auto-Clear Cache</Text>
-                <Text style={styles.rowSub}>How often artwork cache clears itself</Text>
+                <Text style={styles.rowSub}>
+                  {autoClearInterval === "never"
+                    ? "Automatic clearing is turned off"
+                    : nextAutoClearAt
+                      ? `Next auto-clear: ${formatCacheDate(nextAutoClearAt)}`
+                      : "How often artwork cache clears itself"}
+                </Text>
               </View>
               <View style={styles.pill}>
                 <Text style={styles.pillText}>{CACHE_AUTO_CLEAR_LABELS[autoClearInterval]}</Text>
@@ -289,7 +331,7 @@ export default function PreferencesModal({
                     ? "Clearing..."
                     : cacheSizeLabel === null
                       ? "Calculating size..."
-                      : `${cacheSizeLabel} of cached artwork`}
+                      : `${cacheSizeLabel} of cached artwork · Last cleared: ${formatCacheDate(lastClearAt)}`}
                 </Text>
               </View>
               <View style={styles.pill}>

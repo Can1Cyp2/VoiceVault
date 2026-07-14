@@ -96,6 +96,29 @@ export const clearAppCache = async (): Promise<void> => {
   await setLastCacheClearAt(Date.now());
 };
 
+/** Formats a timestamp as a short human-readable date, e.g. "Jul 12, 2026". */
+export const formatCacheDate = (timestamp: number): string => {
+  if (!timestamp) return "Never";
+  return new Date(timestamp).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+/**
+ * Returns the timestamp of the next scheduled auto-clear given when the
+ * cache was last cleared, or null when auto-clear is turned off ("never").
+ */
+export const getNextAutoClearAt = (
+  lastClearAt: number,
+  interval: CacheAutoClearInterval
+): number | null => {
+  const intervalMs = INTERVAL_MS[interval];
+  if (intervalMs === null || !lastClearAt) return null;
+  return lastClearAt + intervalMs;
+};
+
 /** Formats a byte count as a short human-readable size, e.g. "3.2 MB". */
 export const formatCacheSize = (bytes: number): string => {
   if (bytes <= 0) return "0 B";

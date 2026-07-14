@@ -23,7 +23,13 @@ interface Props {
 const showSupportInfo = () => {
   Alert.alert(
     "Support Information",
-    "The lowest donation you can make is $1, I wanted it to be as accessible as possible for anyone who would like to support me. Please feel no pressure in donating!\n\nYou can normally watch hundreds of ads a day before hitting a cap. I simply put a 25 ad cap per session as to not make people feel like they have to watch ads endlessly just to support me. Watching ads is not comparable to the amount of support a donation of any amount would be, however, any support is much appreciated!\n\nI truly am so thankful for all of the support shown!\nThank you.",
+    "There are three ways to support the app:\n\n" +
+      "☕ Donate Directly – via Ko-fi, starting at just $1.\n\n" +
+      "🎥 Watch Ad – watch a rewarded ad for +10 coins.\n\n" +
+      "⚡ Quick Ad – watch a shorter ad for +3 coins.\n\n" +
+      "I wanted donating to be as accessible as possible for anyone who'd like to support me, so please feel no pressure to donate!\n\n" +
+      "You can normally watch hundreds of ads a day before hitting a cap, but I put a 25 ad cap per session so it never feels like you have to watch endlessly just to support me. Watching ads isn't comparable to the amount of support a donation of any amount would be, but any support at all is much appreciated!\n\n" +
+      "I truly am so thankful for all of the support shown!\nThank you.",
     [{ text: "OK", style: "default" }]
   );
 };

@@ -67,13 +67,18 @@ const SOUND_SETS = {
   },
   bell: {
     label: "Bell",
-    click: require("../../../assets/metronome/beep.wav"),
-    accent: require("../../../assets/metronome/beep_accent.wav"),
+    click: require("../../../assets/metronome/bell.wav"),
+    accent: require("../../../assets/metronome/bell_accent.wav"),
   },
   cowbell: {
     label: "Cowbell",
-    click: require("../../../assets/metronome/wood.wav"),
-    accent: require("../../../assets/metronome/wood_accent.wav"),
+    click: require("../../../assets/metronome/cowbell.wav"),
+    accent: require("../../../assets/metronome/cowbell_accent.wav"),
+  },
+  clave: {
+    label: "Clave",
+    click: require("../../../assets/metronome/clave.wav"),
+    accent: require("../../../assets/metronome/clave_accent.wav"),
   },
 } as const;
 type SoundSetKey = keyof typeof SOUND_SETS;
@@ -153,6 +158,48 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
   const patternRef = useRef(pattern);
   const volumeRef = useRef(volume);
   const previewOnLoadRef = useRef(false);
+
+  // Time / Division selectors keep the selected chip centered in view
+  const timeScrollRef = useRef<ScrollView>(null);
+  const subScrollRef = useRef<ScrollView>(null);
+  const timeChipLayouts = useRef<Record<string, { x: number; width: number }>>({});
+  const subChipLayouts = useRef<Record<number, { x: number; width: number }>>({});
+  const timeScrollWidthRef = useRef(0);
+  const subScrollWidthRef = useRef(0);
+
+  const centerSelectedChip = useCallback(
+    (
+      ref: React.RefObject<ScrollView | null>,
+      layout: { x: number; width: number } | undefined,
+      viewWidth: number,
+      animated: boolean
+    ) => {
+      if (!layout || !viewWidth) return;
+      ref.current?.scrollTo({
+        x: Math.max(0, layout.x + layout.width / 2 - viewWidth / 2),
+        animated,
+      });
+    },
+    []
+  );
+
+  useEffect(() => {
+    centerSelectedChip(
+      timeScrollRef,
+      timeChipLayouts.current[timeSignature],
+      timeScrollWidthRef.current,
+      true
+    );
+  }, [timeSignature, centerSelectedChip]);
+
+  useEffect(() => {
+    centerSelectedChip(
+      subScrollRef,
+      subChipLayouts.current[subdivision],
+      subScrollWidthRef.current,
+      true
+    );
+  }, [subdivision, centerSelectedChip]);
 
   useEffect(() => {
     bpmRef.current = bpm;
@@ -649,15 +696,30 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
           <View style={styles.selectorColumn}>
             <Text style={styles.selectorLabel}>Time</Text>
             <ScrollView
+              ref={timeScrollRef}
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.selectorScroll}
               contentContainerStyle={styles.selectorContent}
+              onLayout={(e) => {
+                timeScrollWidthRef.current = e.nativeEvent.layout.width;
+              }}
             >
               {TIME_SIGNATURES.map((sig) => (
                 <TouchableOpacity
                   key={sig}
                   onPress={() => handleTimeSignatureChange(sig)}
+                  onLayout={(e) => {
+                    timeChipLayouts.current[sig] = e.nativeEvent.layout;
+                    if (sig === timeSignature) {
+                      centerSelectedChip(
+                        timeScrollRef,
+                        e.nativeEvent.layout,
+                        timeScrollWidthRef.current,
+                        false
+                      );
+                    }
+                  }}
                   style={[
                     styles.selectorChip,
                     timeSignature === sig && styles.selectorChipSelected,
@@ -683,15 +745,30 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
           <View style={styles.selectorColumn}>
             <Text style={styles.selectorLabel}>Division</Text>
             <ScrollView
+              ref={subScrollRef}
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.selectorScroll}
               contentContainerStyle={styles.selectorContent}
+              onLayout={(e) => {
+                subScrollWidthRef.current = e.nativeEvent.layout.width;
+              }}
             >
               {SUBDIVISIONS.map((sub) => (
                 <TouchableOpacity
                   key={sub.value}
                   onPress={() => setSubdivision(sub.value)}
+                  onLayout={(e) => {
+                    subChipLayouts.current[sub.value] = e.nativeEvent.layout;
+                    if (sub.value === subdivision) {
+                      centerSelectedChip(
+                        subScrollRef,
+                        e.nativeEvent.layout,
+                        subScrollWidthRef.current,
+                        false
+                      );
+                    }
+                  }}
                   style={[
                     styles.selectorChip,
                     subdivision === sub.value && styles.selectorChipSelected,
@@ -707,6 +784,14 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
                     ]}
                   >
                     {sub.symbol}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.selectorChipSubLabel,
+                      subdivision === sub.value && styles.selectorChipTextSelected,
+                    ]}
+                  >
+                    {sub.label}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -736,12 +821,14 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
           <View style={styles.volumeRow}>
             <Ionicons name="volume-low" size={moderateScale(20)} color={colors.textSecondary} />
             <View style={styles.volumeSliderWrapper}>
+              {/* Slider runs on integers (0-100): fractional values crash Fabric's
+                  int prop conversion ("Loss of precision" render error) */}
               <Slider
-                value={volume}
+                value={Math.round(volume * 100)}
                 minimumValue={0}
-                maximumValue={1}
-                step={0.1}
-                onValueChange={(v: number) => setVolume(Math.max(0, Math.min(1, Math.round(v * 10) / 10)))}
+                maximumValue={100}
+                step={5}
+                onValueChange={(v: number) => setVolume(Math.max(0, Math.min(100, Math.round(v))) / 100)}
                 allowTouchTrack
                 minimumTrackTintColor={colors.primary}
                 maximumTrackTintColor={colors.border}
@@ -962,25 +1049,27 @@ const createStyles = (colors: typeof import("../../styles/theme").LightColors) =
       fontWeight: "600",
       color: colors.textSecondary,
       paddingHorizontal: scale(12),
-      marginBottom: verticalScale(6),
+      marginBottom: verticalScale(8),
       textAlign: "center",
     },
     selectorScroll: {
-      maxHeight: verticalScale(50),
+      maxHeight: verticalScale(62),
     },
     selectorContent: {
       alignItems: "center",
-      paddingHorizontal: scale(8),
+      paddingHorizontal: scale(10),
+      paddingVertical: verticalScale(2),
     },
     selectorChip: {
-      paddingVertical: verticalScale(8),
+      paddingVertical: verticalScale(6),
       paddingHorizontal: scale(12),
       marginHorizontal: scale(4),
-      borderRadius: moderateScale(16),
+      borderRadius: moderateScale(14),
       backgroundColor: colors.inputBackground,
       borderWidth: 1.5,
       borderColor: "transparent",
-      minWidth: scale(50),
+      minWidth: scale(54),
+      minHeight: verticalScale(48),
       alignItems: "center",
       justifyContent: "center",
     },
@@ -989,16 +1078,23 @@ const createStyles = (colors: typeof import("../../styles/theme").LightColors) =
       borderColor: colors.primary,
     },
     selectorChipText: {
-      fontSize: moderateScale(13),
+      fontSize: moderateScale(14),
       fontWeight: "600",
       color: colors.textPrimary,
       textAlign: "center",
     },
     selectorChipSymbol: {
-      fontSize: moderateScale(18),
+      fontSize: moderateScale(17),
       fontWeight: "600",
       color: colors.textPrimary,
       textAlign: "center",
+    },
+    selectorChipSubLabel: {
+      fontSize: moderateScale(9.5),
+      fontWeight: "600",
+      color: colors.textSecondary,
+      textAlign: "center",
+      marginTop: verticalScale(1),
     },
     selectorChipTextSelected: {
       color: colors.buttonText,

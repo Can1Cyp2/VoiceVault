@@ -57,6 +57,7 @@ import {
     fetchAdminTunerDebugEnabled,
     setAdminTunerDebugEnabled,
 } from "../../util/tunerDebugAccess";
+import { getToolHintsAlwaysShow, setToolHintsAlwaysShow } from "../../util/toolHints";
 
 import Constants from "expo-constants";
 import * as Updates from "expo-updates";
@@ -185,6 +186,7 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
     const [tunerDebugEnabled, setTunerDebugEnabled] = useState(false);
     const [tunerDebugLoading, setTunerDebugLoading] = useState(false);
     const [tunerDebugSaving, setTunerDebugSaving] = useState(false);
+    const [hintTestEnabled, setHintTestEnabled] = useState(getToolHintsAlwaysShow());
 
     // Security: Verify admin status on mount and periodically
     useEffect(() => {
@@ -674,6 +676,29 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
                             disabled={tunerDebugLoading || tunerDebugSaving}
                             trackColor={{ false: colors.border, true: colors.primary }}
                             thumbColor={tunerDebugEnabled ? colors.buttonText : colors.backgroundTertiary}
+                        />
+                    </View>
+                </View>
+
+                <View style={styles.debugCard}>
+                    <View style={styles.tunerDebugHeader}>
+                        <View style={styles.tunerDebugTextBlock}>
+                            <Text style={styles.debugCardTitle}>Tool Hints: Always Show</Text>
+                            <Text style={styles.tunerDebugStatus}>
+                                {hintTestEnabled
+                                    ? 'On — hint shows every time Home loads (this session only)'
+                                    : 'Off — normal random schedule'}
+                            </Text>
+                        </View>
+                        <Switch
+                            value={hintTestEnabled}
+                            onValueChange={(value) => {
+                                setHintTestEnabled(value);
+                                setToolHintsAlwaysShow(value);
+                                addDebugLog(`Tool hint test mode ${value ? 'enabled' : 'disabled'} for this session`);
+                            }}
+                            trackColor={{ false: colors.border, true: colors.primary }}
+                            thumbColor={hintTestEnabled ? colors.buttonText : colors.backgroundTertiary}
                         />
                     </View>
                 </View>

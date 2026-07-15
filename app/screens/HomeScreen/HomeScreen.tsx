@@ -175,6 +175,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         <ToolHintPopup
           visible={isToolHintVisible}
           onClose={() => setToolHintVisible(false)}
+          onPress={() => {
+            setToolHintVisible(false);
+            setToolsVisible(true);
+          }}
           hint={toolHint ?? undefined}
         />
       )}

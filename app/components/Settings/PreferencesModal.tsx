@@ -47,7 +47,7 @@ import {
   CACHE_AUTO_CLEAR_INTERVALS,
   CACHE_AUTO_CLEAR_LABELS,
 } from "../../util/cacheManager";
-import { disableToolHints, enableToolHintsForAdminTest } from "../../util/toolHints";
+import { disableToolHints, enableToolHints, getToolHintsEnabled } from "../../util/toolHints";
 
 type PreferencesModalProps = {
   visible: boolean;
@@ -89,18 +89,20 @@ export default function PreferencesModal({
   );
 
   const loadPreferences = async () => {
-    const [recents, images, source, verified, clearInterval] = await Promise.all([
+    const [recents, images, source, verified, clearInterval, hintsEnabled] = await Promise.all([
       getSearchRecentsEnabled(),
       getSongImagesEnabled(),
       getSongImageSource(),
       getVerifiedSongsOnly(),
       getCacheAutoClearInterval(),
+      getToolHintsEnabled(),
     ]);
     setSearchRecents(recents);
     setSongImages(images);
     setImageSource(source);
     setVerifiedOnly(verified);
     setAutoClearInterval(clearInterval);
+    setToolHintsEnabledState(hintsEnabled);
   };
 
   useEffect(() => {
@@ -135,10 +137,10 @@ export default function PreferencesModal({
 
   const toggleToolHints = async (value: boolean) => {
     setToolHintsEnabledState(value);
-    if (!value) {
+    if (value) {
+      await enableToolHints();
+    } else {
       await disableToolHints();
-    } else if (value) {
-      await enableToolHintsForAdminTest();
     }
   };
 

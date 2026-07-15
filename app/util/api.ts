@@ -798,10 +798,11 @@ export const logSongSearch = async (
       .from("song_search_events")
       .insert([{ song_id: songId }]);
     if (error) {
-      console.error("Failed to log song search event:", error.message);
+      // warn, not error: telemetry only — must never red-box the app
+      console.warn("Failed to log song search event:", error.message);
     }
   } catch (err) {
-    console.error("Failed to log song search event:", err);
+    console.warn("Failed to log song search event:", err);
   }
 };
 
@@ -818,12 +819,12 @@ export const getTrendingSongs = async (
       p_limit: limit,
     });
     if (error) {
-      console.error("Error fetching trending songs:", error.message);
+      console.warn("Error fetching trending songs:", error.message);
       return [];
     }
     return data || [];
   } catch (err) {
-    console.error("Error in getTrendingSongs:", err);
+    console.warn("Error in getTrendingSongs:", err);
     return [];
   }
 };

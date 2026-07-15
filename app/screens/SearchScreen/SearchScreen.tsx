@@ -11,6 +11,7 @@ import {
   Modal,
   Pressable,
   RefreshControl,
+  ScrollView,
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -386,16 +387,45 @@ export default function SearchScreen() {
         </View>
       )}
       {!isLoading && initialFetchDone && displayData.length === 0 && !error && (
-        <View style={styles.emptyStateContainer}>
+        <ScrollView
+          contentContainerStyle={styles.emptyStateContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={filter === "songs" ? songsLoading : artistsLoading}
+              onRefresh={handleRefresh}
+              colors={[colors.primary]}
+            />
+          }
+        >
+          <Ionicons name="search-outline" size={44} color={colors.textTertiary} />
           <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>No results found.</Text>
-          <TouchableOpacity
-            style={[styles.refreshButton, { backgroundColor: colors.primary }]}
-            onPress={handleRefresh}
-          >
-            <Ionicons name="refresh" size={18} color={colors.buttonText} />
-            <Text style={[styles.refreshButtonText, { color: colors.buttonText }]}>Try again</Text>
-          </TouchableOpacity>
-        </View>
+          {(activeFilterCount > 0 || verifiedSongsOnly) && (
+            <Text style={[styles.emptyStateHint, { color: colors.textTertiary }]}>
+              Your active filters may be hiding songs. Try widening your range or turning some off.
+            </Text>
+          )}
+          <View style={styles.emptyStateButtons}>
+            {(activeFilterCount > 0 || verifiedSongsOnly) && (
+              <TouchableOpacity
+                style={[styles.refreshButton, { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border }]}
+                onPress={() => setFilterVisible(true)}
+              >
+                <Ionicons name="options" size={18} color={colors.primary} />
+                <Text style={[styles.refreshButtonText, { color: colors.primary }]}>Adjust filters</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[styles.refreshButton, { backgroundColor: colors.primary }]}
+              onPress={handleRefresh}
+            >
+              <Ionicons name="refresh" size={18} color={colors.buttonText} />
+              <Text style={[styles.refreshButtonText, { color: colors.buttonText }]}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={[styles.emptyStateHint, { color: colors.textTertiary }]}>
+            Pull down to refresh
+          </Text>
+        </ScrollView>
       )}
       {filter === "artists" &&
         !artistsLoading &&
@@ -696,9 +726,20 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   },
   noResultsText: { textAlign: "center", marginVertical: 20 },
   emptyStateContainer: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 32,
+  },
+  emptyStateHint: {
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 10,
+  },
+  emptyStateButtons: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 4,
   },
   refreshButton: {
     flexDirection: "row",

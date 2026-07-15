@@ -589,8 +589,7 @@ export default function ProfileScreen({ navigation }: any) {
             ))}
 
             <Text style={styles.voiceTypeModalHintText}>
-              If you would like to manually change your Vocal Range or Voice Type,
-              select Vocal Range in the Profile Settings menu.
+              To manually change your Vocal Range or Voice Type, go to Settings (gear icon) and tap "Vocal Range" in Preferences.
             </Text>
 
             <TouchableOpacity

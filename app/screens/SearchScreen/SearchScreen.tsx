@@ -33,6 +33,7 @@ import {
 import { getVerifiedSongsOnly, isVerifiedSong } from "../../util/preferences";
 import { logSongSearch } from "../../util/api";
 import SongFilterModal from "../../components/SongFilters/SongFilterModal";
+import RequestSongModal from "../../components/RequestSong/RequestSongModal";
 import {
   countActiveSongFilters,
   DEFAULT_SONG_FILTERS,
@@ -59,6 +60,10 @@ export default function SearchScreen() {
   const [isRecentVisible, setRecentVisible] = useState(false);
   const [searchRecentsEnabled, setSearchRecentsEnabledState] = useState(true);
   const [verifiedSongsOnly, setVerifiedSongsOnlyState] = useState(false);
+  const [isAddMenuVisible, setAddMenuVisible] = useState(false);
+  const [addMenuTop, setAddMenuTop] = useState(150);
+  const [isRequestSongVisible, setRequestSongVisible] = useState(false);
+  const addButtonRef = React.useRef<View>(null);
 
 
   const {
@@ -213,9 +218,12 @@ export default function SearchScreen() {
     };
   }, []);
 
-  // Function to handle adding a new song
+  // Opens the add/request dropdown anchored just below the plus button
   const handleAddPress = () => {
-    navigation.navigate("AddSong");
+    addButtonRef.current?.measureInWindow((_x, y, _width, height) => {
+      setAddMenuTop(y + height + 6);
+      setAddMenuVisible(true);
+    });
   };
 
   // Function to handle pressing on a song or artist:
@@ -317,10 +325,11 @@ export default function SearchScreen() {
       </View>
       <View style={styles.filterContainer}>
         <Pressable
+          ref={addButtonRef}
           style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.7 }]}
           onPress={handleAddPress}
           accessibilityRole="button"
-          accessibilityLabel="Add a new song"
+          accessibilityLabel="Add or request a song"
         >
           <Ionicons name="add-circle" size={36} color={colors.primary} />
         </Pressable>
@@ -522,6 +531,64 @@ export default function SearchScreen() {
         />
       )}
 
+      {/* Add / Request song dropdown (anchored under the plus button) */}
+      <Modal
+        visible={isAddMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAddMenuVisible(false)}
+      >
+        <Pressable style={styles.addMenuBackdrop} onPress={() => setAddMenuVisible(false)}>
+          <View
+            style={[
+              styles.addMenuContainer,
+              { top: addMenuTop, backgroundColor: colors.backgroundCard, borderColor: colors.border, shadowColor: colors.shadow },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.addMenuOption}
+              onPress={() => {
+                setAddMenuVisible(false);
+                navigation.navigate("AddSong");
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Add a new song with its vocal range"
+            >
+              <Ionicons name="musical-notes-outline" size={22} color={colors.primary} />
+              <View style={styles.addMenuTextContainer}>
+                <Text style={[styles.addMenuTitle, { color: colors.textPrimary }]}>Add Song</Text>
+                <Text style={[styles.addMenuSubtitle, { color: colors.textSecondary }]}>
+                  Submit a song with its vocal range
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <View style={[styles.addMenuDivider, { backgroundColor: colors.border }]} />
+            <TouchableOpacity
+              style={styles.addMenuOption}
+              onPress={() => {
+                setAddMenuVisible(false);
+                setRequestSongVisible(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Request a song to be added"
+            >
+              <Ionicons name="send-outline" size={22} color={colors.primary} />
+              <View style={styles.addMenuTextContainer}>
+                <Text style={[styles.addMenuTitle, { color: colors.textPrimary }]}>Request Song</Text>
+                <Text style={[styles.addMenuSubtitle, { color: colors.textSecondary }]}>
+                  Ask our team to add a song for you
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
+      <RequestSongModal
+        visible={isRequestSongVisible}
+        onClose={() => setRequestSongVisible(false)}
+      />
+
       <SongFilterModal
         visible={isFilterVisible}
         filters={songFilters}
@@ -667,6 +734,43 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     position: "absolute",
     left: 17,
     zIndex: 10,
+  },
+  addMenuBackdrop: {
+    flex: 1,
+  },
+  addMenuContainer: {
+    position: "absolute",
+    left: 16,
+    width: 270,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  addMenuOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 12,
+  },
+  addMenuTextContainer: {
+    flex: 1,
+  },
+  addMenuTitle: {
+    fontSize: 15.5,
+    fontWeight: "600",
+  },
+  addMenuSubtitle: {
+    fontSize: 12.5,
+    marginTop: 2,
+  },
+  addMenuDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 14,
   },
   filterButtonsWrapper: {
     flexDirection: "row",

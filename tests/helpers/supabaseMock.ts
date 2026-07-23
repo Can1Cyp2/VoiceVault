@@ -4,8 +4,8 @@
  * Tests seed rows into named tables, then any app code that queries
  * `supabase.from(table)` runs against that data. The mock implements the
  * small slice of the PostgREST query builder the app actually uses:
- * `.select() .eq() .ilike() .or() .limit() .single()`, awaited directly or
- * chained with `.then()`.
+ * `.select() .eq() .is() .ilike() .or() .limit() .single()`, awaited directly
+ * or chained with `.then()`.
  *
  * Usage (must be the jest.mock factory so the real client never loads):
  *
@@ -85,6 +85,15 @@ class FakeQuery implements PromiseLike<{ data: any; error: QueryError }> {
 
   eq(column: string, value: any): this {
     this.predicates.push((row) => row[column] === value);
+    return this;
+  }
+
+  /** `.is(col, null)` - PostgREST's IS NULL, distinct from `.eq(col, null)`. */
+  is(column: string, value: null | boolean): this {
+    this.predicates.push((row) =>
+      value === null ? row[column] === null || row[column] === undefined
+                     : row[column] === value
+    );
     return this;
   }
 

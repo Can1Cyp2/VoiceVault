@@ -27,6 +27,7 @@ import { isShareableRange } from "../../util/shareRange";
 import PreferencesModal from "../../components/Settings/PreferencesModal";
 import AccountSettingsModal from "../../components/Settings/AccountSettingsModal";
 import VocalRangeEditModal from "../../components/Settings/VocalRangeEditModal";
+import SongSubmissionsModal from "./SongSubmissionsModal";
 import { resetToSearchStackScreen } from "../../navigation/searchStackReset";
 
 const VOICE_TYPE_GUIDE = [
@@ -95,6 +96,7 @@ export default function ProfileScreen({ navigation }: any) {
   const [isPreferencesVisible, setPreferencesVisible] = useState(false);
   const [isAccountModalVisible, setAccountModalVisible] = useState(false);
   const [isVocalRangeEditVisible, setVocalRangeEditVisible] = useState(false);
+  const [isSubmissionsVisible, setSubmissionsVisible] = useState(false);
 
   // Admin status hook
   const { isAdmin, loading: adminLoading, adminDetails } = useAdminStatus();
@@ -432,6 +434,26 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
         </TouchableOpacity>
 
+        {/* My Submissions Button (signed-in users only) */}
+        {!!supabase.auth.user() && (
+          <TouchableOpacity
+            style={styles.secondaryActionButton}
+            onPress={() => setSubmissionsVisible(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.actionButtonContent}>
+              <View style={[styles.actionIconContainer, { backgroundColor: colors.warning }]}>
+                <Ionicons name="cloud-upload" size={24} color="#FFF" />
+              </View>
+              <View style={styles.actionTextContainer}>
+                <Text style={[styles.actionButtonTitle, { color: colors.textPrimary }]}>My Submissions</Text>
+                <Text style={[styles.actionButtonSubtitle, { color: colors.textSecondary }]}>Added & requested songs</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={24} color={colors.textTertiary} />
+            </View>
+          </TouchableOpacity>
+        )}
+
         {/* Profile Settings Button */}
         <TouchableOpacity
           style={styles.secondaryActionButton}
@@ -673,6 +695,12 @@ export default function ProfileScreen({ navigation }: any) {
         visible={isVocalRangeEditVisible}
         onClose={() => setVocalRangeEditVisible(false)}
         onSaved={() => setUpdateTrigger((prev) => prev + 1)}
+      />
+
+      {/* Added & requested songs with review status */}
+      <SongSubmissionsModal
+        visible={isSubmissionsVisible}
+        onClose={() => setSubmissionsVisible(false)}
       />
 
       {/* Preferences category popup */}

@@ -89,6 +89,11 @@ supabase/migrations/**
 !supabase/migrations/20260227_add_voice_type_to_user_vocal_ranges.sql
 !supabase/migrations/20260507_add_secure_tuner_debug_settings.sql
 
+# Admin-only: private range conflict review tooling (tied to the personal
+# RangeHarvester verification tool - not meant to be public)
+app/util/rangeConflictApi.ts
+app/screens/ContentModerationScreen/RangeReviewsTab.tsx
+
 # Personal notes
 FUTURE_FEATURES.md
 possible_future_TODO.md

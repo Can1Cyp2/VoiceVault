@@ -14,6 +14,10 @@ import { supabase } from '../../util/supabase';
 import { useAdminStatus } from '../../util/adminUtils';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import { fetchAllSongRequests, SongRequest } from '../../util/api';
+import { fetchRangeConflictPendingCount } from '../../util/rangeConflictApi';
+import SongRequestsTab from './SongRequestsTab';
+import RangeReviewsTab from './RangeReviewsTab';
 
 interface PendingSong {
     id: number;
@@ -41,9 +45,11 @@ export default function ContentModerationScreen({ navigation }: any) {
     const { colors } = useTheme();
     const [pendingSongs, setPendingSongs] = useState<PendingSong[]>([]);
     const [issues, setIssues] = useState<Issue[]>([]);
+    const [songRequests, setSongRequests] = useState<SongRequest[]>([]);
+    const [rangeConflictPendingCount, setRangeConflictPendingCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [activeTab, setActiveTab] = useState<'songs' | 'issues'>('songs');
+    const [activeTab, setActiveTab] = useState<'songs' | 'issues' | 'requests' | 'ranges'>('songs');
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -79,6 +85,15 @@ export default function ContentModerationScreen({ navigation }: any) {
 
             if (issuesError) throw issuesError;
             setIssues(issuesData || []);
+
+            // Fetch all song requests (all statuses - the tab filters locally)
+            const requestsData = await fetchAllSongRequests();
+            setSongRequests(requestsData);
+
+            // Range conflicts can number in the thousands - only fetch the
+            // pending count here; RangeReviewsTab owns its own paginated fetch.
+            const rangeCount = await fetchRangeConflictPendingCount();
+            setRangeConflictPendingCount(rangeCount);
 
         } catch (err: any) {
             console.error('Error fetching moderation data:', err);
@@ -248,8 +263,13 @@ export default function ContentModerationScreen({ navigation }: any) {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            {/* Tab Selector */}
-            <View style={styles.tabContainer}>
+            {/* Tab Selector - horizontally scrollable so it stays clean as tabs are added */}
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={[styles.tabContainer, { borderBottomColor: colors.border }]}
+                contentContainerStyle={styles.tabContentContainer}
+            >
                 <TouchableOpacity
                     style={[
                         styles.tab,
@@ -284,7 +304,41 @@ export default function ContentModerationScreen({ navigation }: any) {
                         Open Issues ({issues.length})
                     </Text>
                 </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                    style={[
+                        styles.tab,
+                        activeTab === 'requests' && styles.activeTab,
+                        activeTab === 'requests' && { borderBottomColor: colors.primary },
+                    ]}
+                    onPress={() => setActiveTab('requests')}
+                >
+                    <Text
+                        style={[
+                            styles.tabText,
+                            { color: activeTab === 'requests' ? colors.primary : colors.textSecondary },
+                        ]}
+                    >
+                        Requests ({songRequests.filter((r) => r.status === 'pending').length})
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[
+                        styles.tab,
+                        activeTab === 'ranges' && styles.activeTab,
+                        activeTab === 'ranges' && { borderBottomColor: colors.primary },
+                    ]}
+                    onPress={() => setActiveTab('ranges')}
+                >
+                    <Text
+                        style={[
+                            styles.tabText,
+                            { color: activeTab === 'ranges' ? colors.primary : colors.textSecondary },
+                        ]}
+                    >
+                        Ranges ({rangeConflictPendingCount})
+                    </Text>
+                </TouchableOpacity>
+            </ScrollView>
 
             {error && (
                 <View style={[styles.errorContainer, { backgroundColor: '#e74c3c20' }]}>
@@ -309,7 +363,7 @@ export default function ContentModerationScreen({ navigation }: any) {
                         </View>
                     }
                 />
-            ) : (
+            ) : activeTab === 'issues' ? (
                 <FlatList
                     data={issues}
                     renderItem={renderIssue}
@@ -324,6 +378,20 @@ export default function ContentModerationScreen({ navigation }: any) {
                             </Text>
                         </View>
                     }
+                />
+            ) : activeTab === 'requests' ? (
+                <SongRequestsTab
+                    requests={songRequests}
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    reloadData={fetchAllData}
+                />
+            ) : (
+                <RangeReviewsTab
+                    onCountChanged={async () => {
+                        const newCount = await fetchRangeConflictPendingCount();
+                        setRangeConflictPendingCount(newCount);
+                    }}
                 />
             )}
         </View>
@@ -344,14 +412,19 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     tabContainer: {
-        flexDirection: 'row',
+        flexGrow: 0,
+        flexShrink: 0,
+        height: 56,
         borderBottomWidth: 1,
-        borderBottomColor: '#ddd',
+    },
+    tabContentContainer: {
+        alignItems: 'center',
     },
     tab: {
-        flex: 1,
         paddingVertical: 16,
+        paddingHorizontal: 16,
         alignItems: 'center',
+        minWidth: 100,
     },
     activeTab: {
         borderBottomWidth: 3,

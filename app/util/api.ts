@@ -1122,3 +1122,163 @@ export const rejectPendingSong = async (
     throw error;
   }
 };
+
+// ********* SONG REQUESTS SECTION:  **********
+
+export type SongRequestStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "edited_and_approved";
+
+export interface SongRequest {
+  id: number;
+  user_id: string | null;
+  username: string | null;
+  song_name: string;
+  artist_name: string;
+  status: SongRequestStatus;
+  notes: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Submit a song request (works for both guests and logged-in users)
+export const submitSongRequest = async (
+  songName: string,
+  artistName: string
+): Promise<void> => {
+  try {
+    const user = supabase.auth.user();
+
+    const { error } = await supabase.from("song_requests").insert([
+      {
+        song_name: songName.trim(),
+        artist_name: artistName.trim(),
+        user_id: user?.id ?? null,
+        username: user?.user_metadata?.display_name ?? null,
+        status: "pending",
+      },
+    ]);
+
+    if (error) {
+      console.error("Error submitting song request:", error.message);
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error in submitSongRequest:", error);
+    throw error;
+  }
+};
+
+// Fetch the logged-in user's own song requests (RLS limits rows to their own)
+export const fetchMySongRequests = async (): Promise<SongRequest[]> => {
+  try {
+    const user = supabase.auth.user();
+    if (!user) {
+      throw new Error("You must be logged in to view your song requests.");
+    }
+
+    const { data, error } = await supabase
+      .from("song_requests")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching song requests:", error.message);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("Error in fetchMySongRequests:", error);
+    return [];
+  }
+};
+
+// Admin: fetch all song requests (RLS grants full read to active admins)
+export const fetchAllSongRequests = async (): Promise<SongRequest[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("song_requests")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching all song requests:", error.message);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("Error in fetchAllSongRequests:", error);
+    throw error;
+  }
+};
+
+// Admin: update a song request's status (and optionally attach notes)
+export const updateSongRequest = async (
+  requestId: number,
+  status: SongRequestStatus,
+  notes?: string
+): Promise<void> => {
+  try {
+    const { error } = await supabase.rpc("admin_update_song_request", {
+      p_request_id: requestId,
+      p_status: status,
+      p_notes: notes ?? null,
+    });
+
+    if (error) {
+      console.error("Error updating song request:", error.message);
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error in updateSongRequest:", error);
+    throw error;
+  }
+};
+
+// Admin: permanently delete a song request
+export const deleteSongRequest = async (requestId: number): Promise<void> => {
+  try {
+    const { error } = await supabase.rpc("admin_delete_song_request", {
+      p_request_id: requestId,
+    });
+
+    if (error) {
+      console.error("Error deleting song request:", error.message);
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error in deleteSongRequest:", error);
+    throw error;
+  }
+};
+
+// User: edit and resubmit their own rejected song request
+export const resubmitSongRequest = async (
+  requestId: number,
+  songName: string,
+  artistName: string
+): Promise<void> => {
+  try {
+    const { error } = await supabase.rpc("resubmit_song_request", {
+      p_request_id: requestId,
+      p_song_name: songName.trim(),
+      p_artist_name: artistName.trim(),
+    });
+
+    if (error) {
+      console.error("Error resubmitting song request:", error.message);
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error in resubmitSongRequest:", error);
+    throw error;
+  }
+};
+

@@ -38,6 +38,8 @@ import { showVerifiedRangeInfo } from "../../util/verifiedInfo";
 import SongImage from "../../components/SongImage/SongImage";
 import { SongImage as SongImageData } from "../../util/songImages";
 import SingThisModal from "./SingThisModal";
+import SongMetadataCard from "./SongMetadataCard";
+import { fetchSongMetadata, SongMetadata } from "../../util/songMetadata";
 
 const { width } = Dimensions.get('window');
 
@@ -61,6 +63,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   const referenceSoundRef = useRef<Audio.Sound | null>(null);
   const [isSingModalVisible, setSingModalVisible] = useState(false);
   const [songImage, setSongImage] = useState<SongImageData | null>(null);
+  const [metadata, setMetadata] = useState<SongMetadata | null>(null);
 
   // Parse vocal range to extract lowest and highest notes
   const parseVocalRange = (range: string) => {
@@ -166,6 +169,21 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   const handleCloseSingModal = useCallback(() => {
     setSingModalVisible(false);
   }, []);
+
+  // Extra facts (tempo, tessitura, genre...). Missing for un-enriched songs,
+  // in which case the card renders nothing and the screen is unchanged.
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const result = await fetchSongMetadata(name, artist ?? null);
+      if (!cancelled) setMetadata(result);
+    })();
+
+    return () => {
+      cancelled = true;      // don't set state after navigating away
+    };
+  }, [name, artist]);
 
   // Record this song in the device-local "recently viewed" history
   useEffect(() => {
@@ -368,7 +386,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
 
       {/* Song Title */}
       <Text style={styles.songTitle}>{name}</Text>
-      
+
       {/* Artist Name */}
       {artist && (
         <TouchableOpacity onPress={handleArtistPress}>
@@ -482,6 +500,14 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
           </View>
         </>
       )}
+
+      {/* Tempo / tessitura / genre / year / length - hidden when unknown */}
+      <SongMetadataCard
+        metadata={metadata}
+        onPlayNote={(note) => {
+          void playReferenceNote(note);
+        }}
+      />
 
       {/* Personalized Recommendation Component */}
       <SongRangeRecommendation songVocalRange={vocalRange} isLoggedIn={isLoggedIn} />

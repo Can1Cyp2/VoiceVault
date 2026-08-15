@@ -16,6 +16,7 @@ import {
   Platform,
   ScrollView,
   Dimensions,
+  Linking,
 } from "react-native";
 import { Audio } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
@@ -28,11 +29,17 @@ import {
 } from "../SavedListsScreen/SavedListsLogic";
 import { saveToList } from "../SavedListsScreen/SavedSongLogic";
 import { supabase } from "../../util/supabase";
+import { logRecentlyViewedSong } from "../../util/recentlyViewed";
 import { findClosestVocalRangeFit, noteToValue } from "./RangeBestFit";
 import SongRangeRecommendation from "./SongRangeRecommendation";
 import Piano from '../../components/Piano/Piano';
 import { getPianoAudioFile } from "../../util/pianoNotes";
+import { showVerifiedRangeInfo } from "../../util/verifiedInfo";
+import SongImage from "../../components/SongImage/SongImage";
+import { SongImage as SongImageData } from "../../util/songImages";
 import SingThisModal from "./SingThisModal";
+import SongMetadataCard from "./SongMetadataCard";
+import { fetchSongMetadata, SongMetadata } from "../../util/songMetadata";
 
 const { width } = Dimensions.get('window');
 
@@ -55,6 +62,8 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   const [issueText, setIssueText] = useState("");
   const referenceSoundRef = useRef<Audio.Sound | null>(null);
   const [isSingModalVisible, setSingModalVisible] = useState(false);
+  const [songImage, setSongImage] = useState<SongImageData | null>(null);
+  const [metadata, setMetadata] = useState<SongMetadata | null>(null);
 
   // Parse vocal range to extract lowest and highest notes
   const parseVocalRange = (range: string) => {
@@ -160,6 +169,31 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   const handleCloseSingModal = useCallback(() => {
     setSingModalVisible(false);
   }, []);
+
+  // Extra facts (tempo, tessitura, genre...). Missing for un-enriched songs,
+  // in which case the card renders nothing and the screen is unchanged.
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const result = await fetchSongMetadata(name, artist ?? null);
+      if (!cancelled) setMetadata(result);
+    })();
+
+    return () => {
+      cancelled = true;      // don't set state after navigating away
+    };
+  }, [name, artist]);
+
+  // Record this song in the device-local "recently viewed" history
+  useEffect(() => {
+    void logRecentlyViewedSong({
+      name,
+      artist,
+      vocalRange,
+      username: route.params.username,
+    });
+  }, [name, artist, vocalRange]);
 
   // Check if the user is logged in and set header options
   useEffect(() => {
@@ -325,18 +359,34 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Album Art Placeholder */}
+      {/* Album / Song Art */}
       <View style={styles.albumArtContainer}>
         <View style={styles.albumArt}>
-          <Text style={styles.albumArtText}>🎵</Text>
-          <Text style={styles.albumTitle}>{name}</Text>
-          <Text style={styles.albumArtist}>{artist?.toUpperCase() || 'UNKNOWN'}</Text>
+          <SongImage
+            name={name}
+            artist={artist}
+            size={280}
+            borderRadius={20}
+            onResolved={setSongImage}
+          />
         </View>
+        {songImage?.attributionUrl ? (
+          <TouchableOpacity
+            onPress={() => Linking.openURL(songImage.attributionUrl!)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.attributionText}>
+              Artwork via {songImage.attributionLabel}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.attributionTextMuted}>{artist?.toUpperCase() || "UNKNOWN"}</Text>
+        )}
       </View>
 
       {/* Song Title */}
       <Text style={styles.songTitle}>{name}</Text>
-      
+
       {/* Artist Name */}
       {artist && (
         <TouchableOpacity onPress={handleArtistPress}>
@@ -345,13 +395,25 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       )}
 
       {/* Status Badge */}
-      <View style={styles.statusBadge}>
-        {route.params.username ? (
+      {route.params.username ? (
+        <View style={styles.statusBadge}>
           <Text style={styles.statusText}>Uploaded by: {route.params.username}</Text>
-        ) : (
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={styles.statusBadge}
+          onPress={showVerifiedRangeInfo}
+          activeOpacity={0.7}
+        >
           <Text style={styles.statusTextVerified}>✅ Verified Vocal Range</Text>
-        )}
-      </View>
+          <Ionicons
+            name="information-circle-outline"
+            size={16}
+            color={colors.primary}
+            style={{ marginLeft: 5 }}
+          />
+        </TouchableOpacity>
+      )}
 
       {/* Vocal Range Header */}
       {vocalRange && (
@@ -438,6 +500,14 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
           </View>
         </>
       )}
+
+      {/* Tempo / tessitura / genre / year / length - hidden when unknown */}
+      <SongMetadataCard
+        metadata={metadata}
+        onPlayNote={(note) => {
+          void playReferenceNote(note);
+        }}
+      />
 
       {/* Personalized Recommendation Component */}
       <SongRangeRecommendation songVocalRange={vocalRange} isLoggedIn={isLoggedIn} />
@@ -567,6 +637,9 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
         visible={isSingModalVisible}
         targets={singTargets}
         onClose={handleCloseSingModal}
+        song={{ name, artist, vocalRange }}
+        isLoggedIn={isLoggedIn}
+        onAddToList={() => setModalVisible(true)}
       />
     </ScrollView>
   );
@@ -621,6 +694,21 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     textAlign: 'center',
     letterSpacing: 2,
   },
+  attributionText: {
+    fontSize: 11,
+    color: colors.link,
+    fontFamily: FONTS.primary,
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  attributionTextMuted: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontFamily: FONTS.primary,
+    textAlign: 'center',
+    letterSpacing: 2,
+    marginTop: 12,
+  },
 
   // Song Info
   songTitle: {
@@ -642,6 +730,8 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
 
   // Status Badge
   statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'center',
     backgroundColor: colors.backgroundTertiary,
     paddingHorizontal: 16,

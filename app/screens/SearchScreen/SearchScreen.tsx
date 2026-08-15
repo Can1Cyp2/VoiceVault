@@ -1,5 +1,5 @@
 // File location: app/screens/SearchScreen/SearchScreen.tsx
-import React, { useState, useMemo } from "react";
+import React, { useCallback, useState, useMemo } from "react";
 import {
   View,
   FlatList,
@@ -8,9 +8,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Modal,
+  Pressable,
   RefreshControl,
+  ScrollView,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/StackNavigator";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +21,27 @@ import { SearchBar } from "../../components/SearchBar/SearchBar";
 import { supabase } from "../../util/supabase";
 import { useSearch } from "../../util/useSearch";
 import { useTheme } from "../../contexts/ThemeContext";
+import {
+  clearRecentHistory,
+  getRecentHistoryItems,
+  getSearchRecentsEnabled,
+  isRecentSearchQuery,
+  logRecentSearchQuery,
+  removeRecentHistoryItem,
+  RecentHistoryItem,
+} from "../../util/recentlyViewed";
+import { getVerifiedSongsOnly, isVerifiedSong } from "../../util/preferences";
+import { logSongSearch } from "../../util/api";
+import SongFilterModal from "../../components/SongFilters/SongFilterModal";
+import RequestSongModal from "../../components/RequestSong/RequestSongModal";
+import {
+  countActiveSongFilters,
+  DEFAULT_SONG_FILTERS,
+  getSongFilters,
+  isSongWithinBounds,
+  saveSongFilters,
+  SongFilters,
+} from "../../util/songFilters";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Search">;
 
@@ -29,8 +53,17 @@ export default function SearchScreen() {
   const [filter, setFilter] = useState<"songs" | "artists">("songs");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [vocalRange, setVocalRange] = useState<{ min_range: string; max_range: string } | null>(null);
-  const [vocalRangeFilterActive, setVocalRangeFilterActive] = useState(false);
+  const [songFilters, setSongFilters] = useState<SongFilters>(DEFAULT_SONG_FILTERS);
+  const [isFilterVisible, setFilterVisible] = useState(false);
   const [initialFetchDone, setInitialFetchDone] = useState(false);
+  const [recentItems, setRecentItems] = useState<RecentHistoryItem[]>([]);
+  const [isRecentVisible, setRecentVisible] = useState(false);
+  const [searchRecentsEnabled, setSearchRecentsEnabledState] = useState(true);
+  const [verifiedSongsOnly, setVerifiedSongsOnlyState] = useState(false);
+  const [isAddMenuVisible, setAddMenuVisible] = useState(false);
+  const [addMenuTop, setAddMenuTop] = useState(150);
+  const [isRequestSongVisible, setRequestSongVisible] = useState(false);
+  const addButtonRef = React.useRef<View>(null);
 
 
   const {
@@ -51,6 +84,7 @@ export default function SearchScreen() {
     vocalRange,
     initialFetchDone,
     setInitialFetchDone,
+    trendingFirst: songFilters.trendingFirst,
   });
 
   // Create themed styles
@@ -59,14 +93,33 @@ export default function SearchScreen() {
   // Deduplicate and filter results
   const displayData = useMemo(() => {
     let filteredResults = results;
-    
+
     // Apply vocal range filter if active
-    if (vocalRangeFilterActive) {
+    if (songFilters.inRangeOnly) {
       filteredResults = filter === "songs"
         ? results.filter((item) => isSongInRange(item.vocalRange))
         : results.filter((item) => isArtistInRange(item));
     }
-    
+
+    if (filter === "songs") {
+      // Verified-only: from the search filter popup or the global preference
+      if (songFilters.verifiedOnly || verifiedSongsOnly) {
+        filteredResults = filteredResults.filter((item) => isVerifiedSong(item));
+      }
+
+      // Community uploads only
+      if (songFilters.userAddedOnly) {
+        filteredResults = filteredResults.filter((item) => !isVerifiedSong(item));
+      }
+
+      // Chosen note range: song must fit entirely inside the picked bounds
+      if (songFilters.customRangeEnabled) {
+        filteredResults = filteredResults.filter((item) =>
+          isSongWithinBounds(item.vocalRange, songFilters.customRangeMin, songFilters.customRangeMax)
+        );
+      }
+    }
+
     // Deduplicate by ID (for songs) or name (for artists)
     const seen = new Set();
     const uniqueResults = filteredResults.filter((item) => {
@@ -77,10 +130,43 @@ export default function SearchScreen() {
       seen.add(key);
       return true;
     });
-    
+
     return uniqueResults;
-  }, [results, filter, vocalRangeFilterActive, isSongInRange, isArtistInRange]);
+  }, [results, filter, songFilters, verifiedSongsOnly, isSongInRange, isArtistInRange]);
   const isLoading = songsLoading || (filter === "artists" && artistsLoading);
+
+  const refreshRecentHistory = useCallback(async () => {
+    const [items, enabled, verifiedOnly] = await Promise.all([
+      getRecentHistoryItems(),
+      getSearchRecentsEnabled(),
+      getVerifiedSongsOnly(),
+    ]);
+    setRecentItems(items);
+    setSearchRecentsEnabledState(enabled);
+    setVerifiedSongsOnlyState(verifiedOnly);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshRecentHistory();
+    }, [refreshRecentHistory])
+  );
+
+  // Load the saved search filters once on mount
+  React.useEffect(() => {
+    void getSongFilters().then(setSongFilters);
+  }, []);
+
+  React.useEffect(() => {
+    const trimmedQuery = query.trim().replace(/\s+/g, " ");
+    if (!searchRecentsEnabled || trimmedQuery.length < 2) return;
+
+    const timeout = setTimeout(() => {
+      void logRecentSearchQuery(trimmedQuery, filter).then(refreshRecentHistory);
+    }, 900);
+
+    return () => clearTimeout(timeout);
+  }, [filter, query, refreshRecentHistory, searchRecentsEnabled]);
 
   // Fetch the user's vocal range when the component mounts
   React.useEffect(() => {
@@ -118,7 +204,12 @@ export default function SearchScreen() {
       } else if (event === "SIGNED_OUT") {
         setIsLoggedIn(false);
         setVocalRange(null);
-        setVocalRangeFilterActive(false);
+        // The in-range filter needs an account; drop it on sign-out
+        setSongFilters((prev) => {
+          const next = { ...prev, inRangeOnly: false };
+          void saveSongFilters(next);
+          return next;
+        });
       }
     });
     
@@ -127,15 +218,20 @@ export default function SearchScreen() {
     };
   }, []);
 
-  // Function to handle adding a new song
+  // Opens the add/request dropdown anchored just below the plus button
   const handleAddPress = () => {
-    navigation.navigate("AddSong");
+    addButtonRef.current?.measureInWindow((_x, y, _width, height) => {
+      setAddMenuTop(y + height + 6);
+      setAddMenuVisible(true);
+    });
   };
 
   // Function to handle pressing on a song or artist:
   // navigates to the details screen for the selected song or artist
   const handlePress = (item: any) => {
     if (filter === "songs") {
+      // Feeds the "Trending" filter; fire-and-forget so navigation never waits
+      void logSongSearch(item.id);
       navigation.navigate("Details", {
         name: item.name,
         artist: item.artist,
@@ -149,41 +245,94 @@ export default function SearchScreen() {
     }
   };
 
-  // Function to handle pressing the "In Range" button:
-  const handleInRangePress = () => {
-    if (!isLoggedIn) {
-      Alert.alert(
-        "Login Required",
-        "You need to log in to use the 'In Range' filter. Would you like to log in now?",
-        [
-          {
-            text: "Yes",
-            onPress: () => navigation.navigate("Home"),
-          },
-          { text: "No", style: "cancel" },
-        ],
-        { cancelable: true }
-      );
-    } else {
-      setVocalRangeFilterActive((prev) => !prev);
-      if (!vocalRange || vocalRange.min_range === "C0" || vocalRange.max_range === "C0") {
-        Alert.alert(
-          "No Vocal Range Set",
-          "You haven’t set your vocal range yet. Please set it in your profile to use this filter."
-        );
-      }
+  const openRecentItem = (item: RecentHistoryItem) => {
+    setRecentVisible(false);
+
+    if (isRecentSearchQuery(item)) {
+      setFilter(item.filter);
+      setQuery(item.query);
+      void logRecentSearchQuery(item.query, item.filter).then(refreshRecentHistory);
+      return;
     }
+
+    navigation.navigate("Details", {
+      name: item.name,
+      artist: item.artist,
+      vocalRange: item.vocalRange,
+      username: item.username,
+    });
+  };
+
+  const handleRemoveRecentItem = async (item: RecentHistoryItem) => {
+    await removeRecentHistoryItem(item);
+    const remaining = await getRecentHistoryItems();
+    setRecentItems(remaining);
+    if (remaining.length === 0) {
+      setRecentVisible(false);
+    }
+  };
+
+  const handleClearRecent = () => {
+    Alert.alert(
+      "Clear History",
+      "Remove all recently viewed songs and searches?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear",
+          style: "destructive",
+          onPress: async () => {
+            await clearRecentHistory();
+            setRecentItems([]);
+            setRecentVisible(false);
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const hasVocalRange =
+    !!vocalRange && vocalRange.min_range !== "C0" && vocalRange.max_range !== "C0";
+
+  const activeFilterCount = countActiveSongFilters(songFilters);
+
+  // Save or tap-outside from the filter popup: persist and apply
+  const handleFiltersSave = (filters: SongFilters) => {
+    setSongFilters(filters);
+    void saveSongFilters(filters);
+    setFilterVisible(false);
   };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.searchBarContainer}>
-        <SearchBar value={query} onSearch={setQuery} />
+        <SearchBar value={query} onSearch={setQuery} containerStyle={styles.searchInput} />
+        {searchRecentsEnabled && recentItems.length > 0 && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open recent songs and searches"
+            style={({ pressed }) => [
+              styles.recentSearchButton,
+              { borderColor: colors.border, backgroundColor: colors.backgroundCard },
+              pressed && { opacity: 0.7 },
+            ]}
+            onPress={() => setRecentVisible(true)}
+          >
+            <Ionicons name="time-outline" size={24} color={colors.primary} />
+          </Pressable>
+        )}
       </View>
       <View style={styles.filterContainer}>
-        <TouchableOpacity style={styles.addButton} onPress={handleAddPress}>
+        <Pressable
+          ref={addButtonRef}
+          style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.7 }]}
+          onPress={handleAddPress}
+          accessibilityRole="button"
+          accessibilityLabel="Add or request a song"
+        >
           <Ionicons name="add-circle" size={36} color={colors.primary} />
-        </TouchableOpacity>
+        </Pressable>
         <View style={styles.filterButtonsWrapper}>
           <TouchableOpacity
             style={[
@@ -211,37 +360,19 @@ export default function SearchScreen() {
           >
             <Text style={[styles.filterText, { color: colors.textPrimary }, filter === "artists" && { color: colors.textInverse }]}>Artists</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.filterButtonRight} onPress={handleInRangePress}>
-            <Ionicons
-              name="checkmark-circle"
-              size={30}
-              color={
-                !vocalRange || vocalRange.min_range === "C0" || vocalRange.max_range === "C0"
-                  ? colors.gray
-                  : vocalRangeFilterActive
-                    ? colors.primary
-                    : colors.gray
-              }
-              style={styles.filterIcon}
-            />
-            <Text
-              style={[
-                styles.filterText,
-                {
-                  fontSize: 10,
-                  bottom: 3,
-                  color:
-                    !vocalRange || vocalRange.min_range === "C0" || vocalRange.max_range === "C0"
-                      ? colors.gray
-                      : vocalRangeFilterActive
-                        ? colors.primary
-                        : colors.gray,
-                },
-              ]}
-            >
-              In Range
-            </Text>
-          </TouchableOpacity>
+          <Pressable
+            style={({ pressed }) => [styles.filterButtonRight, pressed && { opacity: 0.7 }]}
+            onPress={() => setFilterVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Open song filters"
+          >
+            <Ionicons name="options" size={30} color={colors.primary} />
+            {activeFilterCount > 0 && (
+              <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
+                <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+              </View>
+            )}
+          </Pressable>
         </View>
       </View>
 
@@ -265,14 +396,50 @@ export default function SearchScreen() {
         </View>
       )}
       {!isLoading && initialFetchDone && displayData.length === 0 && !error && (
-        <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>No results found.</Text>
+        <ScrollView
+          contentContainerStyle={styles.emptyStateContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={filter === "songs" ? songsLoading : artistsLoading}
+              onRefresh={handleRefresh}
+              colors={[colors.primary]}
+            />
+          }
+        >
+          <Ionicons name="search-outline" size={44} color={colors.textTertiary} />
+          <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>No results found.</Text>
+          {(activeFilterCount > 0 || verifiedSongsOnly) && (
+            <Text style={[styles.emptyStateHint, { color: colors.textTertiary }]}>
+              Your active filters may be hiding songs. Try widening your range or turning some off.
+            </Text>
+          )}
+          <View style={styles.emptyStateButtons}>
+            {(activeFilterCount > 0 || verifiedSongsOnly) && (
+              <TouchableOpacity
+                style={[styles.refreshButton, { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border }]}
+                onPress={() => setFilterVisible(true)}
+              >
+                <Ionicons name="options" size={18} color={colors.primary} />
+                <Text style={[styles.refreshButtonText, { color: colors.primary }]}>Adjust filters</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[styles.refreshButton, { backgroundColor: colors.primary }]}
+              onPress={handleRefresh}
+            >
+              <Ionicons name="refresh" size={18} color={colors.buttonText} />
+              <Text style={[styles.refreshButtonText, { color: colors.buttonText }]}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={[styles.emptyStateHint, { color: colors.textTertiary }]}>
+            Pull down to refresh
+          </Text>
+        </ScrollView>
       )}
       {filter === "artists" &&
         !artistsLoading &&
-        vocalRangeFilterActive &&
-        vocalRange &&
-        vocalRange.min_range !== "C0" &&
-        vocalRange.max_range !== "C0" && (
+        songFilters.inRangeOnly &&
+        hasVocalRange && (
           <View style={[styles.inRangeExplanationContainer, { backgroundColor: colors.highlightAlt }]}>
             <Text style={[styles.inRangeExplanationText, { color: colors.textPrimary }]}>
               You may not have artists in your range. Keep refreshing to load more artists.
@@ -363,6 +530,164 @@ export default function SearchScreen() {
           bounces={true} // overscroll on ios
         />
       )}
+
+      {/* Add / Request song dropdown (anchored under the plus button) */}
+      <Modal
+        visible={isAddMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAddMenuVisible(false)}
+      >
+        <Pressable style={styles.addMenuBackdrop} onPress={() => setAddMenuVisible(false)}>
+          <View
+            style={[
+              styles.addMenuContainer,
+              { top: addMenuTop, backgroundColor: colors.backgroundCard, borderColor: colors.border, shadowColor: colors.shadow },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.addMenuOption}
+              onPress={() => {
+                setAddMenuVisible(false);
+                navigation.navigate("AddSong");
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Add a new song with its vocal range"
+            >
+              <Ionicons name="musical-notes-outline" size={22} color={colors.primary} />
+              <View style={styles.addMenuTextContainer}>
+                <Text style={[styles.addMenuTitle, { color: colors.textPrimary }]}>Add Song</Text>
+                <Text style={[styles.addMenuSubtitle, { color: colors.textSecondary }]}>
+                  Submit a song with its vocal range
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <View style={[styles.addMenuDivider, { backgroundColor: colors.border }]} />
+            <TouchableOpacity
+              style={styles.addMenuOption}
+              onPress={() => {
+                setAddMenuVisible(false);
+                setRequestSongVisible(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Request a song to be added"
+            >
+              <Ionicons name="send-outline" size={22} color={colors.primary} />
+              <View style={styles.addMenuTextContainer}>
+                <Text style={[styles.addMenuTitle, { color: colors.textPrimary }]}>Request Song</Text>
+                <Text style={[styles.addMenuSubtitle, { color: colors.textSecondary }]}>
+                  Ask our team to add a song for you
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
+      <RequestSongModal
+        visible={isRequestSongVisible}
+        onClose={() => setRequestSongVisible(false)}
+      />
+
+      <SongFilterModal
+        visible={isFilterVisible}
+        filters={songFilters}
+        isLoggedIn={isLoggedIn}
+        hasVocalRange={hasVocalRange}
+        onSave={handleFiltersSave}
+        onCancel={() => setFilterVisible(false)}
+        onRequireLogin={() => {
+          setFilterVisible(false);
+          (navigation.getParent() as any)?.navigate("Home");
+        }}
+      />
+
+      <Modal
+        visible={isRecentVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setRecentVisible(false)}
+      >
+        <View style={[styles.recentModalContainer, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.recentModalContent, { backgroundColor: colors.backgroundCard }]}>
+            <View style={styles.recentModalHeader}>
+              <Text style={[styles.recentModalTitle, { color: colors.textPrimary }]}>
+                Recent
+              </Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Close recent history"
+                style={styles.recentCloseIcon}
+                onPress={() => setRecentVisible(false)}
+              >
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              data={recentItems}
+              keyExtractor={(item) =>
+                isRecentSearchQuery(item)
+                  ? `query-${item.filter}-${item.query}`
+                  : `song-${item.name}-${item.artist}`
+              }
+              renderItem={({ item }) => {
+                const isQuery = isRecentSearchQuery(item);
+                return (
+                  <TouchableOpacity
+                    style={[styles.recentItem, { backgroundColor: colors.backgroundTertiary, borderColor: colors.border }]}
+                    onPress={() => openRecentItem(item)}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[styles.recentItemIcon, { backgroundColor: colors.highlightAlt }]}>
+                      <Ionicons
+                        name={isQuery ? "search" : "musical-notes"}
+                        size={20}
+                        color={colors.primary}
+                      />
+                    </View>
+                    <View style={styles.recentItemText}>
+                      <Text
+                        style={[styles.recentItemName, { color: colors.textPrimary }]}
+                        numberOfLines={1}
+                      >
+                        {isQuery ? item.query : item.name}
+                      </Text>
+                      <Text
+                        style={[styles.recentItemSub, { color: colors.textSecondary }]}
+                        numberOfLines={1}
+                      >
+                        {isQuery
+                          ? `Search ${item.filter}`
+                          : `${item.artist} - ${item.vocalRange}`}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        isQuery
+                          ? `Remove search ${item.query} from history`
+                          : `Remove ${item.name} from history`
+                      }
+                      style={styles.recentItemDelete}
+                      onPress={() => {
+                        void handleRemoveRecentItem(item);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="close-circle" size={20} color={colors.textTertiary} />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+
+            <TouchableOpacity style={styles.recentClearButton} onPress={handleClearRecent}>
+              <Text style={[styles.recentClearText, { color: colors.danger }]}>Clear History</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -372,6 +697,20 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   searchBarContainer: {
     marginTop: 20,
     paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+  },
+  recentSearchButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   loadingText: { textAlign: "center", marginVertical: 10 },
   loadingBarTrack: {
@@ -395,6 +734,43 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     position: "absolute",
     left: 17,
     zIndex: 10,
+  },
+  addMenuBackdrop: {
+    flex: 1,
+  },
+  addMenuContainer: {
+    position: "absolute",
+    left: 16,
+    width: 270,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  addMenuOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 12,
+  },
+  addMenuTextContainer: {
+    flex: 1,
+  },
+  addMenuTitle: {
+    fontSize: 15.5,
+    fontWeight: "600",
+  },
+  addMenuSubtitle: {
+    fontSize: 12.5,
+    marginTop: 2,
+  },
+  addMenuDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 14,
   },
   filterButtonsWrapper: {
     flexDirection: "row",
@@ -453,6 +829,35 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     fontWeight: "bold",
   },
   noResultsText: { textAlign: "center", marginVertical: 20 },
+  emptyStateContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 32,
+  },
+  emptyStateHint: {
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 10,
+  },
+  emptyStateButtons: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 4,
+  },
+  refreshButton: {
+    flexDirection: "row",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+  },
+  refreshButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
   inRangeIcon: {
     marginLeft: "auto",
   },
@@ -464,15 +869,33 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     alignItems: "center",
     marginRight: 12,
   },
+  // Sits inside filterButtonsWrapper, whose right edge is already inset by
+  // the container's 16px padding - so right: 0 lines up with the recents
+  // button above it.
   filterButtonRight: {
     position: "absolute",
-    right: 17,
+    right: 0,
+    width: 42,
+    height: 42,
     alignItems: "center",
+    justifyContent: "center",
     zIndex: 10,
   },
-  filterIcon: {
-    paddingLeft: 15,
-    alignSelf: "center",
+  filterBadge: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    minWidth: 17,
+    height: 17,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  filterBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
   },
   filterText: {
     fontSize: 13,
@@ -504,5 +927,72 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   swipeMessageText: {
     fontSize: 14,
     textAlign: "center",
+  },
+  recentModalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  recentModalContent: {
+    borderRadius: 16,
+    padding: 18,
+    width: "90%",
+    maxHeight: "72%",
+  },
+  recentModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  recentModalTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+  },
+  recentCloseIcon: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  recentItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+    marginVertical: 4,
+  },
+  recentItemIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  recentItemText: {
+    flex: 1,
+  },
+  recentItemName: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  recentItemSub: {
+    fontSize: 12.5,
+    marginTop: 2,
+  },
+  recentItemDelete: {
+    marginLeft: 8,
+    padding: 2,
+  },
+  recentClearButton: {
+    alignItems: "center",
+    paddingVertical: 10,
+    marginTop: 8,
+  },
+  recentClearText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

@@ -5,6 +5,7 @@ import Fuse from "fuse.js";
 import {
   searchArtistsByQuery,
   getRandomSongs,
+  getTrendingSongs,
   smartSearchSongs,
 } from "../util/api";
 import { checkInternetConnection } from "../util/network";
@@ -39,6 +40,8 @@ interface UseSearchProps {
   vocalRange: { min_range: string; max_range: string } | null;
   initialFetchDone: boolean;
   setInitialFetchDone: (done: boolean) => void;
+  /** When true, browse (no query) results are ordered by recent search popularity. */
+  trendingFirst?: boolean;
 }
 
 export const useSearch = ({
@@ -47,6 +50,7 @@ export const useSearch = ({
   vocalRange,
   initialFetchDone,
   setInitialFetchDone,
+  trendingFirst = false,
 }: UseSearchProps) => {
   const [state, setState] = useState<SearchState>({
     results: [],
@@ -117,6 +121,23 @@ export const useSearch = ({
     },
     [vocalRange]
   );
+
+  // Songs shown when there's no query: trending-first when that filter is
+  // on (topped up with random songs so the list is always full), otherwise
+  // the classic random selection.
+  const fetchBrowseSongs = async (limitCount: number): Promise<any[]> => {
+    if (!trendingFirst) return getRandomSongs(limitCount);
+
+    const trending = await getTrendingSongs(limitCount);
+    if (trending.length >= limitCount) return trending;
+
+    const random = await getRandomSongs(limitCount);
+    const seenIds = new Set(trending.map((song: any) => song.id));
+    return [
+      ...trending,
+      ...random.filter((song: any) => !seenIds.has(song.id)),
+    ].slice(0, limitCount);
+  };
 
   // Optimize artist derivation with batch fetching and caching
   const deriveArtistsFromSongs = async (
@@ -354,7 +375,7 @@ export const useSearch = ({
       }
 
       try {
-        const songs = await getRandomSongs(SONGS_PAGE_SIZE);
+        const songs = await fetchBrowseSongs(SONGS_PAGE_SIZE);
         setState((prev) => ({
           ...prev,
           randomSongs: songs,
@@ -432,7 +453,7 @@ export const useSearch = ({
       if (filter === "songs") {
         let newSongs: any[] = [];
         if (query.trim() === "") {
-          newSongs = await getRandomSongs(SONGS_PAGE_SIZE);
+          newSongs = await fetchBrowseSongs(SONGS_PAGE_SIZE);
           const artists = await deriveArtistsFromSongs(newSongs, 20, query);
           setState((prev) => ({
             ...prev,
@@ -488,6 +509,21 @@ export const useSearch = ({
       }));
     }
   };
+
+  // Re-fetch the browse list when the trending ordering is toggled, so the
+  // new ordering shows up without a manual pull-to-refresh. Skips the first
+  // render (the initial fetch handles that).
+  const trendingMountedRef = useRef(false);
+  useEffect(() => {
+    if (!trendingMountedRef.current) {
+      trendingMountedRef.current = true;
+      return;
+    }
+    if (query.trim() === "" && filter === "songs") {
+      void handleRefresh();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trendingFirst]);
 
   const handleLoadMore = () => {
     if (filter === "songs" && state.hasMoreSongs && !endReachedLoading) {

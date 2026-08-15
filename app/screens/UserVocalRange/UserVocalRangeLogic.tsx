@@ -1,5 +1,6 @@
 import { Alert } from "react-native";
 import { supabase } from "../../util/supabase";
+import { logRangeHistoryEntry } from "../../util/rangeHistory";
 
 export const submitVocalRange = async (
   minRange: string,
@@ -56,6 +57,8 @@ export const submitVocalRange = async (
     console.error("Error submitting vocal range:", error);
     Alert.alert("Error", "Could not submit vocal range.");
   } else {
+    // Best-effort: record this change in the user's range history.
+    await logRangeHistoryEntry(minRange, maxRange, voiceType, rangeUpdateReason);
     Alert.alert("Success", "Your vocal range has been saved!");
   }
 };

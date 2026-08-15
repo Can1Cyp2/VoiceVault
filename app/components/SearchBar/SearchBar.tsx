@@ -1,23 +1,25 @@
 // app/components/SearchBar/SearchBar.tsx
 
 import React, { useMemo } from "react";
-import { TextInput, StyleSheet, TouchableOpacity, View } from "react-native";
+import { TextInput, StyleSheet, StyleProp, TouchableOpacity, View, ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../contexts/ThemeContext";
 
 export const SearchBar = ({
   value,
   onSearch,
+  containerStyle,
 }: {
   value: string;
   onSearch: (query: string) => void;
+  containerStyle?: StyleProp<ViewStyle>;
 }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const handleClear = () => onSearch("");
   
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, containerStyle]}>
       <Ionicons name="search" size={20} color={colors.textTertiary} style={styles.searchIcon} />
       <TextInput
         style={styles.input}

@@ -4,19 +4,18 @@ import { getSongsByArtist } from "./vocalRange";
 
 export let errorCount = 0;
 
-// Helper function to escape single quotes for PostgreSQL queries
-const escapeQueryString = (query: string): string => {
-  return query.replace(/'/g, "''");
-};
+// Note: Supabase filter values are URL parameters, not SQL literals, so
+// apostrophes must NOT be escaped ("don't" is sent as-is). Doubling quotes
+// here used to silently break every search containing an apostrophe.
 
 // Fetch songs based on a query
 export const searchSongsByQuery = async (query: string): Promise<any[]> => {
   try {
-    const escapedQuery = escapeQueryString(query);
+    const tolerantPattern = buildTolerantPattern(query);
     const { data, error } = await supabase
       .from("songs")
       .select("*")
-      .or(`name.ilike.%${escapedQuery}%, artist.ilike.%${escapedQuery}%`);
+      .or(`name.ilike.%${query}%, artist.ilike.%${query}%, name.ilike.${tolerantPattern}, artist.ilike.${tolerantPattern}`);
 
     if (error) throw error;
 
@@ -31,6 +30,8 @@ export const searchSongsByQuery = async (query: string): Promise<any[]> => {
         score += 75;
       else if (name.includes(lowerQuery) || artist.includes(lowerQuery))
         score += 50;
+      else if (tolerantIncludes(name, query) || tolerantIncludes(artist, query))
+        score += 40; // matched only once punctuation like apostrophes is ignored
 
       return { ...song, _score: score };
     });
@@ -109,6 +110,27 @@ const normalizeQuery = (query: string): string[] => {
     .filter(token => token.length > 0);
 };
 
+/**
+ * Builds an ILIKE pattern that matches even when the stored name has
+ * punctuation the user didn't type - e.g. typing "guns n roses" (no
+ * apostrophe) still finds "Guns N' Roses", because wildcards are inserted
+ * between each word so any characters (including punctuation) can sit
+ * between them. Falls back to a plain contains pattern for an empty query.
+ */
+const buildTolerantPattern = (query: string): string => {
+  const tokens = normalizeQuery(query);
+  if (tokens.length === 0) return `%${query}%`;
+  return `%${tokens.join('%')}%`;
+};
+
+/** True when every normalized token of the query appears somewhere in the haystack. */
+const tolerantIncludes = (haystack: string, query: string): boolean => {
+  const tokens = normalizeQuery(query);
+  if (tokens.length === 0) return false;
+  const lowerHaystack = haystack.toLowerCase();
+  return tokens.every(token => lowerHaystack.includes(token));
+};
+
 const getCandidates = async (originalQuery: string, tokens: string[]): Promise<any[]> => {
   const searchPromises: Promise<any[]>[] = [];
   
@@ -118,46 +140,41 @@ const getCandidates = async (originalQuery: string, tokens: string[]): Promise<a
   
   // Strategy 1: Exact and prefix matches (highest priority)
   if (!hasTrailingSpace) {
-    const escapedQuery = escapeQueryString(trimmedQuery);
     searchPromises.push(
       supabase
         .from("songs")
         .select("*")
-        .or(`name.eq.${escapedQuery}, artist.eq.${escapedQuery}`)
+        .or(`name.eq.${trimmedQuery}, artist.eq.${trimmedQuery}`)
         .then(({ data }) => (data || []).map(song => ({ ...song, _searchStrategy: 'exact' })))
     );
   }
   
   // Always do prefix matches, but adjust for trailing space
-  const prefixQuery = hasTrailingSpace ? trimmedQuery : trimmedQuery;
-  const escapedPrefixQuery = escapeQueryString(prefixQuery);
   searchPromises.push(
     supabase
       .from("songs")
       .select("*")
-      .or(`name.ilike.${escapedPrefixQuery}%, artist.ilike.${escapedPrefixQuery}%`)
+      .or(`name.ilike.${trimmedQuery}%, artist.ilike.${trimmedQuery}%`)
       .then(({ data }) => (data || []).map(song => ({ ...song, _searchStrategy: 'prefix' })))
   );
   
   // Strategy 2: Contains matches (always useful)
-  const escapedContainsQuery = escapeQueryString(trimmedQuery);
   searchPromises.push(
     supabase
       .from("songs")
       .select("*")
-      .or(`name.ilike.%${escapedContainsQuery}%, artist.ilike.%${escapedContainsQuery}%`)
+      .or(`name.ilike.%${trimmedQuery}%, artist.ilike.%${trimmedQuery}%`)
       .then(({ data }) => (data || []).map(song => ({ ...song, _searchStrategy: 'contains' })))
   );
   
   // Strategy 3: If there's a trailing space, treat it as potential "song artist" format
   if (hasTrailingSpace && trimmedQuery.length >= 2) {
-    const escapedTitleQuery = escapeQueryString(trimmedQuery);
     // Look for songs where the trimmed query is the complete song title
     searchPromises.push(
       supabase
         .from("songs")
         .select("*")
-        .eq('name', escapedTitleQuery)
+        .eq('name', trimmedQuery)
         .then(({ data }) => (data || []).map(song => ({ 
           ...song, 
           _searchStrategy: 'title_complete',
@@ -170,7 +187,7 @@ const getCandidates = async (originalQuery: string, tokens: string[]): Promise<a
       supabase
         .from("songs")
         .select("*")
-        .ilike('name', `${escapedTitleQuery}%`)
+        .ilike('name', `${trimmedQuery}%`)
         .then(({ data }) => (data || []).map(song => ({ 
           ...song, 
           _searchStrategy: 'title_prefix',
@@ -184,14 +201,12 @@ const getCandidates = async (originalQuery: string, tokens: string[]): Promise<a
     const splits = generateSplits(tokens);
     
     splits.forEach(split => {
-      const escapedTitle = escapeQueryString(split.title);
-      const escapedArtist = escapeQueryString(split.artist);
       searchPromises.push(
         supabase
           .from("songs")
           .select("*")
-          .ilike('name', `%${escapedTitle}%`)
-          .ilike('artist', `%${escapedArtist}%`)
+          .ilike('name', `%${split.title}%`)
+          .ilike('artist', `%${split.artist}%`)
           .then(({ data }) => (data || []).map(song => ({
             ...song,
             _searchStrategy: 'split',
@@ -200,7 +215,21 @@ const getCandidates = async (originalQuery: string, tokens: string[]): Promise<a
       );
     });
   }
-  
+
+  // Strategy 5: Punctuation-tolerant match - lets a query typed without
+  // apostrophes (e.g. "guns n roses") find names that do have them
+  // ("Guns N' Roses"), by wildcarding between each word.
+  if (tokens.length >= 2) {
+    const tolerantPattern = `%${tokens.join('%')}%`;
+    searchPromises.push(
+      supabase
+        .from("songs")
+        .select("*")
+        .or(`name.ilike.${tolerantPattern}, artist.ilike.${tolerantPattern}`)
+        .then(({ data }) => (data || []).map(song => ({ ...song, _searchStrategy: 'fuzzy' })))
+    );
+  }
+
   const results = await Promise.all(searchPromises);
   const allCandidates = results.flat();
   
@@ -271,6 +300,7 @@ const getStrategyPriority = (strategy: string) => {
     title_prefix: 85,   // Title prefix with trailing space
     split: 80,
     contains: 70,
+    fuzzy: 65,
     token: 60
   };
   return priorities[strategy] || 0;
@@ -346,6 +376,18 @@ const scoreResults = (candidates: any[], tokens: string[], originalQuery: string
         }
         break;
         
+      case 'fuzzy':
+        // Every token must appear somewhere in the field - punctuation the
+        // user didn't type (like a missing apostrophe) doesn't block a match.
+        if (tokens.every(token => name.includes(token))) {
+          score = 5600;
+          matchDetails.titleMatch = true;
+        } else if (tokens.every(token => artist.includes(token))) {
+          score = 5400;
+          matchDetails.artistMatch = true;
+        }
+        break;
+
       case 'split':
         if (song._splitInfo) {
           const split = song._splitInfo;
@@ -447,29 +489,30 @@ export const smartSearchArtists = async (
     if (!query.trim()) return [];
     
     const lowerQuery = query.toLowerCase();
-    const escapedQuery = escapeQueryString(query);
-    
+    const tolerantPattern = buildTolerantPattern(query);
+
     const { data: matchingSongs, error } = await supabase
       .from("songs")
       .select("artist")
-      .or(`artist.eq.${escapedQuery}, artist.ilike.${escapedQuery}%, artist.ilike.%${escapedQuery}%`)
+      .or(`artist.eq.${query}, artist.ilike.${query}%, artist.ilike.%${query}%, artist.ilike.${tolerantPattern}`)
       .limit(100);
-    
+
     if (error || !matchingSongs) return [];
-    
+
     const artistMap = new Map();
-    
+
     matchingSongs.forEach(song => {
       if (!song.artist) return;
-      
+
       const artistLower = song.artist.toLowerCase();
       const current = artistMap.get(song.artist) || { name: song.artist, score: 0, count: 0 };
-      
+
       let score = current.score;
       if (artistLower === lowerQuery) score += 1000;
       else if (artistLower.startsWith(lowerQuery)) score += 500;
       else if (artistLower.includes(lowerQuery)) score += 200;
-      
+      else if (tolerantIncludes(song.artist, query)) score += 150; // e.g. missing apostrophe
+
       artistMap.set(song.artist, {
         name: song.artist,
         score,
@@ -493,11 +536,11 @@ export const getSearchSuggestions = async (query: string): Promise<string[]> => 
   try {
     if (!query.trim()) return [];
     
-    const escapedQuery = escapeQueryString(query);
+    const tolerantPattern = buildTolerantPattern(query);
     const { data, error } = await supabase
       .from("songs")
       .select("name, artist")
-      .or(`name.ilike.${escapedQuery}%, artist.ilike.${escapedQuery}%`)
+      .or(`name.ilike.${query}%, artist.ilike.${query}%, name.ilike.${tolerantPattern}, artist.ilike.${tolerantPattern}`)
       .limit(20);
     
     if (error || !data) return [];
@@ -526,12 +569,14 @@ export const searchArtistsByQuery = async (
   limit: number = 20
 ): Promise<any[]> => {
   try {
-    const escapedQuery = escapeQueryString(query);
-    // Step 1: Find songs where the artist name matches the query
+    // Step 1: Find songs where the artist name matches the query. The
+    // tolerant pattern also catches names with punctuation the user didn't
+    // type, e.g. "guns n roses" finding "Guns N' Roses".
+    const tolerantPattern = buildTolerantPattern(query);
     const { data: matchingSongs, error: songError } = await supabase
       .from("songs")
       .select("artist, name")
-      .ilike("artist", `%${escapedQuery}%`); // Only match on artist name
+      .or(`artist.ilike.%${query}%, artist.ilike.${tolerantPattern}`);
 
     if (songError) {
       console.error("Error searching songs for artists:", songError.message);
@@ -546,10 +591,12 @@ export const searchArtistsByQuery = async (
     matchingSongs.forEach((song) => {
       if (!song.artist) return;
 
-      // Skip if the artist name doesn't contain the query (case-insensitive)
       const queryLower = query.toLowerCase();
       const artistLower = song.artist.toLowerCase();
-      if (!artistLower.includes(queryLower)) return;
+      const isTolerantMatch = tolerantIncludes(song.artist, query);
+
+      // Skip if the artist name doesn't match at all, even tolerantly
+      if (!artistLower.includes(queryLower) && !isTolerantMatch) return;
 
       const current = artistMap.get(song.artist) || {
         name: song.artist,
@@ -563,6 +610,8 @@ export const searchArtistsByQuery = async (
         score += 100; // Exact match
       } else if (artistLower.includes(queryLower)) {
         score += 50; // Partial match
+      } else if (isTolerantMatch) {
+        score += 30; // Matched only once punctuation like apostrophes is ignored
       }
 
       artistMap.set(song.artist, {
@@ -737,6 +786,49 @@ export const getRandomSongs = async (limit: number = 50): Promise<any[]> => {
   }
 };
 
+// Fire-and-forget: log that a song was opened from search, so the
+// "Trending" filter can rank songs by recent popularity. Never throws -
+// trending is a nice-to-have and must not break navigation.
+export const logSongSearch = async (
+  songId: number | null | undefined
+): Promise<void> => {
+  if (!songId) return;
+  try {
+    const { error } = await supabase
+      .from("song_search_events")
+      .insert([{ song_id: songId }]);
+    if (error) {
+      // warn, not error: telemetry only — must never red-box the app
+      console.warn("Failed to log song search event:", error.message);
+    }
+  } catch (err) {
+    console.warn("Failed to log song search event:", err);
+  }
+};
+
+// Fetch the most-searched songs over the recent window (see the
+// get_trending_songs SQL function). Returns [] on any failure so callers
+// can fall back to random songs.
+export const getTrendingSongs = async (
+  limit: number = 50,
+  days: number = 7
+): Promise<any[]> => {
+  try {
+    const { data, error } = await supabase.rpc("get_trending_songs", {
+      p_days: days,
+      p_limit: limit,
+    });
+    if (error) {
+      console.warn("Error fetching trending songs:", error.message);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.warn("Error in getTrendingSongs:", err);
+    return [];
+  }
+};
+
 // Report an issue about a song
 export const reportIssue = async (
   songId: number | null,
@@ -873,15 +965,12 @@ export const checkForSimilarSong = async (
   artistName: string
 ) => {
   try {
-    const escapedSongName = escapeQueryString(songName);
-    const escapedArtistName = escapeQueryString(artistName);
-    
     // Check in main songs table (assuming it uses 'vocalRange' column)
     const { data: existingSongs, error: songsError } = await supabase
       .from("songs")
       .select("name, artist")
-      .ilike("artist", `%${escapedArtistName}%`)
-      .ilike("name", `%${escapedSongName}%`);
+      .ilike("artist", `%${artistName}%`)
+      .ilike("name", `%${songName}%`);
 
     if (songsError) {
       console.error("Error checking existing songs:", songsError);
@@ -891,8 +980,8 @@ export const checkForSimilarSong = async (
     const { data: pendingSongs, error: pendingError } = await supabase
       .from("pending_songs")
       .select("name, artist, status")
-      .ilike("artist", `%${escapedArtistName}%`)
-      .ilike("name", `%${escapedSongName}%`)
+      .ilike("artist", `%${artistName}%`)
+      .ilike("name", `%${songName}%`)
       .in("status", ["pending", "approved"]); // Don't warn about rejected songs
 
     if (pendingError) {
@@ -1033,3 +1122,163 @@ export const rejectPendingSong = async (
     throw error;
   }
 };
+
+// ********* SONG REQUESTS SECTION:  **********
+
+export type SongRequestStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "edited_and_approved";
+
+export interface SongRequest {
+  id: number;
+  user_id: string | null;
+  username: string | null;
+  song_name: string;
+  artist_name: string;
+  status: SongRequestStatus;
+  notes: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Submit a song request (works for both guests and logged-in users)
+export const submitSongRequest = async (
+  songName: string,
+  artistName: string
+): Promise<void> => {
+  try {
+    const user = supabase.auth.user();
+
+    const { error } = await supabase.from("song_requests").insert([
+      {
+        song_name: songName.trim(),
+        artist_name: artistName.trim(),
+        user_id: user?.id ?? null,
+        username: user?.user_metadata?.display_name ?? null,
+        status: "pending",
+      },
+    ]);
+
+    if (error) {
+      console.error("Error submitting song request:", error.message);
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error in submitSongRequest:", error);
+    throw error;
+  }
+};
+
+// Fetch the logged-in user's own song requests (RLS limits rows to their own)
+export const fetchMySongRequests = async (): Promise<SongRequest[]> => {
+  try {
+    const user = supabase.auth.user();
+    if (!user) {
+      throw new Error("You must be logged in to view your song requests.");
+    }
+
+    const { data, error } = await supabase
+      .from("song_requests")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching song requests:", error.message);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("Error in fetchMySongRequests:", error);
+    return [];
+  }
+};
+
+// Admin: fetch all song requests (RLS grants full read to active admins)
+export const fetchAllSongRequests = async (): Promise<SongRequest[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("song_requests")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching all song requests:", error.message);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("Error in fetchAllSongRequests:", error);
+    throw error;
+  }
+};
+
+// Admin: update a song request's status (and optionally attach notes)
+export const updateSongRequest = async (
+  requestId: number,
+  status: SongRequestStatus,
+  notes?: string
+): Promise<void> => {
+  try {
+    const { error } = await supabase.rpc("admin_update_song_request", {
+      p_request_id: requestId,
+      p_status: status,
+      p_notes: notes ?? null,
+    });
+
+    if (error) {
+      console.error("Error updating song request:", error.message);
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error in updateSongRequest:", error);
+    throw error;
+  }
+};
+
+// Admin: permanently delete a song request
+export const deleteSongRequest = async (requestId: number): Promise<void> => {
+  try {
+    const { error } = await supabase.rpc("admin_delete_song_request", {
+      p_request_id: requestId,
+    });
+
+    if (error) {
+      console.error("Error deleting song request:", error.message);
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error in deleteSongRequest:", error);
+    throw error;
+  }
+};
+
+// User: edit and resubmit their own rejected song request
+export const resubmitSongRequest = async (
+  requestId: number,
+  songName: string,
+  artistName: string
+): Promise<void> => {
+  try {
+    const { error } = await supabase.rpc("resubmit_song_request", {
+      p_request_id: requestId,
+      p_song_name: songName.trim(),
+      p_artist_name: artistName.trim(),
+    });
+
+    if (error) {
+      console.error("Error resubmitting song request:", error.message);
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error in resubmitSongRequest:", error);
+    throw error;
+  }
+};
+

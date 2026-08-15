@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Alert, Text, View, Platform } from "react-native";
-import { NavigationContainer, useNavigation, getFocusedRouteNameFromRoute } from "@react-navigation/native";
+import { NavigationContainer, useNavigation, useNavigationContainerRef, getFocusedRouteNameFromRoute } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { AppStack } from "./app/navigation/StackNavigator";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +18,8 @@ import Toast from "react-native-toast-message";
 import { useAdminStatus } from "./app/util/adminUtils";
 import { setLoginGlow } from "./app/util/loginPrompt";
 import { adService } from "./app/components/SupportModal/AdService";
+import PreferencesModal from "./app/components/Settings/PreferencesModal";
+import { maybeAutoClearCache } from "./app/util/cacheManager";
 
 // Initialize Sentry for production error tracking
 try {
@@ -122,11 +124,20 @@ function AppContent() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentScreen, setCurrentScreen] = useState("Home"); // Track current screen
   const [attRequested, setAttRequested] = useState(false);
+  const [guestPrefsVisible, setGuestPrefsVisible] = useState(false);
+  const navigationRef = useNavigationContainerRef();
   const { isDark } = useTheme();
 
   // Lock app to portrait by default (Piano screen overrides this to landscape)
   useEffect(() => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+  }, []);
+
+  // Silently clear the artwork cache on launch if the user's auto-clear
+  // schedule has elapsed (default: monthly). Runs for guests too, since
+  // the image cache is device-wide, not per-account.
+  useEffect(() => {
+    void maybeAutoClearCache();
   }, []);
 
   useEffect(() => {
@@ -200,6 +211,7 @@ function AppContent() {
     <>
       <StatusBar style={isDark ? "light" : "dark"} />
       <NavigationContainer
+        ref={navigationRef}
         onStateChange={(state) => {
           // Track current screen for tab indication:
           const currentRoute = state?.routes[state.index];
@@ -262,12 +274,25 @@ function AppContent() {
                   {...props}
                   isLoggedIn={isLoggedIn}
                   isCurrentScreen={currentScreen === "Profile"}
+                  onGuestPress={() => setGuestPrefsVisible(true)}
                 />
               ),
             }}
           />
         </Tab.Navigator>
       </NavigationContainer>
+
+      {/* Guests tapping the Profile tab get preferences + a sign-in prompt */}
+      <PreferencesModal
+        visible={guestPrefsVisible}
+        onClose={() => setGuestPrefsVisible(false)}
+        onSignIn={() => {
+          setGuestPrefsVisible(false);
+          setLoginGlow(true);
+          navigationRef.navigate("Home" as never);
+        }}
+      />
+
       <Toast />
     </>
   );
@@ -328,11 +353,11 @@ const CustomProfileButton = ({
   accessibilityState,
   isLoggedIn,
   isCurrentScreen,
+  onGuestPress,
 }: any) => {
   const { colors } = useTheme();
   // Use isCurrentScreen prop for more reliable indication
   const isSelected = isCurrentScreen ?? (accessibilityState?.selected ?? false);
-  const navigation = useNavigation();
 
   return (
     <Pressable
@@ -340,21 +365,8 @@ const CustomProfileButton = ({
         if (isLoggedIn) {
           onPress(); // Trigger the tab's built-in navigation to Profile screen
         } else {
-          Alert.alert(
-            "Login Required",
-            "You need to log in to access the Profile screen. Would you like to log in now?",
-            [
-              {
-                text: "Yes",
-                onPress: () => {
-                  setLoginGlow(true); // Set the flag
-                  navigation.navigate("Home"); // Navigate to the Home screen
-                },
-              },
-              { text: "No", style: "cancel" },
-            ],
-            { cancelable: true }
-          );
+          // Guests get a preferences popup with a sign-in call to action.
+          onGuestPress?.();
         }
       }}
       style={[

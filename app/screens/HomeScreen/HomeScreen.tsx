@@ -20,8 +20,11 @@ import { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import { TabParamList } from "../../../App";
 import { SupportModal } from "../../components/SupportModal/SupportModal";
 import { ToolsModal } from "../../components/ToolsModal/ToolsModal";
+import { ToolHintPopup } from "../../components/ToolHintPopup/ToolHintPopup";
 import { getLoginGlow, setLoginGlow } from "../../util/loginPrompt";
 import { useTheme } from "../../contexts/ThemeContext";
+import { resetToSearchStackScreen } from "../../navigation/searchStackReset";
+import { shouldShowToolHint, getRandomToolHint, ToolHint, recordToolUsed } from "../../util/toolHints";
 
 // Combined navigation props for tab and stack navigators
 type HomeScreenProps = CompositeScreenProps<
@@ -35,6 +38,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [isLoggedIn, setLoggedIn] = useState(false);
   const [isSupportVisible, setSupportVisible] = useState(false);
   const [isToolsVisible, setToolsVisible] = useState(false);
+  const [isToolHintVisible, setToolHintVisible] = useState(false);
+  const [toolHint, setToolHint] = useState<{ tool: ToolHint; message: string } | null>(null);
 
   // Theme hook
   const { colors, isDark, setMode } = useTheme();
@@ -124,6 +129,29 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     return () => clearInterval(interval);
   }, [blinkAnimation]);
 
+  // Check for tool hints on component mount and when screen comes into focus
+  useEffect(() => {
+    const checkToolHints = async () => {
+      const shouldShow = await shouldShowToolHint();
+      if (shouldShow) {
+        const hint = getRandomToolHint();
+        if (hint) {
+          setToolHint(hint);
+          setToolHintVisible(true);
+        }
+      }
+    };
+
+    checkToolHints().catch(() => {});
+
+    // Also check when screen comes back into focus
+    const unsubscribe = navigation.addListener("focus", () => {
+      checkToolHints().catch(() => {});
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   // Handle logout
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -136,16 +164,25 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
   // Handle login and signup button presses
   const openToolFromSearch = (screen: "Metronome" | "Tuner" | "Piano") => {
-    // Open the requested tool in the Search tab stack.
-    // @ts-ignore - Nested route typing comes from the tab -> stack relationship.
-    navigation.navigate("Search", {
-      screen,
-      initial: false,
-    });
+    recordToolUsed().catch(() => {});
+    resetToSearchStackScreen(navigation, screen);
   };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Tool Hint Tooltip */}
+      {isToolHintVisible && (
+        <ToolHintPopup
+          visible={isToolHintVisible}
+          onClose={() => setToolHintVisible(false)}
+          onPress={() => {
+            setToolHintVisible(false);
+            setToolsVisible(true);
+          }}
+          hint={toolHint ?? undefined}
+        />
+      )}
+
       {/* Top Button Row */}
       <View style={styles.topButtonRow}>
         {/* Tools Button in Top Left */}
@@ -200,7 +237,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       <Text style={[styles.title, { color: colors.textPrimary }]}>Welcome to VoiceVault!</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         Explore the world of vocal ranges and discover music like never before,
-        with over 30,000 songs!
+        with over 33,000 songs!
       </Text>
       {isLoggedIn ? (
         <TouchableOpacity style={[styles.button, { backgroundColor: colors.link }]} onPress={handleLogout}>
@@ -234,13 +271,14 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       <Modal visible={isLoginVisible} transparent animationType="slide">
         <LoginModal onClose={() => setLoginVisible(false)} />
       </Modal>
+
       <Modal visible={isSignupVisible} transparent animationType="slide">
         <SignupModal onClose={() => setSignupVisible(false)} />
       </Modal>
 
       <SupportModal visible={isSupportVisible} onClose={() => setSupportVisible(false)} />
-      <ToolsModal 
-        visible={isToolsVisible} 
+      <ToolsModal
+        visible={isToolsVisible}
         onClose={() => setToolsVisible(false)}
         onMetronomePress={() => {
           openToolFromSearch("Metronome");
@@ -252,7 +290,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           openToolFromSearch("Piano");
         }}
       />
-      <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.5.5</Text>
+      <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.6.1</Text>
     </View>
   );
 }

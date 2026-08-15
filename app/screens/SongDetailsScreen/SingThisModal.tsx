@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { FONTS } from "../../styles/theme";
 import { useTheme } from "../../contexts/ThemeContext";
 import { getPianoAudioFile } from "../../util/pianoNotes";
+import { saveToList } from "../SavedListsScreen/SavedSongLogic";
 import {
   frequencyToNote,
   requestMicrophonePermission,
@@ -20,11 +21,15 @@ import {
 } from "../../util/pitchDetection";
 import {
   clampCents,
+  describeOctaveShift,
   formatHeldSeconds,
   getCentsOffTarget,
+  getOctaveMatch,
   getSingPitchFeedback,
   getTargetFrequency,
+  getTransposedSummary,
   isCloseEnoughToCount,
+  shiftNoteOctaves,
   SING_CLOSE_CENTS,
   SING_COUNTABLE_CENTS,
   SING_HOLD_DURATION_MS,
@@ -37,16 +42,32 @@ import {
   SingTestStepResult,
 } from "./singThisUtils";
 
+export const IN_RANGE_LIST_NAME = "In Range";
+
+type SingThisSong = {
+  name: string;
+  artist: string;
+  vocalRange: string;
+};
+
 type SingThisModalProps = {
   visible: boolean;
   targets: string[];
   onClose: () => void;
+  /** Song under test; enables the "add to a list" prompt after a pass. */
+  song?: SingThisSong | null;
+  isLoggedIn?: boolean;
+  /** Called when the user wants to pick a list themselves (parent opens its list modal). */
+  onAddToList?: () => void;
 };
 
 export default function SingThisModal({
   visible,
   targets,
   onClose,
+  song = null,
+  isLoggedIn = false,
+  onAddToList,
 }: SingThisModalProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -59,12 +80,16 @@ export default function SingThisModal({
   const [centsOff, setCentsOff] = useState<number | null>(null);
   const [heldMs, setHeldMs] = useState(0);
   const [isListening, setIsListening] = useState(false);
+  const [isSavingToList, setIsSavingToList] = useState(false);
+  const [savedToInRange, setSavedToInRange] = useState(false);
 
   const detectionStopRef = useRef<(() => void) | null>(null);
   const recordTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const referenceSoundRef = useRef<Audio.Sound | null>(null);
   const heldMsRef = useRef(0);
   const matchStartRef = useRef<number | null>(null);
+  // Octave shift of the match currently being held (0 = exact octave).
+  const activeShiftRef = useRef<number | null>(null);
   const isListeningRef = useRef(false);
   const isStartingRef = useRef(false);
 
@@ -80,8 +105,12 @@ export default function SingThisModal({
     [centsOff, isListening]
   );
   const pitchColor = getToneColor(pitchFeedback.tone, colors);
+  // When the singer is on the right note but in another octave, run the
+  // tuner off the octave-shifted residual so the needle stays useful.
+  const liveOctaveMatch = useMemo(() => getOctaveMatch(centsOff), [centsOff]);
+  const displayCents = liveOctaveMatch ? liveOctaveMatch.residualCents : centsOff;
   const indicatorPercent =
-    ((clampCents(centsOff) + SING_TUNER_RANGE_CENTS) /
+    ((clampCents(displayCents) + SING_TUNER_RANGE_CENTS) /
       (SING_TUNER_RANGE_CENTS * 2)) *
     100;
   const closeZoneInsetPercent =
@@ -96,15 +125,36 @@ export default function SingThisModal({
   const allTargetsPassed =
     targets.length > 0 &&
     targets.every((_target, index) => stepResults[index]?.status === "passed");
+  const allTargetsMatched =
+    targets.length > 0 &&
+    targets.every((_target, index) => {
+      const status = stepResults[index]?.status;
+      return status === "passed" || status === "octave";
+    });
+  const transposedSummary = useMemo(
+    () => getTransposedSummary(stepResults),
+    [stepResults]
+  );
+  const currentStepOctaveShift = stepResults[stepIndex]?.octaveShift ?? 0;
   const successfulRange = useMemo(() => {
-    const passedTargets = stepResults
-      .filter((step) => step.status === "passed")
-      .map((step) => step.target);
+    // Octave matches count too — report the note the singer actually hit.
+    const matchedNotes = stepResults
+      .filter((step) => step.status === "passed" || step.status === "octave")
+      .map((step) =>
+        step.status === "octave"
+          ? shiftNoteOctaves(step.target, step.octaveShift ?? 0)
+          : step.target
+      );
 
-    if (passedTargets.length === 0) return null;
-    return passedTargets.length === 1
-      ? passedTargets[0]
-      : `${passedTargets[0]} - ${passedTargets[passedTargets.length - 1]}`;
+    if (matchedNotes.length === 0) return null;
+    if (matchedNotes.length === 1) return matchedNotes[0];
+
+    // Octave shifts can reorder the notes (e.g. a low target sung two
+    // octaves up) — sort by pitch so the range always reads low - high.
+    const sorted = [...matchedNotes].sort(
+      (a, b) => (getTargetFrequency(a) ?? 0) - (getTargetFrequency(b) ?? 0)
+    );
+    return `${sorted[0]} - ${sorted[sorted.length - 1]}`;
   }, [stepResults]);
 
   const clearPitchState = useCallback(() => {
@@ -141,6 +191,7 @@ export default function SingThisModal({
       if (resetHold) {
         heldMsRef.current = 0;
         matchStartRef.current = null;
+        activeShiftRef.current = null;
         setHeldMs(0);
       }
 
@@ -156,6 +207,8 @@ export default function SingThisModal({
     setView("intro");
     setStepIndex(0);
     setStepResults([]);
+    setIsSavingToList(false);
+    setSavedToInRange(false);
   }, [stopListening]);
 
   useEffect(() => {
@@ -173,7 +226,7 @@ export default function SingThisModal({
   }, [stopListening, stopReferenceSound]);
 
   const updateCurrentStep = useCallback(
-    (status: SingNoteStatus, nextHeldMs: number) => {
+    (status: SingNoteStatus, nextHeldMs: number, octaveShift?: number) => {
       if (!currentTarget) return;
 
       setStepResults((prev) => {
@@ -182,6 +235,7 @@ export default function SingThisModal({
           target: currentTarget,
           status,
           heldMs: nextHeldMs,
+          ...(octaveShift ? { octaveShift } : {}),
         };
         return next;
       });
@@ -190,14 +244,15 @@ export default function SingThisModal({
   );
 
   const finalizeRecording = useCallback(
-    (status: SingNoteStatus) => {
+    (status: SingNoteStatus, octaveShift?: number) => {
       if (!isListeningRef.current) return;
 
       const finalHeldMs = heldMsRef.current;
       stopListening(false);
       matchStartRef.current = null;
+      activeShiftRef.current = null;
       setHeldMs(finalHeldMs);
-      updateCurrentStep(status, finalHeldMs);
+      updateCurrentStep(status, finalHeldMs, octaveShift);
     },
     [stopListening, updateCurrentStep]
   );
@@ -273,14 +328,23 @@ export default function SingThisModal({
             detectedNote,
             currentTarget
           );
+          // Exact matches win; otherwise a right-note-wrong-octave match
+          // still accrues hold time and finishes as a transposed pass.
+          const octaveMatch = counts ? null : getOctaveMatch(nextCentsOff);
+          const matchShift = counts ? 0 : octaveMatch?.octaveShift ?? null;
 
           setLiveFrequency(result.frequency);
           setLiveNote(detectedNote);
           setCentsOff(nextCentsOff);
 
-          if (counts) {
-            if (!matchStartRef.current) {
+          if (matchShift !== null) {
+            // Restart the hold when the singer jumps between octaves.
+            if (
+              !matchStartRef.current ||
+              activeShiftRef.current !== matchShift
+            ) {
               matchStartRef.current = Date.now();
+              activeShiftRef.current = matchShift;
             }
 
             const nextHeldMs = Date.now() - matchStartRef.current;
@@ -288,10 +352,14 @@ export default function SingThisModal({
             setHeldMs(nextHeldMs);
 
             if (nextHeldMs >= SING_HOLD_DURATION_MS) {
-              finalizeRecording("passed");
+              finalizeRecording(
+                matchShift === 0 ? "passed" : "octave",
+                matchShift === 0 ? undefined : matchShift
+              );
             }
           } else {
             matchStartRef.current = null;
+            activeShiftRef.current = null;
             if (heldMsRef.current !== 0) {
               heldMsRef.current = 0;
               setHeldMs(0);
@@ -384,6 +452,25 @@ export default function SingThisModal({
     void stopReferenceSound();
     onClose();
   }, [onClose, resetModalState, stopReferenceSound]);
+
+  // Save the tested song straight into the "In Range" list.
+  // saveToList creates the list automatically if it doesn't exist yet.
+  const handleAddToInRangeList = useCallback(async () => {
+    if (!song || isSavingToList) return;
+
+    setIsSavingToList(true);
+    try {
+      await saveToList(song.name, song.artist, song.vocalRange, IN_RANGE_LIST_NAME);
+      setSavedToInRange(true);
+    } finally {
+      setIsSavingToList(false);
+    }
+  }, [isSavingToList, song]);
+
+  const handlePickAnotherList = useCallback(() => {
+    closeModal();
+    onAddToList?.();
+  }, [closeModal, onAddToList]);
 
   return (
     <Modal
@@ -504,6 +591,10 @@ export default function SingThisModal({
                       ? liveFrequency
                         ? `${Math.round(liveFrequency)} Hz`
                         : "No pitch detected yet"
+                      : liveOctaveMatch
+                      ? `${describeOctaveShift(liveOctaveMatch.octaveShift)} — ${Math.abs(
+                          liveOctaveMatch.residualCents
+                        )} cents ${liveOctaveMatch.residualCents < 0 ? "low" : "high"}`
                       : `${Math.abs(centsOff)} cents ${centsOff < 0 ? "low" : "high"}`}
                   </Text>
                 </View>
@@ -564,6 +655,27 @@ export default function SingThisModal({
                     <Text style={styles.statusText}>Held successfully</Text>
                   </View>
                 )}
+                {currentStepStatus === "octave" && (
+                  <>
+                    <View style={styles.statusRow}>
+                      <Ionicons
+                        name="swap-vertical"
+                        size={22}
+                        color={getToneColor("close", colors)}
+                      />
+                      <Text style={styles.statusText}>
+                        Held {shiftNoteOctaves(currentTarget, currentStepOctaveShift)} —{" "}
+                        {describeOctaveShift(currentStepOctaveShift)} than the target
+                      </Text>
+                    </View>
+                    <Text style={styles.disclaimer}>
+                      That's the same note in a different octave. It counts as a
+                      transposed match: you could sing this part of the song
+                      shifted {currentStepOctaveShift > 0 ? "up" : "down"}. Try
+                      again if you want to reach the written octave.
+                    </Text>
+                  </>
+                )}
                 {currentStepStatus === "failed" && (
                   <View style={styles.statusRow}>
                     <Ionicons name="close-circle" size={22} color={getToneColor("off", colors)} />
@@ -577,13 +689,21 @@ export default function SingThisModal({
                   </TouchableOpacity>
                 )}
 
-                {currentStepStatus === "passed" && hasNextTarget && (
+                {currentStepStatus === "octave" && (
+                  <TouchableOpacity style={styles.secondaryButton} onPress={retryCurrentNote}>
+                    <Text style={styles.secondaryButtonText}>Try the Written Octave</Text>
+                  </TouchableOpacity>
+                )}
+
+                {(currentStepStatus === "passed" || currentStepStatus === "octave") &&
+                  hasNextTarget && (
                   <TouchableOpacity style={styles.primaryButton} onPress={goToNextNote}>
                     <Text style={styles.primaryButtonText}>Next Note</Text>
                   </TouchableOpacity>
                 )}
 
-                {currentStepStatus === "passed" && !hasNextTarget && (
+                {(currentStepStatus === "passed" || currentStepStatus === "octave") &&
+                  !hasNextTarget && (
                   <TouchableOpacity style={styles.primaryButton} onPress={finishTest}>
                     <Text style={styles.primaryButtonText}>See Results</Text>
                   </TouchableOpacity>
@@ -595,16 +715,79 @@ export default function SingThisModal({
               <>
                 <Text style={styles.resultTitle}>Great work</Text>
                 <View style={styles.resultCard}>
-                  <Text style={styles.resultCardTitle}>Successful range</Text>
+                  <Text style={styles.resultCardTitle}>
+                    {transposedSummary ? "Range you sang" : "Successful range"}
+                  </Text>
                   <Text style={styles.resultCardBody}>
                     {successfulRange || "No notes were held for 2 seconds yet."}
                   </Text>
                 </View>
+                {transposedSummary && (
+                  <View style={styles.resultCard}>
+                    <Text style={styles.resultCardTitle}>🎼 Transposed match</Text>
+                    <Text style={styles.resultCardBody}>{transposedSummary}</Text>
+                    <Text style={[styles.resultCardBody, { marginTop: 6 }]}>
+                      Transposing just means performing the song in a lower or
+                      higher key — ask for a different backing track key, use a
+                      pitch-shift setting, or simply sing it in your octave.
+                    </Text>
+                  </View>
+                )}
                 <Text style={styles.resultBody}>
                   {allTargetsPassed
                     ? "You should be able to approach this song's listed range."
+                    : allTargetsMatched
+                    ? "You can likely sing this song transposed, even though the written range isn't a match yet."
                     : "Try again to confirm the full listed range."}
                 </Text>
+
+                {allTargetsPassed && song && isLoggedIn && (
+                  <View style={styles.addToListCard}>
+                    <Text style={styles.resultCardTitle}>Add this song to a list?</Text>
+                    {savedToInRange ? (
+                      <View style={styles.statusRow}>
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={22}
+                          color={getToneColor("perfect", colors)}
+                        />
+                        <Text style={styles.statusText}>
+                          Saved to your "{IN_RANGE_LIST_NAME}" list
+                        </Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={[
+                          styles.primaryButton,
+                          isSavingToList && styles.disabledButton,
+                        ]}
+                        onPress={handleAddToInRangeList}
+                        disabled={isSavingToList}
+                      >
+                        <Ionicons name="bookmark-outline" size={18} color={colors.buttonText} />
+                        <Text style={styles.primaryButtonText}>
+                          {isSavingToList
+                            ? "Saving..."
+                            : `Add to "${IN_RANGE_LIST_NAME}" List`}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    {onAddToList && (
+                      <TouchableOpacity
+                        style={styles.secondaryButton}
+                        onPress={handlePickAnotherList}
+                      >
+                        <Text style={styles.secondaryButtonText}>Pick Another List</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+                {allTargetsPassed && song && !isLoggedIn && (
+                  <Text style={styles.resultCardBody}>
+                    Log in to save songs you can sing to a list.
+                  </Text>
+                )}
+
                 <TouchableOpacity style={styles.primaryButton} onPress={confirmReady}>
                   <Text style={styles.primaryButtonText}>Test Again</Text>
                 </TouchableOpacity>
@@ -987,6 +1170,15 @@ const createStyles = (colors: typeof import("../../styles/theme").LightColors) =
       fontSize: 14,
       lineHeight: 20,
       marginBottom: 12,
+    },
+    addToListCard: {
+      backgroundColor: colors.backgroundTertiary,
+      borderColor: colors.border,
+      borderRadius: 12,
+      borderWidth: 1,
+      padding: 14,
+      marginBottom: 12,
+      gap: 10,
     },
     cancelButton: {
       alignItems: "center",

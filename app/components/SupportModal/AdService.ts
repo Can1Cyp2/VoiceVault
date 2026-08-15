@@ -23,6 +23,9 @@ class AdService {
   private readonly MIN_LONG_AD_INTERVAL = 30000;
   private readonly MIN_AD_INTERVAL = 5000;
   private readonly MAX_ADS_PER_SESSION = 25;
+  private rewardedRetryAttempt = 0;
+  private interstitialRetryAttempt = 0;
+  private readonly MAX_LOAD_RETRIES = 6;
   private RewardedAd: any = null;
   private InterstitialAd: any = null;
   private AdEventType: any = null;
@@ -103,11 +106,13 @@ class AdService {
       // ✅ FIXED: Use RewardedAdEventType for LOADED event only
       this.rewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => {
         console.log("Rewarded ad loaded successfully");
+        this.rewardedRetryAttempt = 0;
       });
 
       // ✅ Use AdEventType for ERROR and CLOSED (these don't exist in RewardedAdEventType)
       this.rewardedAd.addAdEventListener(AdEventType.ERROR, (error: any) => {
         console.error("Rewarded ad error:", error);
+        this.scheduleRewardedRetry();
       });
 
       // ✅ Earned reward event
@@ -143,6 +148,7 @@ class AdService {
       if (this.interstitialAd) {
         this.interstitialAd.addAdEventListener(AdEventType.LOADED, () => {
           console.log("✅ Interstitial ad loaded successfully");
+          this.interstitialRetryAttempt = 0;
         });
 
         this.interstitialAd.addAdEventListener(
@@ -151,6 +157,7 @@ class AdService {
             console.error("❌ Interstitial ad error during preload:", error);
             console.error("Error code:", error?.code);
             console.error("Error message:", error?.message);
+            this.scheduleInterstitialRetry();
           }
         );
 
@@ -239,36 +246,14 @@ class AdService {
     try {
       const { AdsConsent } = await import("react-native-google-mobile-ads");
 
-      // Get Apple's ATT status
-      const attStatus = await TrackingTransparency.getTrackingPermissionsAsync();
-      console.log("ATT Status for consent:", attStatus.status);
-
-      console.log("Requesting consent info update...");
-      
-      // Configure consent based on ATT response
-      const consentConfig = {
+      // Apple ATT and Google UMP consent are independent requirements.
+      // ATT only gates device tracking on iOS; users in GDPR regions still
+      // need the UMP form or Google serves no ads at all.
+      console.log("Gathering consent...");
+      await AdsConsent.gatherConsent({
         debugGeography: __DEV__ ? 1 : 0, // 1 = EEA in debug mode, 0 = disabled
         tagForUnderAgeOfConsent: false,
-      };
-
-      await AdsConsent.requestInfoUpdate(consentConfig);
-
-      const info = await AdsConsent.getConsentInfo();
-      console.log("Consent status before setting:", info);
-
-      // If user granted ATT, we can skip the Google consent dialog
-      // and mark consent as obtained
-      if (attStatus.status === 'granted') {
-        console.log("ATT granted - using that for AdMob consent");
-        // User already consented via Apple ATT, no need to show Google dialog
-      } else if (attStatus.status === 'denied') {
-        console.log("ATT denied - respecting user choice for AdMob");
-        // User denied ATT, respect that choice
-      } else {
-        // Only show Google dialog if ATT wasn't explicitly granted/denied
-        console.log("Gathering consent...");
-        await AdsConsent.gatherConsent();
-      }
+      });
 
       const finalInfo = await AdsConsent.getConsentInfo();
       console.log("Final consent status:", finalInfo);
@@ -290,12 +275,26 @@ class AdService {
     if (isExpoGo) return {};
 
     try {
-      const { AdsConsent } = await import("react-native-google-mobile-ads");
-      const choices = await AdsConsent.getUserChoices().catch(() => null);
+      const { AdsConsent, AdsConsentStatus } = await import(
+        "react-native-google-mobile-ads"
+      );
 
-      let allowPersonalized =
-        choices?.selectPersonalisedAds === true &&
-        choices?.storeAndAccessInformationOnDevice !== false;
+      // getUserChoices() only has data when the GDPR/UMP form applies.
+      // Outside consent-required regions it is empty, and treating that as
+      // "no consent" forced every request to non-personalized ads, which
+      // have a much lower fill rate (frequent "no fill" errors).
+      const info = await AdsConsent.getConsentInfo().catch(() => null);
+      let allowPersonalized = true;
+
+      if (info?.status === AdsConsentStatus.REQUIRED) {
+        // Consent required but not yet given
+        allowPersonalized = false;
+      } else if (info?.status === AdsConsentStatus.OBTAINED) {
+        const choices = await AdsConsent.getUserChoices().catch(() => null);
+        allowPersonalized =
+          choices?.selectPersonalisedAds === true &&
+          choices?.storeAndAccessInformationOnDevice !== false;
+      }
 
       // On iOS, also check App Tracking Transparency status
       if (Platform.OS === 'ios') {
@@ -320,6 +319,39 @@ class AdService {
       console.error("Error getting request options:", error);
       return {};
     }
+  }
+
+  // AdMob recommends retrying failed loads with exponential backoff.
+  // Without this, one failed preload left the ad unloaded until the user
+  // tapped, forcing a slow inline load that often hit the 10s timeout.
+  private scheduleRewardedRetry() {
+    if (this.rewardedRetryAttempt >= this.MAX_LOAD_RETRIES) {
+      console.warn("Rewarded ad retry limit reached, giving up until next request");
+      return;
+    }
+    const delay = Math.min(5000 * 2 ** this.rewardedRetryAttempt, 300000);
+    this.rewardedRetryAttempt++;
+    console.log(`Retrying rewarded ad load in ${delay / 1000}s (attempt ${this.rewardedRetryAttempt})`);
+    setTimeout(() => {
+      if (this.rewardedAd && !this.rewardedAd.loaded) {
+        this.preloadRewardedAd();
+      }
+    }, delay);
+  }
+
+  private scheduleInterstitialRetry() {
+    if (this.interstitialRetryAttempt >= this.MAX_LOAD_RETRIES) {
+      console.warn("Interstitial ad retry limit reached, giving up until next request");
+      return;
+    }
+    const delay = Math.min(5000 * 2 ** this.interstitialRetryAttempt, 300000);
+    this.interstitialRetryAttempt++;
+    console.log(`Retrying interstitial ad load in ${delay / 1000}s (attempt ${this.interstitialRetryAttempt})`);
+    setTimeout(() => {
+      if (this.interstitialAd && !this.interstitialAd.loaded) {
+        this.preloadInterstitialAd();
+      }
+    }, delay);
   }
 
   private async preloadRewardedAd() {
@@ -516,9 +548,14 @@ class AdService {
       
       // Provide more specific error messages
       let errorMessage = "Unable to load ad at this time. Please try again later.";
-      
+
       if (error?.code === 3) {
         errorMessage = "No ad inventory available right now. Please try again in a few minutes.";
+      } else if (
+        error?.code === "googleMobileAds/network-error" ||
+        error?.message?.includes("network-error")
+      ) {
+        errorMessage = "Couldn't reach the ad server. Check your internet connection, or disable any VPN or ad blocker and try again.";
       } else if (error?.message?.includes("timeout")) {
         errorMessage = "Ad loading timed out. Please check your internet connection.";
       } else if (error?.message?.includes("show")) {
@@ -704,9 +741,14 @@ class AdService {
       
       // Provide more specific error messages
       let errorMessage = "Unable to load interstitial ad at this time. Please try again later.";
-      
+
       if (error?.code === 3) {
         errorMessage = "No ad inventory available right now. Please try again in a few minutes.";
+      } else if (
+        error?.code === "googleMobileAds/network-error" ||
+        error?.message?.includes("network-error")
+      ) {
+        errorMessage = "Couldn't reach the ad server. Check your internet connection, or disable any VPN or ad blocker and try again.";
       } else if (error?.message?.includes("timeout")) {
         errorMessage = "Ad loading timed out. Please check your internet connection.";
       } else if (error?.message?.includes("not created") || error?.message?.includes("not available")) {

@@ -5,6 +5,7 @@ node_modules/
 
 # Expo
 .expo/
+.eas/
 dist/
 web-build/
 expo-env.d.ts
@@ -29,7 +30,9 @@ android/build/
 android/local.properties
 android/keystore.properties
 *.apk
+*.apks
 *.aab
+*.idsig
 
 # iOS
 ios/Pods/
@@ -38,6 +41,9 @@ ios/Index/
 ios/*.xcworkspace/xcuserdata/
 ios/*.xcodeproj/project.xcworkspace/xcuserdata/
 xcuserdata/
+*.ipa
+*.xcarchive
+*.dSYM/
 
 # macOS
 .DS_Store
@@ -67,6 +73,12 @@ coverage/
 .env*.local
 process.env
 
+# local credentials
+credentials.json
+credentials/
+.sentryclirc
+eas-build-*.tar.gz
+
 # typescript
 *.tsbuildinfo
 
@@ -77,7 +89,13 @@ supabase/migrations/**
 !supabase/migrations/20260227_add_voice_type_to_user_vocal_ranges.sql
 !supabase/migrations/20260507_add_secure_tuner_debug_settings.sql
 
+# Admin-only: private range conflict review tooling (tied to the personal
+# RangeHarvester verification tool - not meant to be public)
+app/util/rangeConflictApi.ts
+app/screens/ContentModerationScreen/RangeReviewsTab.tsx
+
 # Personal notes
+FUTURE_FEATURES.md
 possible_future_TODO.md
 CONFLICT_CHECK_RESULTS.md
 ANALYTICS_SETUP.md
@@ -85,6 +103,7 @@ CONTENT_MODERATION_GUIDE.md
 VOCAL_RANGE_DETECTION_IMPLEMENTATION.md
 TODO.md
 !ANDROID_BUILD_TROUBLESHOOTING.md
+tests/README.md
 
 # Firebase / Google services
 google-services.json

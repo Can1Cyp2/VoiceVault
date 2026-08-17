@@ -1,6 +1,14 @@
 import { Alert } from "react-native";
 import { supabase } from "./supabase";
 import { getSongsByArtist } from "./vocalRange";
+import {
+  SongInfoFilters,
+  LENGTH_BUCKETS,
+  hasActiveSongInfoFilters,
+  hasCustomBpmRange,
+  songMatchesSongInfoFilters,
+} from "./songFilters";
+import { TEMPO_BAND_RANGES } from "./songMetadata";
 
 export let errorCount = 0;
 
@@ -15,7 +23,12 @@ export const searchSongsByQuery = async (query: string): Promise<any[]> => {
     const { data, error } = await supabase
       .from("songs")
       .select("*")
-      .or(`name.ilike.%${query}%, artist.ilike.%${query}%, name.ilike.${tolerantPattern}, artist.ilike.${tolerantPattern}`);
+      .or(
+        `name.ilike.${orValue(`%${query}%`)},` +
+          `artist.ilike.${orValue(`%${query}%`)},` +
+          `name.ilike.${orValue(tolerantPattern)},` +
+          `artist.ilike.${orValue(tolerantPattern)}`
+      );
 
     if (error) throw error;
 
@@ -55,19 +68,36 @@ export const searchSongsByQuery = async (query: string): Promise<any[]> => {
 // SMART SEARCH: ************************
 // Simplified but effective search with focus on relevance
 export const smartSearchSongs = async (
-  query: string,
+  rawQuery: string,
   limit: number = 15,
-  offset: number = 0
+  offset: number = 0,
+  songInfoFilters?: SongInfoFilters
 ): Promise<any[]> => {
   try {
-    if (!query.trim()) return [];
+    if (!rawQuery.trim()) return [];
+
+    // Fold phone-keyboard punctuation to ASCII before anything else, so both
+    // the database filters and the scoring below compare like with like.
+    const query = canonicalizePunctuation(rawQuery);
 
     const tokens = normalizeQuery(query);
     // console.log(`Search query: "${query}" -> tokens:`, tokens);  ---- DEBUGGING LOGS, commented out for production
-    
-    const candidates = await getCandidates(query, tokens);
+
+    let candidates = await getCandidates(query, tokens);
     // console.log(`Found ${candidates.length} candidates`);
-    
+
+    // Song Info filters applied here, not per-strategy in getCandidates:
+    // this function always re-runs the full multi-strategy candidate search
+    // on every call (offset/limit below is a client-side slice, not real DB
+    // pagination), so the complete candidate set is already in memory before
+    // ranking - filtering it now cannot produce a thin/empty page the way
+    // filtering a paginated fetch could. See songMatchesSongInfoFilters.
+    if (songInfoFilters && hasActiveSongInfoFilters(songInfoFilters)) {
+      candidates = candidates.filter((song) =>
+        songMatchesSongInfoFilters(song, songInfoFilters)
+      );
+    }
+
     const scoredResults = scoreResults(candidates, tokens, query);
     const rankedResults = applyFiltering(scoredResults);
     
@@ -100,6 +130,29 @@ export const smartSearchSongs = async (
   }
 };
 
+/**
+ * Folds the punctuation variants a phone keyboard produces down to the plain
+ * ASCII forms the database actually stores.
+ *
+ * THIS IS THE "not all songs are working" BUG. iOS and Android autocorrect
+ * type a CURLY apostrophe (U+2019) when you tap the apostrophe key, but song
+ * titles are stored with the straight ASCII one (U+0027) - 1096 of them in
+ * this catalogue, versus 3 curly. So "Can't help falling in" typed on a
+ * phone never matched "Can't Help Falling in Love": every scoring path
+ * compared U+2019 against U+0027 and failed, and the song was dropped even
+ * though the database had returned it. Dropping the apostrophe entirely
+ * ("help falling in") worked, which is exactly the behaviour reported.
+ *
+ * Applied to BOTH sides of every comparison, and to the query before it is
+ * sent, so the two can never disagree about which apostrophe is "the" one.
+ */
+export const canonicalizePunctuation = (value: string): string =>
+  value
+    .replace(/[‘’ʼ՚＇]/g, "'") // curly/modifier apostrophes
+    .replace(/[“”«»]/g, '"') // curly double quotes
+    .replace(/[–—−]/g, "-") // en/em dash, minus
+    .replace(/…/g, "..."); // ellipsis
+
 const normalizeQuery = (query: string): string[] => {
   return query
     .toLowerCase()
@@ -111,24 +164,70 @@ const normalizeQuery = (query: string): string[] => {
 };
 
 /**
+ * Wraps a value for use inside a PostgREST `.or(...)` filter.
+ *
+ * WHY THIS IS REQUIRED, and what breaks without it:
+ * `.or()` builds a string like `name.ilike.%foo%,artist.ilike.%foo%`, where
+ * the COMMA separates conditions and PARENTHESES group them. So any song
+ * title containing those characters corrupts the filter itself:
+ *
+ *   "Hello, Dolly!"  ->  HTTP 400, the whole search request fails
+ *   "(Reprise)"      ->  parses but silently returns 0 rows
+ *
+ * Both verified against the live catalogue, where 198 titles contain a comma
+ * and 241 contain a parenthesis. That is the real reason "not all songs are
+ * working" - it was never really about apostrophes.
+ *
+ * PostgREST's answer is to double-quote the value, with any inner double
+ * quote or backslash backslash-escaped. Wildcards still work inside quotes.
+ */
+const orValue = (value: string): string =>
+  `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+
+/**
+ * Widens a single token so an apostrophe INSIDE a word is tolerated:
+ * "dont" -> "don%t", which matches "Don't". The gap goes before the final
+ * character because that is where English contractions put the apostrophe
+ * (don't, can't, what's, he'd).
+ *
+ * Safe to apply to every token, including ones with no apostrophe, because
+ * "%" also matches the empty string - "stop" becomes "sto%p", which still
+ * matches "stop". Tokens of 1-2 characters are left alone, since splitting
+ * them ("a%t") matches far too much for far too little gain.
+ */
+const tolerantToken = (token: string): string =>
+  token.length > 2 ? `${token.slice(0, -1)}%${token.slice(-1)}` : token;
+
+/**
  * Builds an ILIKE pattern that matches even when the stored name has
- * punctuation the user didn't type - e.g. typing "guns n roses" (no
- * apostrophe) still finds "Guns N' Roses", because wildcards are inserted
- * between each word so any characters (including punctuation) can sit
- * between them. Falls back to a plain contains pattern for an empty query.
+ * punctuation the user didn't type. Wildcards go BETWEEN words, so typing
+ * "guns n roses" finds "Guns N' Roses", and also INSIDE each word, so typing
+ * "dont stop" finds "Don't Stop" - the second case used to fail, because
+ * "dont" is not a substring of "Don't" and no amount of gaps between words
+ * can bridge that.
+ *
+ * Verified against the live catalogue: "%don%t%sto%p%" returns 19 rows, all
+ * genuine matches. Deliberately not a gap between EVERY character
+ * ("%d%o%n%t%"), which does find the right songs but also matches things
+ * like "Does Anybody Really Know What Time It Is?" and pulls thousands of
+ * rows the scorer then has to throw away.
+ *
+ * Falls back to a plain contains pattern for an empty query.
  */
 const buildTolerantPattern = (query: string): string => {
   const tokens = normalizeQuery(query);
   if (tokens.length === 0) return `%${query}%`;
-  return `%${tokens.join('%')}%`;
+  return `%${tokens.map(tolerantToken).join('%')}%`;
 };
 
-/** True when every normalized token of the query appears somewhere in the haystack. */
+/** True when every normalized token of the query appears somewhere in the
+ *  haystack. Punctuation is stripped from the haystack as well as the query,
+ *  so "dont" matches "Don't Stop" rather than silently failing. */
 const tolerantIncludes = (haystack: string, query: string): boolean => {
   const tokens = normalizeQuery(query);
   if (tokens.length === 0) return false;
-  const lowerHaystack = haystack.toLowerCase();
-  return tokens.every(token => lowerHaystack.includes(token));
+  const strippedHaystack = haystack.toLowerCase().replace(/[^\w\s]/g, "");
+  return tokens.every(token => strippedHaystack.includes(token));
 };
 
 const getCandidates = async (originalQuery: string, tokens: string[]): Promise<any[]> => {
@@ -144,7 +243,7 @@ const getCandidates = async (originalQuery: string, tokens: string[]): Promise<a
       supabase
         .from("songs")
         .select("*")
-        .or(`name.eq.${trimmedQuery}, artist.eq.${trimmedQuery}`)
+        .or(`name.eq.${orValue(trimmedQuery)},artist.eq.${orValue(trimmedQuery)}`)
         .then(({ data }) => (data || []).map(song => ({ ...song, _searchStrategy: 'exact' })))
     );
   }
@@ -154,7 +253,10 @@ const getCandidates = async (originalQuery: string, tokens: string[]): Promise<a
     supabase
       .from("songs")
       .select("*")
-      .or(`name.ilike.${trimmedQuery}%, artist.ilike.${trimmedQuery}%`)
+      .or(
+        `name.ilike.${orValue(`${trimmedQuery}%`)},` +
+          `artist.ilike.${orValue(`${trimmedQuery}%`)}`
+      )
       .then(({ data }) => (data || []).map(song => ({ ...song, _searchStrategy: 'prefix' })))
   );
   
@@ -163,7 +265,10 @@ const getCandidates = async (originalQuery: string, tokens: string[]): Promise<a
     supabase
       .from("songs")
       .select("*")
-      .or(`name.ilike.%${trimmedQuery}%, artist.ilike.%${trimmedQuery}%`)
+      .or(
+        `name.ilike.${orValue(`%${trimmedQuery}%`)},` +
+          `artist.ilike.${orValue(`%${trimmedQuery}%`)}`
+      )
       .then(({ data }) => (data || []).map(song => ({ ...song, _searchStrategy: 'contains' })))
   );
   
@@ -217,15 +322,25 @@ const getCandidates = async (originalQuery: string, tokens: string[]): Promise<a
   }
 
   // Strategy 5: Punctuation-tolerant match - lets a query typed without
-  // apostrophes (e.g. "guns n roses") find names that do have them
-  // ("Guns N' Roses"), by wildcarding between each word.
-  if (tokens.length >= 2) {
-    const tolerantPattern = `%${tokens.join('%')}%`;
+  // apostrophes find names that have them, both between words
+  // ("guns n roses" -> "Guns N' Roses") and inside a word
+  // ("dont stop" -> "Don't Stop"). Shares buildTolerantPattern with the
+  // other search paths so all of them tolerate punctuation identically.
+  //
+  // Runs for SINGLE-token queries too (it previously required two or more),
+  // which is why searching just "dont" or "cant" used to find nothing. Short
+  // tokens are skipped because a 1-2 character pattern matches most of the
+  // catalogue without narrowing anything.
+  if (tokens.length >= 2 || (tokens.length === 1 && tokens[0].length >= 3)) {
+    const tolerantPattern = buildTolerantPattern(originalQuery);
     searchPromises.push(
       supabase
         .from("songs")
         .select("*")
-        .or(`name.ilike.${tolerantPattern}, artist.ilike.${tolerantPattern}`)
+        .or(
+          `name.ilike.${orValue(tolerantPattern)},` +
+            `artist.ilike.${orValue(tolerantPattern)}`
+        )
         .then(({ data }) => (data || []).map(song => ({ ...song, _searchStrategy: 'fuzzy' })))
     );
   }
@@ -307,12 +422,20 @@ const getStrategyPriority = (strategy: string) => {
 };
 
 const scoreResults = (candidates: any[], tokens: string[], originalQuery: string) => {
-  const lowerQuery = originalQuery.toLowerCase().trim();
+  // Canonicalised on BOTH sides so a curly apostrophe from a phone keyboard
+  // compares equal to the straight one stored in the database.
+  const lowerQuery = canonicalizePunctuation(originalQuery).toLowerCase().trim();
   const hasTrailingSpace = originalQuery.endsWith(' ');
-  
+
   return candidates.map(song => {
-    const name = (song.name || "").toLowerCase();
-    const artist = (song.artist || "").toLowerCase();
+    const name = canonicalizePunctuation(song.name || "").toLowerCase();
+    const artist = canonicalizePunctuation(song.artist || "").toLowerCase();
+    // Punctuation removed entirely, for comparing against normalizeQuery
+    // tokens (which have already had it stripped). Without this, the token
+    // "cant" is never found in "can't help falling in love" and the fuzzy
+    // strategy scores 0 even when the database returned the right song.
+    const strippedName = name.replace(/[^\w\s]/g, "");
+    const strippedArtist = artist.replace(/[^\w\s]/g, "");
     let score = 0;
     
     const matchDetails = {
@@ -377,12 +500,14 @@ const scoreResults = (candidates: any[], tokens: string[], originalQuery: string
         break;
         
       case 'fuzzy':
-        // Every token must appear somewhere in the field - punctuation the
-        // user didn't type (like a missing apostrophe) doesn't block a match.
-        if (tokens.every(token => name.includes(token))) {
+        // Every token must appear somewhere in the field. Compared against
+        // the PUNCTUATION-STRIPPED name/artist, because the tokens have had
+        // theirs stripped too - matching "cant" against a raw "can't ..."
+        // silently fails and was throwing away correct results.
+        if (tokens.every(token => strippedName.includes(token))) {
           score = 5600;
           matchDetails.titleMatch = true;
-        } else if (tokens.every(token => artist.includes(token))) {
+        } else if (tokens.every(token => strippedArtist.includes(token))) {
           score = 5400;
           matchDetails.artistMatch = true;
         }
@@ -494,7 +619,12 @@ export const smartSearchArtists = async (
     const { data: matchingSongs, error } = await supabase
       .from("songs")
       .select("artist")
-      .or(`artist.eq.${query}, artist.ilike.${query}%, artist.ilike.%${query}%, artist.ilike.${tolerantPattern}`)
+      .or(
+        `artist.eq.${orValue(query)},` +
+          `artist.ilike.${orValue(`${query}%`)},` +
+          `artist.ilike.${orValue(`%${query}%`)},` +
+          `artist.ilike.${orValue(tolerantPattern)}`
+      )
       .limit(100);
 
     if (error || !matchingSongs) return [];
@@ -540,7 +670,12 @@ export const getSearchSuggestions = async (query: string): Promise<string[]> => 
     const { data, error } = await supabase
       .from("songs")
       .select("name, artist")
-      .or(`name.ilike.${query}%, artist.ilike.${query}%, name.ilike.${tolerantPattern}, artist.ilike.${tolerantPattern}`)
+      .or(
+        `name.ilike.${orValue(`${query}%`)},` +
+          `artist.ilike.${orValue(`${query}%`)},` +
+          `name.ilike.${orValue(tolerantPattern)},` +
+          `artist.ilike.${orValue(tolerantPattern)}`
+      )
       .limit(20);
     
     if (error || !data) return [];
@@ -576,7 +711,10 @@ export const searchArtistsByQuery = async (
     const { data: matchingSongs, error: songError } = await supabase
       .from("songs")
       .select("artist, name")
-      .or(`artist.ilike.%${query}%, artist.ilike.${tolerantPattern}`);
+      .or(
+        `artist.ilike.${orValue(`%${query}%`)},` +
+          `artist.ilike.${orValue(tolerantPattern)}`
+      );
 
     if (songError) {
       console.error("Error searching songs for artists:", songError.message);
@@ -716,41 +854,238 @@ const getSongIdRange = async (): Promise<{ minId: number; maxId: number }> => {
   }
 };
 
-// Helper function to generate unique random IDs
+// Helper function to generate unique random IDs, optionally skipping ones
+// already tried in an earlier attempt (see getRandomSongs) so a retry after
+// a filtered miss doesn't waste a draw re-picking the same id.
 const generateRandomIds = (
   min: number,
   max: number,
-  count: number
+  count: number,
+  exclude?: Set<number>
 ): number[] => {
   const ids = new Set<number>();
-  while (ids.size < count) {
-    const randomId = Math.floor(Math.random() * (max - min + 1)) + min;
+  const rangeSize = max - min + 1;
+  // Guards against an unreachable infinite loop (e.g. exclude somehow
+  // covering the whole id space) rather than hanging the app.
+  const attemptCap = Math.max(count * 50, 2000);
+  let tries = 0;
+  while (ids.size < count && tries < attemptCap) {
+    tries++;
+    const randomId = Math.floor(Math.random() * rangeSize) + min;
+    if (exclude?.has(randomId)) continue;
     ids.add(randomId);
   }
   return Array.from(ids);
 };
 
+/**
+ * Chains Song Info filter conditions (BPM/genre/year/length/key/tessitura)
+ * onto a Supabase query builder for the songs table. Used wherever a real
+ * DB-side filter is needed rather than a client-side one - see
+ * songMatchesSongInfoFilters in songFilters.ts for the client-side twin used
+ * by smartSearchSongs, and the comment on hasActiveSongInfoFilters for why
+ * the two paths differ.
+ *
+ * Tempo bands and length buckets each become their own .or() group over one
+ * column (bpm, duration_sec respectively); PostgREST ANDs independent
+ * top-level logical filters together, the same way repeated .eq()/.in()
+ * calls do, so this composes correctly with everything else chained on the
+ * same query.
+ */
+const applySongInfoDbFilters = (query: any, f: SongInfoFilters) => {
+  if (f.hasBpm) query = query.not("bpm", "is", null);
+  if (f.hasGenre) query = query.not("genre", "is", null);
+  if (f.hasYear) query = query.not("release_year", "is", null);
+  if (f.hasLength) query = query.not("duration_sec", "is", null);
+  if (f.hasKey) query = query.not("song_key", "is", null);
+  if (f.hasTessitura) query = query.not("tessitura_median", "is", null);
+
+  if (f.genres.length > 0) query = query.in("genre", f.genres);
+  if (f.keys.length > 0) query = query.in("song_key", f.keys);
+
+  // An exact typed BPM range takes precedence over the preset bands, matching
+  // songMatchesSongInfoFilters. Bounds here are inclusive, unlike the bands'
+  // exclusive upper edge, because a user typing "120 to 130" means both ends.
+  if (hasCustomBpmRange(f)) {
+    const min = f.bpmMin.trim() ? parseInt(f.bpmMin, 10) : null;
+    const max = f.bpmMax.trim() ? parseInt(f.bpmMax, 10) : null;
+    if (min !== null && !Number.isNaN(min)) query = query.gte("bpm", min);
+    if (max !== null && !Number.isNaN(max)) query = query.lte("bpm", max);
+  } else if (f.tempoBands.length > 0) {
+    const groups = f.tempoBands
+      .map((band) => TEMPO_BAND_RANGES.find((r) => r.band === band))
+      .filter((r): r is (typeof TEMPO_BAND_RANGES)[number] => !!r)
+      .map((r) =>
+        r.maxBpm === null ? `bpm.gte.${r.minBpm}` : `and(bpm.gte.${r.minBpm},bpm.lt.${r.maxBpm})`
+      );
+    if (groups.length > 0) query = query.or(groups.join(","));
+  }
+
+  if (f.lengthBuckets.length > 0) {
+    const groups = f.lengthBuckets
+      .map((key) => LENGTH_BUCKETS.find((b) => b.key === key))
+      .filter((b): b is (typeof LENGTH_BUCKETS)[number] => !!b)
+      .map((b) =>
+        b.maxSec === null
+          ? `duration_sec.gte.${b.minSec}`
+          : `and(duration_sec.gte.${b.minSec},duration_sec.lt.${b.maxSec})`
+      );
+    if (groups.length > 0) query = query.or(groups.join(","));
+  }
+
+  const yearMin = f.yearMin.trim() ? parseInt(f.yearMin, 10) : null;
+  const yearMax = f.yearMax.trim() ? parseInt(f.yearMax, 10) : null;
+  if (yearMin !== null && !Number.isNaN(yearMin)) query = query.gte("release_year", yearMin);
+  if (yearMax !== null && !Number.isNaN(yearMax)) query = query.lte("release_year", yearMax);
+
+  return query;
+};
+
+/**
+ * A real, deterministically-paginated page of songs matching the given
+ * filters, ordered by title.
+ *
+ * WHY THIS EXISTS, vs getRandomSongs:
+ * Random-id sampling is great for unfiltered discovery but is the wrong tool
+ * once a filter is on. It re-draws ids that were already shown, never
+ * systematically covers the matching set, and - worst - a short page from a
+ * missed draw is indistinguishable from "no results left", which made
+ * infinite scroll give up early and forced a manual refresh to see more.
+ *
+ * Real offset pagination fixes all three: every matching song is reachable by
+ * scrolling, nothing repeats, and a short page genuinely means the end.
+ *
+ * Ordered by name rather than id because ids are clustered by artist in this
+ * catalogue, so id order would show 30 songs by one artist before reaching
+ * the next. Alphabetical mixes artists and is stable across pages, which
+ * offset pagination requires. There is no index on name; at this catalogue
+ * size the sort is cheap, and filters shrink the set further before sorting.
+ */
+export const getFilteredSongsPage = async (
+  limit: number,
+  offset: number,
+  songInfoFilters?: SongInfoFilters,
+  opts?: { verifiedOnly?: boolean }
+): Promise<any[]> => {
+  try {
+    let query = supabase.from("songs").select("*");
+
+    if (songInfoFilters && hasActiveSongInfoFilters(songInfoFilters)) {
+      query = applySongInfoDbFilters(query, songInfoFilters);
+    }
+    // Verified means "no community username attached" (see isVerifiedSong).
+    // Applied here rather than client-side so it narrows the page BEFORE the
+    // limit, instead of hollowing it out afterwards.
+    if (opts?.verifiedOnly) {
+      query = query.is("username", null);
+    }
+
+    const { data, error } = await query
+      .order("name", { ascending: true })
+      .order("id", { ascending: true }) // tie-break, keeps paging stable
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error("Error fetching filtered songs page:", error.message);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.error("Error in getFilteredSongsPage:", err);
+    return [];
+  }
+};
+
+// Admin/search: distinct, non-null genres actually present in the songs
+// table, sorted alphabetically. Never hardcoded - the set changes as songs
+// are added, so the filter panel must read it live.
+export const fetchDistinctGenres = async (): Promise<string[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("songs")
+      .select("genre")
+      .not("genre", "is", null);
+    if (error) {
+      console.warn("Error fetching distinct genres:", error.message);
+      return [];
+    }
+    const set = new Set<string>();
+    for (const row of data || []) {
+      if (row.genre) set.add(row.genre);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  } catch (err) {
+    console.warn("Error in fetchDistinctGenres:", err);
+    return [];
+  }
+};
+
+// Same as fetchDistinctGenres, for the estimated musical key. Pulled live
+// rather than hardcoded from music theory's 24 possible keys, so the filter
+// list can never drift from what normalise_key() in RangeHarvester actually
+// writes (all-sharps, "Tonic mode" casing).
+export const fetchDistinctKeys = async (): Promise<string[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("songs")
+      .select("song_key")
+      .not("song_key", "is", null);
+    if (error) {
+      console.warn("Error fetching distinct keys:", error.message);
+      return [];
+    }
+    const set = new Set<string>();
+    for (const row of data || []) {
+      if (row.song_key) set.add(row.song_key);
+    }
+    // Musical order (chromatic, major before relative minor) reads better
+    // than alphabetical for a list of keys.
+    const order = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    return Array.from(set).sort((a, b) => {
+      const [tonicA, modeA] = a.split(" ");
+      const [tonicB, modeB] = b.split(" ");
+      const iA = order.indexOf(tonicA);
+      const iB = order.indexOf(tonicB);
+      if (iA !== iB) return iA - iB;
+      return modeA.localeCompare(modeB);
+    });
+  } catch (err) {
+    console.warn("Error in fetchDistinctKeys:", err);
+    return [];
+  }
+};
+
 // Fetch 50 random songs by selecting random song IDs
-export const getRandomSongs = async (limit: number = 50): Promise<any[]> => {
+export const getRandomSongs = async (
+  limit: number = 50,
+  songInfoFilters?: SongInfoFilters
+): Promise<any[]> => {
   try {
     const { minId, maxId } = await getSongIdRange();
     if (minId === maxId) {
-      console.warn("No valid ID range found for songs");
+      console.warn("No valid ID found for songs");
       return [];
     }
 
+    const filtersActive = !!songInfoFilters && hasActiveSongInfoFilters(songInfoFilters);
+
     let selectedSongs: any[] = [];
     let attempts = 0;
-    const maxAttempts = 3; // Prevent infinite loops
+    // Random-id sampling has a lower hit rate once filters narrow the
+    // catalogue (e.g. only ~42% of songs have an estimated key), so a
+    // filtered browse gets more attempts to still fill the requested count
+    // rather than quietly returning a half-empty page.
+    const maxAttempts = filtersActive ? 8 : 3;
+    const triedIds = new Set<number>();
 
     while (selectedSongs.length < limit && attempts < maxAttempts) {
       const remaining = limit - selectedSongs.length;
-      const randomIds = generateRandomIds(minId, maxId, remaining);
+      const randomIds = generateRandomIds(minId, maxId, remaining, triedIds);
+      randomIds.forEach((id) => triedIds.add(id));
 
-      const { data, error } = await supabase
-        .from("songs")
-        .select("*")
-        .in("id", randomIds);
+      let query = supabase.from("songs").select("*").in("id", randomIds);
+      if (filtersActive) query = applySongInfoDbFilters(query, songInfoFilters!);
+      const { data, error } = await query;
 
       if (error) {
         console.error("Error fetching random songs by ID:", error.message);
@@ -775,7 +1110,8 @@ export const getRandomSongs = async (limit: number = 50): Promise<any[]> => {
 
     if (selectedSongs.length < limit) {
       console.warn(
-        `Only found ${selectedSongs.length} songs out of requested ${limit}`
+        `Only found ${selectedSongs.length} songs out of requested ${limit}` +
+          (filtersActive ? " (Song Info filters active)" : "")
       );
     }
 
@@ -798,7 +1134,7 @@ export const logSongSearch = async (
       .from("song_search_events")
       .insert([{ song_id: songId }]);
     if (error) {
-      // warn, not error: telemetry only — must never red-box the app
+      // warn, not error: telemetry only, must never red-box the app
       console.warn("Failed to log song search event:", error.message);
     }
   } catch (err) {

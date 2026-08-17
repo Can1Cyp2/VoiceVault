@@ -8,6 +8,7 @@ import {
   Modal,
   Alert,
   Animated,
+  Linking,
 } from "react-native";
 import { supabase } from "../../util/supabase";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -25,6 +26,17 @@ import { getLoginGlow, setLoginGlow } from "../../util/loginPrompt";
 import { useTheme } from "../../contexts/ThemeContext";
 import { resetToSearchStackScreen } from "../../navigation/searchStackReset";
 import { shouldShowToolHint, getRandomToolHint, ToolHint, recordToolUsed } from "../../util/toolHints";
+import { UpdateBanner } from "../../components/UpdateBanner/UpdateBanner";
+import {
+  checkForUpdate,
+  isUpdateDismissed,
+  dismissUpdateVersion,
+  getForceUpdateBannerPreview,
+  setForceUpdateBannerPreview,
+  getStoreUrlForPreview,
+  getCurrentAppVersion,
+  bumpPatchVersion,
+} from "../../util/appUpdate";
 
 // Combined navigation props for tab and stack navigators
 type HomeScreenProps = CompositeScreenProps<
@@ -40,6 +52,9 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [isToolsVisible, setToolsVisible] = useState(false);
   const [isToolHintVisible, setToolHintVisible] = useState(false);
   const [toolHint, setToolHint] = useState<{ tool: ToolHint; message: string } | null>(null);
+  const [updateInfo, setUpdateInfo] = useState<
+    { version: string; url: string; isPreview: boolean } | null
+  >(null);
 
   // Theme hook
   const { colors, isDark, setMode } = useTheme();
@@ -151,6 +166,68 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
     return unsubscribe;
   }, [navigation]);
+
+  // Check the store for a newer app version once when Home mounts. A preview
+  // (admin test) always wins over a real result, and is applied on focus below.
+  useEffect(() => {
+    let cancelled = false;
+
+    const runNetworkCheck = async () => {
+      const result = await checkForUpdate();
+      if (cancelled || !result.updateAvailable || !result.latestVersion) return;
+      if (await isUpdateDismissed(result.latestVersion)) return;
+      if (!cancelled) {
+        setUpdateInfo((prev) =>
+          prev?.isPreview
+            ? prev // don't clobber an active admin preview
+            : { version: result.latestVersion!, url: result.storeUrl, isPreview: false }
+        );
+      }
+    };
+
+    void runNetworkCheck();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Admin preview toggle: show/hide a fake banner whenever Home gains focus.
+  useEffect(() => {
+    const applyPreview = async () => {
+      if (getForceUpdateBannerPreview()) {
+        const url = await getStoreUrlForPreview();
+        setUpdateInfo({
+          version: bumpPatchVersion(getCurrentAppVersion()),
+          url,
+          isPreview: true,
+        });
+      } else {
+        // Clear a preview that the admin has since turned off.
+        setUpdateInfo((prev) => (prev?.isPreview ? null : prev));
+      }
+    };
+
+    void applyPreview();
+    const unsubscribe = navigation.addListener("focus", () => {
+      void applyPreview();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  const handleOpenStore = () => {
+    if (updateInfo?.url) {
+      Linking.openURL(updateInfo.url).catch(() => {});
+    }
+  };
+
+  const handleDismissUpdate = async () => {
+    if (updateInfo && !updateInfo.isPreview) {
+      await dismissUpdateVersion(updateInfo.version);
+    } else if (updateInfo?.isPreview) {
+      setForceUpdateBannerPreview(false); // turn the test toggle back off
+    }
+    setUpdateInfo(null);
+  };
 
   // Handle logout
   const handleLogout = async () => {
@@ -290,7 +367,21 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           openToolFromSearch("Piano");
         }}
       />
-      <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.6.1</Text>
+      {/* App update banner - positioned at the bottom, above the version text */}
+      {updateInfo && (
+        <View style={styles.updateBannerBottomContainer}>
+          <UpdateBanner
+            version={updateInfo.version}
+            isPreview={updateInfo.isPreview}
+            onPress={handleOpenStore}
+            onDismiss={() => {
+              void handleDismissUpdate();
+            }}
+          />
+        </View>
+      )}
+
+      <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.6.5</Text>
     </View>
   );
 }
@@ -312,6 +403,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     zIndex: 10,
+  },
+  updateBannerBottomContainer: {
+    position: "absolute",
+    bottom: 46,
+    left: 16,
+    right: 16,
+    zIndex: 12,
   },
   leftSection: {
     width: 100,

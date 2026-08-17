@@ -42,6 +42,12 @@ const MIN_BPM = 30;
 const MAX_BPM = 300;
 const SUB_TICK_VOLUME = 0.45; // subdivision ticks play quieter than main beats
 const STORAGE_KEY = "@voicevault_metronome_settings_v1";
+// Kept at full scale deliberately. The click samples already peak near 0 dBFS
+// but carry little sustained energy (RMS 9-26%), which is why they can sit
+// quietly under real instruments - that is a property of the samples, not of
+// this setting, and lowering the default would only make it worse. Any real
+// fix has to come from louder source samples. A saved value wins over this.
+const DEFAULT_VOLUME = 1;
 
 // Click sounds are 16-bit WAVs (no MP3 encoder delay), so attacks land exactly on the beat
 const SOUND_SETS = {
@@ -137,7 +143,7 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
   const [timeSignature, setTimeSignature] = useState<TimeSignature>("4/4");
   const [subdivision, setSubdivision] = useState(1);
   const [soundSet, setSoundSet] = useState<SoundSetKey>("beep");
-  const [volume, setVolume] = useState(1);
+  const [volume, setVolume] = useState(DEFAULT_VOLUME);
   const [pattern, setPattern] = useState<BeatState[]>(defaultPattern("4/4"));
   const [beatCount, setBeatCount] = useState(0);
   const [tapTimes, setTapTimes] = useState<number[]>([]);

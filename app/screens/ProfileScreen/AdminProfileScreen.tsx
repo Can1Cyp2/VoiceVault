@@ -58,6 +58,7 @@ import {
     setAdminTunerDebugEnabled,
 } from "../../util/tunerDebugAccess";
 import { getToolHintsAlwaysShow, setToolHintsAlwaysShow } from "../../util/toolHints";
+import { getForceUpdateBannerPreview, setForceUpdateBannerPreview } from "../../util/appUpdate";
 
 import Constants from "expo-constants";
 import * as Updates from "expo-updates";
@@ -187,6 +188,7 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
     const [tunerDebugLoading, setTunerDebugLoading] = useState(false);
     const [tunerDebugSaving, setTunerDebugSaving] = useState(false);
     const [hintTestEnabled, setHintTestEnabled] = useState(getToolHintsAlwaysShow());
+    const [updateBannerPreview, setUpdateBannerPreview] = useState(getForceUpdateBannerPreview());
 
     // Security: Verify admin status on mount and periodically
     useEffect(() => {
@@ -686,8 +688,8 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
                             <Text style={styles.debugCardTitle}>Tool Hints: Always Show</Text>
                             <Text style={styles.tunerDebugStatus}>
                                 {hintTestEnabled
-                                    ? 'On — hint shows every time Home loads (this session only)'
-                                    : 'Off — normal random schedule'}
+                                    ? 'On: hint shows every time Home loads (this session only)'
+                                    : 'Off: normal random schedule'}
                             </Text>
                         </View>
                         <Switch
@@ -699,6 +701,35 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
                             }}
                             trackColor={{ false: colors.border, true: colors.primary }}
                             thumbColor={hintTestEnabled ? colors.buttonText : colors.backgroundTertiary}
+                        />
+                    </View>
+                </View>
+
+                <View style={styles.debugCard}>
+                    <View style={styles.tunerDebugHeader}>
+                        <View style={styles.tunerDebugTextBlock}>
+                            <Text style={styles.debugCardTitle}>Update Banner: Preview</Text>
+                            <Text style={styles.tunerDebugStatus}>
+                                {updateBannerPreview
+                                    ? 'On: Home shows a test update banner (this session only)'
+                                    : 'Off: banner only shows when a real update is live'}
+                            </Text>
+                        </View>
+                        <Switch
+                            value={updateBannerPreview}
+                            onValueChange={(value) => {
+                                setUpdateBannerPreview(value);
+                                setForceUpdateBannerPreview(value);
+                                addDebugLog(`Update banner preview ${value ? 'enabled' : 'disabled'} for this session`);
+                                if (value) {
+                                    Alert.alert(
+                                        'Update Banner Preview',
+                                        'Go to the Home screen to see the test update banner.'
+                                    );
+                                }
+                            }}
+                            trackColor={{ false: colors.border, true: colors.primary }}
+                            thumbColor={updateBannerPreview ? colors.buttonText : colors.backgroundTertiary}
                         />
                     </View>
                 </View>

@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
   View,
   Text,
   Button,
+  Clipboard,
   Linking,
   StyleSheet,
   Alert,
@@ -19,14 +20,20 @@ interface Props {
   onClose: () => void;
 }
 
+// Used by both the donate button and the copy-link button beside it.
+const KOFI_URL = 'https://ko-fi.com/can1cyp2apps';
+
+// How long the copy button shows its "copied" tick before reverting.
+const COPIED_FEEDBACK_MS = 1500;
+
 // Info function for the info button
 const showSupportInfo = () => {
   Alert.alert(
     "Support Information",
     "There are three ways to support the app:\n\n" +
-      "☕ Donate Directly – via Ko-fi, starting at just $1.\n\n" +
-      "🎥 Watch Ad – watch a rewarded ad for +10 coins.\n\n" +
-      "⚡ Quick Ad – watch a shorter ad for +3 coins.\n\n" +
+      "☕ Donate Directly: via Ko-fi, starting at just $1.\n\n" +
+      "🎥 Watch Ad: watch a rewarded ad for +10 coins.\n\n" +
+      "⚡ Quick Ad: watch a shorter ad for +3 coins.\n\n" +
       "I wanted donating to be as accessible as possible for anyone who'd like to support me, so please feel no pressure to donate!\n\n" +
       "You can normally watch hundreds of ads a day before hitting a cap, but I put a 25 ad cap per session so it never feels like you have to watch endlessly just to support me. Watching ads isn't comparable to the amount of support a donation of any amount would be, but any support at all is much appreciated!\n\n" +
       "I truly am so thankful for all of the support shown!\nThank you.",
@@ -57,9 +64,30 @@ export const SupportModal = ({ visible, onClose }: Props) => {
     // Don't close modal - let them watch more ads!
   };
 
+  // Swaps the copy icon for a tick briefly; the timer is cleared on unmount so
+  // a quick close can't set state on a gone component.
+  const [linkCopied, setLinkCopied] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    },
+    []
+  );
+
   const handleDonate = () => {
-    Linking.openURL('https://ko-fi.com/can1cyp2apps');
+    Linking.openURL(KOFI_URL);
     onClose();
+  };
+
+  // Copy instead of opening - for anyone who'd rather donate from another
+  // device or browser than leave the app.
+  const handleCopyLink = () => {
+    Clipboard.setString(KOFI_URL);
+    setLinkCopied(true);
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setLinkCopied(false), COPIED_FEEDBACK_MS);
   };
 
   const formatTime = (ms: number) => {
@@ -107,7 +135,33 @@ export const SupportModal = ({ visible, onClose }: Props) => {
             </View>
           )}
 
-          <Button title="☕ Donate Directly" onPress={handleDonate} />
+          <View style={styles.donateRow}>
+            <TouchableOpacity
+              style={styles.donateButton}
+              onPress={handleDonate}
+              accessibilityRole="button"
+              accessibilityLabel="Donate directly via Ko-fi"
+            >
+              <Text style={styles.donateButtonText}>☕ Donate Directly</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.copyLinkButton}
+              onPress={handleCopyLink}
+              accessibilityRole="button"
+              accessibilityLabel={
+                linkCopied ? 'Donation link copied' : 'Copy donation link'
+              }
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name={linkCopied ? 'checkmark' : 'copy-outline'}
+                size={20}
+                color={linkCopied ? colors.success : colors.textSecondary}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {linkCopied && <Text style={styles.copiedText}>Link copied</Text>}
           
           <View style={{ marginVertical: 10 }} />
           
@@ -191,6 +245,40 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     marginTop: 10,
     fontSize: 12,
     color: colors.textTertiary,
+    textAlign: 'center',
+  },
+  donateRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    width: '100%',
+    gap: 8,
+  },
+  donateButton: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  donateButtonText: {
+    color: colors.buttonText,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  copyLinkButton: {
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.backgroundTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  copiedText: {
+    marginTop: 6,
+    fontSize: 12,
+    color: colors.success,
     textAlign: 'center',
   },
   subheader: {

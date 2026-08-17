@@ -22,6 +22,29 @@ CREATE TABLE IF NOT EXISTS public.saved_lists (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Deduplicate existing rows before adding the unique constraint.
+-- Keeps the row with the lowest id per (name, user_id) group.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE schemaname = 'public'
+      AND tablename = 'saved_lists'
+      AND indexname = 'idx_saved_lists_name_user'
+  ) THEN
+    -- Index already exists; nothing to do.
+    RAISE NOTICE '⚠️  Unique index idx_saved_lists_name_user already exists, skipping dedup';
+  ELSE
+    DELETE FROM public.saved_lists
+    WHERE id NOT IN (
+      SELECT MIN(id)
+      FROM public.saved_lists
+      GROUP BY name, user_id
+    );
+    RAISE NOTICE '✅ Deduplicated saved_lists rows';
+  END IF;
+END $$;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_lists_name_user
   ON public.saved_lists(name, user_id);
 CREATE INDEX IF NOT EXISTS idx_saved_lists_user_id

@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { fetchAllSongRequests, SongRequest } from '../../util/api';
 import { fetchRangeConflictPendingCount } from '../../util/rangeConflictApi';
 import SongRequestsTab from './SongRequestsTab';
+import DuplicatesTab from './DuplicatesTab';
 import RangeReviewsTab from './RangeReviewsTab';
 
 interface PendingSong {
@@ -49,7 +50,7 @@ export default function ContentModerationScreen({ navigation }: any) {
     const [rangeConflictPendingCount, setRangeConflictPendingCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [activeTab, setActiveTab] = useState<'songs' | 'issues' | 'requests' | 'ranges'>('songs');
+    const [activeTab, setActiveTab] = useState<'songs' | 'issues' | 'requests' | 'duplicates' | 'ranges'>('songs');
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -324,6 +325,23 @@ export default function ContentModerationScreen({ navigation }: any) {
                 <TouchableOpacity
                     style={[
                         styles.tab,
+                        activeTab === 'duplicates' && styles.activeTab,
+                        activeTab === 'duplicates' && { borderBottomColor: colors.primary },
+                    ]}
+                    onPress={() => setActiveTab('duplicates')}
+                >
+                    <Text
+                        style={[
+                            styles.tabText,
+                            { color: activeTab === 'duplicates' ? colors.primary : colors.textSecondary },
+                        ]}
+                    >
+                        Duplicates
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[
+                        styles.tab,
                         activeTab === 'ranges' && styles.activeTab,
                         activeTab === 'ranges' && { borderBottomColor: colors.primary },
                     ]}
@@ -385,6 +403,15 @@ export default function ContentModerationScreen({ navigation }: any) {
                     refreshing={refreshing}
                     onRefresh={onRefresh}
                     reloadData={fetchAllData}
+                />
+            ) : activeTab === 'duplicates' ? (
+                <DuplicatesTab
+                    onMerged={async () => {
+                        // A merge can delete songs that had pending range
+                        // reviews, so the Ranges badge may now be stale.
+                        const newCount = await fetchRangeConflictPendingCount();
+                        setRangeConflictPendingCount(newCount);
+                    }}
                 />
             ) : (
                 <RangeReviewsTab

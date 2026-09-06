@@ -28,6 +28,7 @@ import { NOTES } from "../../util/vocalRange";
 import {
   countActiveSongInfoFilters,
   DEFAULT_SONG_FILTERS,
+  SearchView,
   SongFilters,
   SongInfoFilters,
 } from "../../util/songFilters";
@@ -40,6 +41,10 @@ const SELECTABLE_NOTES = NOTES.filter((note) => !note.endsWith("0"));
 type SongFilterModalProps = {
   visible: boolean;
   filters: SongFilters;
+  /** Which list the popup is filtering. In the Artists view the song-only
+   *  sections are shown but locked, so their state stays visible (and saved)
+   *  while it is clear they are not narrowing the artist list. */
+  view: SearchView;
   isLoggedIn: boolean;
   hasVocalRange: boolean;
   onSave: (filters: SongFilters) => void;
@@ -51,6 +56,7 @@ type SongFilterModalProps = {
 export default function SongFilterModal({
   visible,
   filters,
+  view,
   isLoggedIn,
   hasVocalRange,
   onSave,
@@ -59,6 +65,7 @@ export default function SongFilterModal({
 }: SongFilterModalProps) {
   const { colors } = useTheme();
   const styles = createStyles(colors);
+  const isArtistsView = view === "artists";
 
   const [draft, setDraft] = useState<SongFilters>(filters);
   // The Song Info options live in their own side panel opened from the row
@@ -116,6 +123,30 @@ export default function SongFilterModal({
       return;
     }
     onSave(draft);
+  };
+
+  // "Songs only" marker on the sections that sit out in the Artists view.
+  // They stay visible (rather than disappearing) so the user can see their
+  // saved filters are still there, just not doing anything right now.
+  const renderSongsOnlyTag = () => (
+    <View style={styles.songsOnlyTag}>
+      <Ionicons name="lock-closed" size={11} color={colors.textTertiary} />
+      <Text style={styles.songsOnlyTagText}>Songs only</Text>
+    </View>
+  );
+
+  // Section heading. `songOnly` sections are dimmed and tagged in the
+  // Artists view; the range sections apply to both and never are.
+  const renderSectionLabel = (label: string, songOnly: boolean) => {
+    const locked = songOnly && isArtistsView;
+    return (
+      <View style={styles.sectionLabelRow}>
+        <Text style={[styles.sectionLabelInline, locked && styles.sectionLabelLocked]}>
+          {label}
+        </Text>
+        {locked && renderSongsOnlyTag()}
+      </View>
+    );
   };
 
   // Pill-style option: selected = filled orange, unselected = outlined card
@@ -194,7 +225,7 @@ export default function SongFilterModal({
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
               <Ionicons name="options" size={20} color={colors.primary} />
-              <Text style={styles.title}>Filter Songs</Text>
+              <Text style={styles.title}>{isArtistsView ? "Filter Artists" : "Filter Songs"}</Text>
             </View>
             <Pressable
               onPress={() => setDraft({ ...DEFAULT_SONG_FILTERS })}
@@ -217,7 +248,11 @@ export default function SongFilterModal({
                 pressed && styles.pressed,
               ]}
               accessibilityRole="button"
-              accessibilityLabel="Only songs in your vocal range"
+              accessibilityLabel={
+                isArtistsView
+                  ? "Only artists in your vocal range"
+                  : "Only songs in your vocal range"
+              }
               accessibilityState={{ selected: draft.inRangeOnly }}
             >
               <Ionicons
@@ -234,9 +269,11 @@ export default function SongFilterModal({
                 <Text
                   style={[styles.inRangeSub, draft.inRangeOnly && styles.inRangeSubActive]}
                 >
-                  {isLoggedIn
-                    ? "Only songs that fit your vocal range"
-                    : "Sign in to filter by your vocal range"}
+                  {!isLoggedIn
+                    ? "Sign in to filter by your vocal range"
+                    : isArtistsView
+                      ? "Only artists whose whole range fits yours"
+                      : "Only songs that fit your vocal range"}
                 </Text>
               </View>
               {draft.inRangeOnly && (
@@ -244,8 +281,21 @@ export default function SongFilterModal({
               )}
             </Pressable>
 
-            <Text style={styles.sectionLabel}>Sort By</Text>
-            <View style={styles.chipRow}>
+            {isArtistsView && (
+              <View style={styles.viewNote}>
+                <Ionicons name="information-circle-outline" size={15} color={colors.link} />
+                <Text style={styles.viewNoteText}>
+                  Artists are matched on their overall range, so only the two
+                  range filters apply here. The rest stay saved for Songs.
+                </Text>
+              </View>
+            )}
+
+            {renderSectionLabel("Sort By", true)}
+            <View
+              style={[styles.chipRow, isArtistsView && styles.lockedBlock]}
+              pointerEvents={isArtistsView ? "none" : "auto"}
+            >
               {renderChip("Shuffle", "shuffle", !draft.trendingFirst, () =>
                 update({ trendingFirst: false })
               )}
@@ -255,7 +305,10 @@ export default function SongFilterModal({
             </View>
 
             <View style={styles.sectionLabelRow}>
-              <Text style={styles.sectionLabelInline}>Song Type</Text>
+              <Text style={[styles.sectionLabelInline, isArtistsView && styles.sectionLabelLocked]}>
+                Song Type
+              </Text>
+              {isArtistsView && renderSongsOnlyTag()}
               <Pressable
                 onPress={showVerifiedRangeInfo}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -266,7 +319,10 @@ export default function SongFilterModal({
                 <Ionicons name="information-circle-outline" size={16} color={colors.link} />
               </Pressable>
             </View>
-            <View style={styles.chipRow}>
+            <View
+              style={[styles.chipRow, isArtistsView && styles.lockedBlock]}
+              pointerEvents={isArtistsView ? "none" : "auto"}
+            >
               {renderChip("All Songs", "musical-notes", !draft.verifiedOnly && !draft.userAddedOnly, () =>
                 update({ verifiedOnly: false, userAddedOnly: false })
               )}
@@ -282,7 +338,7 @@ export default function SongFilterModal({
               */}
             </View>
 
-            <Text style={styles.sectionLabel}>Note Range</Text>
+            {renderSectionLabel("Note Range", false)}
             <View style={styles.chipRow}>
               {renderChip("Any Range", "infinite", !draft.customRangeEnabled, () =>
                 update({ customRangeEnabled: false })
@@ -303,10 +359,15 @@ export default function SongFilterModal({
               </View>
             )}
 
-            <Text style={styles.sectionLabel}>Song Info</Text>
+            {renderSectionLabel("Song Info", true)}
             <Pressable
-              onPress={() => setSongInfoPanelVisible(true)}
-              style={({ pressed }) => [styles.songInfoRow, pressed && styles.pressed]}
+              onPress={() => !isArtistsView && setSongInfoPanelVisible(true)}
+              disabled={isArtistsView}
+              style={({ pressed }) => [
+                styles.songInfoRow,
+                isArtistsView && styles.lockedBlock,
+                pressed && styles.pressed,
+              ]}
               accessibilityRole="button"
               accessibilityLabel="Filter by BPM, genre, year, length, key or tessitura"
             >
@@ -394,6 +455,39 @@ const createStyles = (colors: typeof import("../../styles/theme").LightColors) =
     pressed: {
       opacity: 0.7,
     },
+    // Song-only sections in the Artists view: readable, clearly inactive.
+    lockedBlock: {
+      opacity: 0.45,
+    },
+    songsOnlyTag: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+      borderRadius: 10,
+      backgroundColor: colors.backgroundTertiary,
+    },
+    songsOnlyTagText: {
+      fontSize: 10,
+      fontWeight: "600",
+      color: colors.textTertiary,
+    },
+    viewNote: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 6,
+      marginTop: 12,
+      padding: 10,
+      borderRadius: 10,
+      backgroundColor: colors.highlightAlt,
+    },
+    viewNoteText: {
+      flex: 1,
+      fontSize: 12,
+      lineHeight: 16,
+      color: colors.textSecondary,
+    },
     header: {
       flexDirection: "row",
       alignItems: "center",
@@ -473,6 +567,9 @@ const createStyles = (colors: typeof import("../../styles/theme").LightColors) =
       color: colors.textSecondary,
       textTransform: "uppercase",
       letterSpacing: 0.6,
+    },
+    sectionLabelLocked: {
+      color: colors.textTertiary,
     },
     chipRow: {
       flexDirection: "row",

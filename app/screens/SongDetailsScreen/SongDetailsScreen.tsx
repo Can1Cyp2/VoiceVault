@@ -41,6 +41,7 @@ import { SongImage as SongImageData } from "../../util/songImages";
 import SingThisModal from "./SingThisModal";
 import SongMetadataCard from "./SongMetadataCard";
 import { fetchSongMetadata, SongMetadata } from "../../util/songMetadata";
+import { goToStackScreen, isSameArtist } from "../../navigation/stackNav";
 
 const { width } = Dimensions.get('window');
 
@@ -287,11 +288,15 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
     setModalVisible(false);
   };
 
-  // Function to handle artist, sends user to artist page
+  // Function to handle artist, sends user to artist page.
+  // Reuses the artist screen already in the stack when it is the same artist
+  // (the usual case: the user came here from it), so Artist -> Song -> Artist
+  // stays two screens deep instead of stacking a duplicate that back has to
+  // walk through. See goToStackScreen.
   const handleArtistPress = () => {
-    navigation.navigate("ArtistDetails", {
-      name: artist,
-    });
+    goToStackScreen(navigation, "ArtistDetails", { name: artist }, (params) =>
+      isSameArtist(params, artist)
+    );
   };
 
   // Submit the issue report to Supabase

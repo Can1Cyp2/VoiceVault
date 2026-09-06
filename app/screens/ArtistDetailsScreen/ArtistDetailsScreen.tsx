@@ -15,6 +15,7 @@ import { COLORS, FONTS } from "../../styles/theme";
 import { useTheme } from "../../contexts/ThemeContext";
 import { noteToValue } from "../SongDetailsScreen/RangeBestFit";
 import { RootStackParamList } from "../../navigation/StackNavigator";
+import { goToStackScreen, isSameSong } from "../../navigation/stackNav";
 
 export const ArtistDetailsScreen = ({ route }: any) => {
   const { colors } = useTheme();
@@ -208,13 +209,21 @@ export const ArtistDetailsScreen = ({ route }: any) => {
 
 
   // Function to handle song press:
-  // navigates to the song details screen with the selected song's details
+  // navigates to the song details screen with the selected song's details.
+  // A different song pushes a new screen (so back returns here, to the
+  // artist), but tapping the song the user arrived from reuses that screen
+  // instead of stacking a second copy of it. See goToStackScreen.
   const handleSongPress = (song: any) => {
-    navigation.navigate("Details", {
-      name: song.name,
-      artist: song.artist,
-      vocalRange: song.vocalRange,
-    });
+    goToStackScreen(
+      navigation,
+      "Details",
+      {
+        name: song.name,
+        artist: song.artist,
+        vocalRange: song.vocalRange,
+      },
+      (params) => isSameSong(params, { name: song.name, artist: song.artist })
+    );
   };
 
   // render the header:

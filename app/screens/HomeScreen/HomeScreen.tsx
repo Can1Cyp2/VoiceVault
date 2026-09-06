@@ -381,7 +381,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         </View>
       )}
 
-      <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.6.5</Text>
+      <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.7.0</Text>
     </View>
   );
 }

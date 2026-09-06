@@ -8,7 +8,7 @@ module.exports = () => {
   return {
     name: "VoiceVault",
     slug: "VoiceVault",
-    version: "1.6.5",
+    version: "1.7.0",
     orientation: "default",
     icon: "./assets/dark-glow-nontransparent-icon2.png",
     userInterfaceStyle: "light",
@@ -106,8 +106,8 @@ module.exports = () => {
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.RECORD_AUDIO",
       ],
-      compileSdkVersion: 35,
-      targetSdkVersion: 35,
+      compileSdkVersion: 36,
+      targetSdkVersion: 36,
       config: {
         googleMobileAdsAppId: "ca-app-pub-7846050438990670~7402587455",
       },
@@ -135,8 +135,8 @@ module.exports = () => {
           },
           android: {
             kotlinVersion: "2.0.21",
-            compileSdkVersion: 35,
-            targetSdkVersion: 35,
+            compileSdkVersion: 36,
+            targetSdkVersion: 36,
             ndkVersion: "27.0.12077973",
             architectures: ["arm64-v8a", "armeabi-v7a", "x86", "x86_64"],
           },

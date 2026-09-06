@@ -35,6 +35,7 @@ import SongRangeRecommendation from "./SongRangeRecommendation";
 import Piano from '../../components/Piano/Piano';
 import { getPianoAudioFile } from "../../util/pianoNotes";
 import { showVerifiedRangeInfo } from "../../util/verifiedInfo";
+import { useAdminStatus } from "../../util/adminUtils";
 import SongImage from "../../components/SongImage/SongImage";
 import { SongImage as SongImageData } from "../../util/songImages";
 import SingThisModal from "./SingThisModal";
@@ -62,6 +63,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   const [issueText, setIssueText] = useState("");
   const referenceSoundRef = useRef<Audio.Sound | null>(null);
   const [isSingModalVisible, setSingModalVisible] = useState(false);
+  const { isAdmin } = useAdminStatus();
   const [songImage, setSongImage] = useState<SongImageData | null>(null);
   const [metadata, setMetadata] = useState<SongMetadata | null>(null);
 
@@ -653,6 +655,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
         song={{ name, artist, vocalRange }}
         isLoggedIn={isLoggedIn}
         onAddToList={() => setModalVisible(true)}
+        isAdmin={isAdmin}
       />
     </ScrollView>
   );

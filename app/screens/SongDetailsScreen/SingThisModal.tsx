@@ -59,6 +59,8 @@ type SingThisModalProps = {
   isLoggedIn?: boolean;
   /** Called when the user wants to pick a list themselves (parent opens its list modal). */
   onAddToList?: () => void;
+  /** When true, reveals an admin-only debug bypass button. */
+  isAdmin?: boolean;
 };
 
 export default function SingThisModal({
@@ -68,6 +70,7 @@ export default function SingThisModal({
   song = null,
   isLoggedIn = false,
   onAddToList,
+  isAdmin = false,
 }: SingThisModalProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -82,6 +85,9 @@ export default function SingThisModal({
   const [isListening, setIsListening] = useState(false);
   const [isSavingToList, setIsSavingToList] = useState(false);
   const [savedToInRange, setSavedToInRange] = useState(false);
+
+  // Admin-only: skip the recording flow and jump straight to results.
+  const [adminBypassActive, setAdminBypassActive] = useState(false);
 
   const detectionStopRef = useRef<(() => void) | null>(null);
   const recordTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -447,6 +453,18 @@ export default function SingThisModal({
     setView("complete");
   }, [stopListening]);
 
+  // Admin-only: auto-pass every note and jump straight to results.
+  const adminBypass = useCallback(() => {
+    setStepResults(
+      targets.map((target) => ({
+        target,
+        status: "passed" as SingNoteStatus,
+        heldMs: SING_HOLD_DURATION_MS,
+      }))
+    );
+    setView("complete");
+  }, [targets]);
+
   const closeModal = useCallback(() => {
     resetModalState();
     void stopReferenceSound();
@@ -498,6 +516,20 @@ export default function SingThisModal({
                 <TouchableOpacity style={styles.primaryButton} onPress={confirmReady}>
                   <Text style={styles.primaryButtonText}>I am Ready</Text>
                 </TouchableOpacity>
+
+                {/* Admin-only debug bypass — hidden from normal users */}
+                {isAdmin && (
+                  <TouchableOpacity
+                    style={[styles.secondaryButton, { marginTop: 8 }]}
+                    onPress={() => {
+                      if (!targets.length) return;
+                      setAdminBypassActive(true);
+                      adminBypass();
+                    }}
+                  >
+                    <Text style={styles.secondaryButtonText}>Debug Bypass</Text>
+                  </TouchableOpacity>
+                )}
               </>
             )}
 

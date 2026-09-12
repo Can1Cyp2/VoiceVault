@@ -26,9 +26,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../contexts/ThemeContext";
 import { NOTES } from "../../util/vocalRange";
 import {
+  countActiveSongInfoFilters,
   DEFAULT_SONG_FILTERS,
   SongFilters,
+  SongInfoFilters,
 } from "../../util/songFilters";
+import { showVerifiedRangeInfo } from "../../util/verifiedInfo";
+import SongInfoFilterPanel from "./SongInfoFilterPanel";
 
 // Notes users can realistically pick; skip the extreme sub-bass octave 0.
 const SELECTABLE_NOTES = NOTES.filter((note) => !note.endsWith("0"));
@@ -57,11 +61,21 @@ export default function SongFilterModal({
   const styles = createStyles(colors);
 
   const [draft, setDraft] = useState<SongFilters>(filters);
+  // The Song Info options live in their own side panel opened from the row
+  // below, but they edit the SAME draft - so they are saved or discarded
+  // together with everything else here, rather than having their own
+  // separate save that could disagree with Cancel.
+  const [songInfoPanelVisible, setSongInfoPanelVisible] = useState(false);
 
   // Start each session from the saved filters.
   useEffect(() => {
     if (visible) setDraft(filters);
   }, [visible, filters]);
+
+  // Never leave the sub-panel open behind a closed parent popup.
+  useEffect(() => {
+    if (!visible) setSongInfoPanelVisible(false);
+  }, [visible]);
 
   const update = (changes: Partial<SongFilters>) =>
     setDraft((prev) => ({ ...prev, ...changes }));
@@ -87,6 +101,8 @@ export default function SongFilterModal({
     }
     update({ inRangeOnly: !draft.inRangeOnly });
   };
+
+  const songInfoCount = countActiveSongInfoFilters(draft.songInfo);
 
   const validateAndSave = () => {
     if (
@@ -161,7 +177,17 @@ export default function SongFilterModal({
   );
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={validateAndSave}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      // Android back: dismiss the Song Info sub-panel first if it is open,
+      // rather than closing the whole popup out from under it.
+      onRequestClose={() => {
+        if (songInfoPanelVisible) setSongInfoPanelVisible(false);
+        else validateAndSave();
+      }}
+    >
       {/* Tapping outside the popup saves and closes, like Save */}
       <Pressable style={styles.overlay} onPress={validateAndSave}>
         <Pressable style={styles.panel} onPress={() => {}}>
@@ -228,7 +254,18 @@ export default function SongFilterModal({
               )}
             </View>
 
-            <Text style={styles.sectionLabel}>Song Type</Text>
+            <View style={styles.sectionLabelRow}>
+              <Text style={styles.sectionLabelInline}>Song Type</Text>
+              <Pressable
+                onPress={showVerifiedRangeInfo}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="What does Verified mean?"
+                style={({ pressed }) => pressed && styles.pressed}
+              >
+                <Ionicons name="information-circle-outline" size={16} color={colors.link} />
+              </Pressable>
+            </View>
             <View style={styles.chipRow}>
               {renderChip("All Songs", "musical-notes", !draft.verifiedOnly && !draft.userAddedOnly, () =>
                 update({ verifiedOnly: false, userAddedOnly: false })
@@ -265,6 +302,30 @@ export default function SongFilterModal({
                 )}
               </View>
             )}
+
+            <Text style={styles.sectionLabel}>Song Info</Text>
+            <Pressable
+              onPress={() => setSongInfoPanelVisible(true)}
+              style={({ pressed }) => [styles.songInfoRow, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Filter by BPM, genre, year, length, key or tessitura"
+            >
+              <Ionicons name="albums-outline" size={18} color={colors.primary} />
+              <View style={styles.songInfoTextBlock}>
+                <Text style={styles.songInfoTitle}>BPM, genre, year, length, key</Text>
+                <Text style={styles.songInfoSub} numberOfLines={1}>
+                  {songInfoCount > 0
+                    ? `${songInfoCount} selected`
+                    : "Narrow by a song's extra details"}
+                </Text>
+              </View>
+              {songInfoCount > 0 && (
+                <View style={styles.songInfoBadge}>
+                  <Text style={styles.songInfoBadgeText}>{songInfoCount}</Text>
+                </View>
+              )}
+              <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+            </Pressable>
           </ScrollView>
 
           <View style={styles.buttonRow}>
@@ -287,6 +348,18 @@ export default function SongFilterModal({
           </View>
         </Pressable>
       </Pressable>
+
+      {/* Side panel opened from the Song Info row. Edits draft.songInfo in
+          place, so Cancel/Save on THIS popup governs it too. */}
+      <SongInfoFilterPanel
+        visible={songInfoPanelVisible}
+        filters={draft.songInfo}
+        onApply={(songInfo: SongInfoFilters) => {
+          update({ songInfo });
+          setSongInfoPanelVisible(false);
+        }}
+        onCancel={() => setSongInfoPanelVisible(false)}
+      />
     </Modal>
   );
 }
@@ -387,6 +460,20 @@ const createStyles = (colors: typeof import("../../styles/theme").LightColors) =
       marginTop: 14,
       marginBottom: 8,
     },
+    sectionLabelRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginTop: 14,
+      marginBottom: 8,
+    },
+    sectionLabelInline: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.textSecondary,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+    },
     chipRow: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -414,6 +501,42 @@ const createStyles = (colors: typeof import("../../styles/theme").LightColors) =
     },
     chipTextSelected: {
       color: colors.buttonText,
+    },
+    songInfoRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.backgroundTertiary,
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+    },
+    songInfoTextBlock: { flex: 1 },
+    songInfoTitle: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: colors.textPrimary,
+    },
+    songInfoSub: {
+      fontSize: 11.5,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    songInfoBadge: {
+      minWidth: 20,
+      height: 20,
+      borderRadius: 10,
+      paddingHorizontal: 5,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primary,
+    },
+    songInfoBadgeText: {
+      color: colors.buttonText,
+      fontSize: 11,
+      fontWeight: "700",
     },
     rangePickerRow: {
       flexDirection: "row",

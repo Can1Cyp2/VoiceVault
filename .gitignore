@@ -88,6 +88,7 @@ supabase/**
 supabase/migrations/**
 !supabase/migrations/20260227_add_voice_type_to_user_vocal_ranges.sql
 !supabase/migrations/20260507_add_secure_tuner_debug_settings.sql
+!supabase/migrations/20260807_add_saved_lists_and_songs.sql
 
 # Admin-only: private range conflict review tooling (tied to the personal
 # RangeHarvester verification tool - not meant to be public)

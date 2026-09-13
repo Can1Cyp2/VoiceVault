@@ -20,6 +20,7 @@ import { setLoginGlow } from "./app/util/loginPrompt";
 import { adService } from "./app/components/SupportModal/AdService";
 import PreferencesModal from "./app/components/Settings/PreferencesModal";
 import { maybeAutoClearCache } from "./app/util/cacheManager";
+import LoadingScreen from "./app/components/LoadingScreen/LoadingScreen";
 
 // Initialize Sentry for production error tracking
 try {
@@ -120,13 +121,15 @@ const ProfileScreenWrapper = () => {
 };
 
 function AppContent() {
-  const { colors } = useTheme();
+  const { colors, isDark, isReady: isThemeReady } = useTheme();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentScreen, setCurrentScreen] = useState("Home"); // Track current screen
   const [attRequested, setAttRequested] = useState(false);
   const [guestPrefsVisible, setGuestPrefsVisible] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+  const [appInitializationReady, setAppInitializationReady] = useState(false);
+  const [showLoadingScreen, setShowLoadingScreen] = useState(true);
   const navigationRef = useNavigationContainerRef();
-  const { isDark } = useTheme();
 
   // Lock app to portrait by default (Piano screen overrides this to landscape)
   useEffect(() => {
@@ -168,6 +171,9 @@ function AppContent() {
           tags: { location: 'initializeApp', critical: true },
           extra: { message: error?.message, stack: error?.stack }
         });
+      } finally {
+        // The loading screen should not wait for background ad preloading.
+        setAppInitializationReady(true);
       }
     };
 
@@ -187,6 +193,8 @@ function AppContent() {
       } catch (error) {
         console.error("Error checking session:", error);
         setIsLoggedIn(false);
+      } finally {
+        setSessionReady(true);
       }
     };
 
@@ -207,9 +215,11 @@ function AppContent() {
     };
   }, []);
 
+  const startupReady = isThemeReady && sessionReady && appInitializationReady;
+
   return (
     <>
-      <StatusBar style={isDark ? "light" : "dark"} />
+      <StatusBar style={showLoadingScreen || isDark ? "light" : "dark"} />
       <NavigationContainer
         ref={navigationRef}
         onStateChange={(state) => {
@@ -294,6 +304,13 @@ function AppContent() {
       />
 
       <Toast />
+
+      {showLoadingScreen && (
+        <LoadingScreen
+          ready={startupReady}
+          onFinished={() => setShowLoadingScreen(false)}
+        />
+      )}
     </>
   );
 }

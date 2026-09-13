@@ -53,6 +53,7 @@ import { supabase } from "../../util/supabase";
 import { checkAdminStatus } from "../../util/adminUtils";
 import { adService } from "../../components/SupportModal/AdService"; // Import your ad service
 import { useTheme } from "../../contexts/ThemeContext";
+import { useLoadingIntro } from "../../contexts/LoadingIntroContext";
 import {
     fetchAdminTunerDebugEnabled,
     setAdminTunerDebugEnabled,
@@ -163,6 +164,7 @@ interface AdDebugInfo {
 
 export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
     const { colors } = useTheme();
+    const { playLoadingIntro } = useLoadingIntro();
     const styles = useMemo(() => createStyles(colors), [colors]);
     
     const [adminDetails, setAdminDetails] = useState<AdminDetails | null>(null);
@@ -732,6 +734,29 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
                             thumbColor={updateBannerPreview ? colors.buttonText : colors.backgroundTertiary}
                         />
                     </View>
+                </View>
+
+                <View style={styles.debugCard}>
+                    <Text style={styles.debugCardTitle}>Loading Intro Preview</Text>
+                    <Text style={[styles.tunerDebugStatus, { marginBottom: 12 }]}>
+                        Replay the real startup animation without restarting the app.
+                    </Text>
+                    <TouchableOpacity
+                        style={styles.testButton}
+                        onPress={() => {
+                            Alert.alert(
+                                "Preview loading intro",
+                                "Choose how long the glow should flicker before it finishes at full brightness.",
+                                [
+                                    { text: "5 seconds", onPress: () => playLoadingIntro(5_000) },
+                                    { text: "10 seconds", onPress: () => playLoadingIntro(10_000) },
+                                    { text: "Cancel", style: "cancel" },
+                                ]
+                            );
+                        }}
+                    >
+                        <Text style={styles.testButtonText}>✨ Preview Loading Intro</Text>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Ad Status */}

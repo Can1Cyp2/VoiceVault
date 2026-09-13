@@ -12,7 +12,7 @@ import * as ScreenOrientation from "expo-screen-orientation";
 import HomeScreen from "./app/screens/HomeScreen/HomeScreen";
 import ProfileScreen from "./app/screens/ProfileScreen/ProfileScreen";
 import AdminProfileScreen from "./app/screens/ProfileScreen/AdminProfileScreen";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import React from "react";
 import Toast from "react-native-toast-message";
 import { useAdminStatus } from "./app/util/adminUtils";
@@ -21,6 +21,10 @@ import { adService } from "./app/components/SupportModal/AdService";
 import PreferencesModal from "./app/components/Settings/PreferencesModal";
 import { maybeAutoClearCache } from "./app/util/cacheManager";
 import LoadingScreen from "./app/components/LoadingScreen/LoadingScreen";
+import {
+  LoadingIntroContext,
+  type LoadingIntroPreviewDuration,
+} from "./app/contexts/LoadingIntroContext";
 
 // Initialize Sentry for production error tracking
 try {
@@ -129,7 +133,18 @@ function AppContent() {
   const [sessionReady, setSessionReady] = useState(false);
   const [appInitializationReady, setAppInitializationReady] = useState(false);
   const [showLoadingScreen, setShowLoadingScreen] = useState(true);
+  const [loadingIntroPreview, setLoadingIntroPreview] = useState<{
+    id: number;
+    durationMs: LoadingIntroPreviewDuration;
+  } | null>(null);
   const navigationRef = useNavigationContainerRef();
+
+  const playLoadingIntro = useCallback(
+    (durationMs: LoadingIntroPreviewDuration) => {
+      setLoadingIntroPreview({ id: Date.now(), durationMs });
+    },
+    []
+  );
 
   // Lock app to portrait by default (Piano screen overrides this to landscape)
   useEffect(() => {
@@ -216,10 +231,25 @@ function AppContent() {
   }, []);
 
   const startupReady = isThemeReady && sessionReady && appInitializationReady;
+  const activeLoadingScreen = loadingIntroPreview
+    ? {
+        key: `preview-${loadingIntroPreview.id}`,
+        ready: true,
+        minimumVisibleMs: loadingIntroPreview.durationMs,
+        onFinished: () => setLoadingIntroPreview(null),
+      }
+    : showLoadingScreen
+      ? {
+          key: "startup",
+          ready: startupReady,
+          minimumVisibleMs: undefined,
+          onFinished: () => setShowLoadingScreen(false),
+        }
+      : null;
 
   return (
-    <>
-      <StatusBar style={showLoadingScreen || isDark ? "light" : "dark"} />
+    <LoadingIntroContext.Provider value={{ playLoadingIntro }}>
+      <StatusBar style={activeLoadingScreen || isDark ? "light" : "dark"} />
       <NavigationContainer
         ref={navigationRef}
         onStateChange={(state) => {
@@ -305,13 +335,15 @@ function AppContent() {
 
       <Toast />
 
-      {showLoadingScreen && (
+      {activeLoadingScreen && (
         <LoadingScreen
-          ready={startupReady}
-          onFinished={() => setShowLoadingScreen(false)}
+          key={activeLoadingScreen.key}
+          ready={activeLoadingScreen.ready}
+          minimumVisibleMs={activeLoadingScreen.minimumVisibleMs}
+          onFinished={activeLoadingScreen.onFinished}
         />
       )}
-    </>
+    </LoadingIntroContext.Provider>
   );
 }
 

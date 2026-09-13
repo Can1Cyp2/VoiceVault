@@ -12,6 +12,7 @@ import Svg, { G, Path, Rect } from "react-native-svg";
 interface LoadingScreenProps {
   ready: boolean;
   onFinished: () => void;
+  minimumVisibleMs?: number;
 }
 
 interface MicrophonePathsProps {
@@ -49,7 +50,11 @@ const MicrophonePaths = ({
   </G>
 );
 
-const LoadingScreen = ({ ready, onFinished }: LoadingScreenProps) => {
+const LoadingScreen = ({
+  ready,
+  onFinished,
+  minimumVisibleMs = MINIMUM_VISIBLE_MS,
+}: LoadingScreenProps) => {
   const glowOpacity = useRef(new Animated.Value(0.72)).current;
   const iconScale = useRef(new Animated.Value(1)).current;
   const screenOpacity = useRef(new Animated.Value(1)).current;
@@ -105,7 +110,7 @@ const LoadingScreen = ({ ready, onFinished }: LoadingScreenProps) => {
     }
 
     const elapsed = Date.now() - mountedAt.current;
-    const remaining = Math.max(0, MINIMUM_VISIBLE_MS - elapsed);
+    const remaining = Math.max(0, minimumVisibleMs - elapsed);
     const finishTimer = setTimeout(() => {
       flicker.stop();
 
@@ -142,7 +147,7 @@ const LoadingScreen = ({ ready, onFinished }: LoadingScreenProps) => {
       clearTimeout(finishTimer);
       flicker.stop();
     };
-  }, [glowOpacity, iconScale, ready, screenOpacity]);
+  }, [glowOpacity, iconScale, minimumVisibleMs, ready, screenOpacity]);
 
   return (
     <Animated.View

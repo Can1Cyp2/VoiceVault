@@ -1,5 +1,5 @@
 // app/util/pianoAudio.ts
-import { Audio } from 'expo-av';
+import { Audio } from './audio';
 
 const NOTE_AUDIO_FILES: Record<string, any> = {
   C1: require('../../assets/piano/C1.wav'),

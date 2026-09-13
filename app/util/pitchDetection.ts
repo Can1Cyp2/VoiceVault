@@ -1,7 +1,7 @@
 // app/util/pitchDetection.ts
 
 import { Platform, PermissionsAndroid } from 'react-native';
-import { Audio } from 'expo-av';
+import { Audio } from './audio';
 import * as Sentry from '@sentry/react-native';
 import { addPitchDebugEvent } from './pitchDebug';
 

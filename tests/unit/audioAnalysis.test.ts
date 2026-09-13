@@ -13,8 +13,8 @@
 jest.mock("../../app/util/supabase", () =>
   require("../helpers/supabaseMock").createSupabaseModuleMock()
 );
-jest.mock("expo-av", () => ({
-  Audio: { requestPermissionsAsync: jest.fn() },
+jest.mock("expo-audio", () => ({
+  requestRecordingPermissionsAsync: jest.fn(),
 }));
 jest.mock("@sentry/react-native", () => ({
   captureException: jest.fn(),

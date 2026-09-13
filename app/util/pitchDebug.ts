@@ -1,5 +1,5 @@
 import Constants from "expo-constants";
-import { Audio } from "expo-av";
+import { Audio } from "./audio";
 import { NativeModules, Platform } from "react-native";
 
 type PitchDebugData = Record<string, unknown>;

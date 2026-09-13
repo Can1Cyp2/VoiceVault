@@ -29,7 +29,6 @@ import AccountSettingsModal from "../../components/Settings/AccountSettingsModal
 import VocalRangeEditModal from "../../components/Settings/VocalRangeEditModal";
 import SongSubmissionsModal from "./SongSubmissionsModal";
 import { resetToSearchStackScreen } from "../../navigation/searchStackReset";
-import { useLoadingIntro } from "../../contexts/LoadingIntroContext";
 
 const VOICE_TYPE_GUIDE = [
   {
@@ -78,7 +77,6 @@ const getVoiceTypeGuide = (voiceType: string | null) => {
 
 export default function ProfileScreen({ navigation }: any) {
   const { colors, isDark, setMode } = useTheme();
-  const { playLoadingIntro } = useLoadingIntro();
   const styles = useMemo(() => createStyles(colors), [colors]);
   
   const [isMenuVisible, setMenuVisible] = useState(false);
@@ -525,60 +523,24 @@ export default function ProfileScreen({ navigation }: any) {
 
             {/* Admin Access - Only visible to admins, re-verified on press */}
             {!adminLoading && isAdmin && (
-              <>
-                <TouchableOpacity
-                  style={styles.dropdownOption}
-                  onPress={(event) => {
-                    handleAdminAccess(event);
-                    setMenuVisible(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="shield-checkmark-outline" size={20} color={colors.warning} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.dropdownText, { color: colors.warning }]}>Admin Panel</Text>
-                    {adminDetails && typeof adminDetails === 'object' && 'role' in adminDetails && (
-                      <Text style={[styles.adminRoleDropdown, { color: colors.textTertiary }]}>
-                        {(adminDetails as any).role.replace("_", " ").toUpperCase()}
-                      </Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.dropdownOption}
-                  onPress={() => {
-                    Alert.alert(
-                      "Preview loading intro",
-                      "Choose how long the glow should flicker before it finishes at full brightness.",
-                      [
-                        {
-                          text: "5 seconds",
-                          onPress: () => {
-                            setMenuVisible(false);
-                            playLoadingIntro(5_000);
-                          },
-                        },
-                        {
-                          text: "10 seconds",
-                          onPress: () => {
-                            setMenuVisible(false);
-                            playLoadingIntro(10_000);
-                          },
-                        },
-                        { text: "Cancel", style: "cancel" },
-                      ]
-                    );
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="sparkles-outline" size={20} color={colors.warning} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.dropdownText, { color: colors.warning }]}>Preview Loading Intro</Text>
-                    <Text style={[styles.adminRoleDropdown, { color: colors.textTertiary }]}>ADMIN TEST</Text>
-                  </View>
-                </TouchableOpacity>
-              </>
+              <TouchableOpacity
+                style={styles.dropdownOption}
+                onPress={(event) => {
+                  handleAdminAccess(event);
+                  setMenuVisible(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="shield-checkmark-outline" size={20} color={colors.warning} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.dropdownText, { color: colors.warning }]}>Admin Panel</Text>
+                  {adminDetails && typeof adminDetails === 'object' && 'role' in adminDetails && (
+                    <Text style={[styles.adminRoleDropdown, { color: colors.textTertiary }]}>
+                      {(adminDetails as any).role.replace("_", " ").toUpperCase()}
+                    </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
             )}
 
             {/* Logout */}

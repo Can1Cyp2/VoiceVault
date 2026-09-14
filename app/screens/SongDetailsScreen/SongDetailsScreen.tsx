@@ -387,10 +387,15 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       {/* Song Title */}
       <Text style={styles.songTitle}>{name}</Text>
 
-      {/* Artist Name */}
+      {/* Artist Name - tappable, navigates to the artist page */}
       {artist && (
-        <TouchableOpacity onPress={handleArtistPress}>
+        <TouchableOpacity
+          onPress={handleArtistPress}
+          activeOpacity={0.7}
+          style={styles.artistRow}
+        >
           <Text style={styles.artistName}>{artist}</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.primary} />
         </TouchableOpacity>
       )}
 
@@ -405,7 +410,13 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
           onPress={showVerifiedRangeInfo}
           activeOpacity={0.7}
         >
-          <Text style={styles.statusTextVerified}>✅ Verified Vocal Range</Text>
+          <Ionicons
+            name="shield-checkmark-outline"
+            size={15}
+            color={colors.primary}
+            style={{ marginRight: 5 }}
+          />
+          <Text style={styles.statusTextVerified}>Verified Vocal Range</Text>
           <Ionicons
             name="information-circle-outline"
             size={16}
@@ -504,6 +515,8 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       {/* Tempo / tessitura / genre / year / length - hidden when unknown */}
       <SongMetadataCard
         metadata={metadata}
+        songName={name}
+        artistName={artist}
         onPlayNote={(note) => {
           void playReferenceNote(note);
         }}
@@ -720,12 +733,19 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     marginBottom: 8,
     paddingHorizontal: 20,
   },
+  artistRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    marginBottom: 20,
+  },
   artistName: {
     fontSize: 24,
-    color: colors.textSecondary,
+    color: colors.primary,
     fontFamily: FONTS.primary,
     textAlign: 'center',
-    marginBottom: 20,
+    textDecorationLine: 'underline',
   },
 
   // Status Badge

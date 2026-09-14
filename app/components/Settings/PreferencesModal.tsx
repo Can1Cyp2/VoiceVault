@@ -18,7 +18,6 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { FONTS } from "../../styles/theme";
 import { useTheme } from "../../contexts/ThemeContext";
-import { showVerifiedRangeInfo } from "../../util/verifiedInfo";
 import {
   getSearchRecentsEnabled,
   setSearchRecentsEnabled,
@@ -26,8 +25,6 @@ import {
   setSongImagesEnabled,
   getSongImageSource,
   setSongImageSource,
-  getVerifiedSongsOnly,
-  setVerifiedSongsOnly,
   resetPreferencesToDefault,
   SongImageSource,
   SONG_IMAGE_SOURCES,
@@ -67,7 +64,6 @@ export default function PreferencesModal({
   const [searchRecents, setSearchRecents] = useState(true);
   const [songImages, setSongImages] = useState(true);
   const [imageSource, setImageSource] = useState<SongImageSource>("auto");
-  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [autoClearInterval, setAutoClearInterval] = useState<CacheAutoClearInterval>(
     DEFAULT_CACHE_AUTO_CLEAR_INTERVAL
   );
@@ -89,18 +85,16 @@ export default function PreferencesModal({
   );
 
   const loadPreferences = async () => {
-    const [recents, images, source, verified, clearInterval, hintsEnabled] = await Promise.all([
+    const [recents, images, source, clearInterval, hintsEnabled] = await Promise.all([
       getSearchRecentsEnabled(),
       getSongImagesEnabled(),
       getSongImageSource(),
-      getVerifiedSongsOnly(),
       getCacheAutoClearInterval(),
       getToolHintsEnabled(),
     ]);
     setSearchRecents(recents);
     setSongImages(images);
     setImageSource(source);
-    setVerifiedOnly(verified);
     setAutoClearInterval(clearInterval);
     setToolHintsEnabledState(hintsEnabled);
   };
@@ -128,11 +122,6 @@ export default function PreferencesModal({
     const next = SONG_IMAGE_SOURCES[nextIndex];
     setImageSource(next);
     await setSongImageSource(next);
-  };
-
-  const toggleVerified = async (value: boolean) => {
-    setVerifiedOnly(value);
-    await setVerifiedSongsOnly(value);
   };
 
   const toggleToolHints = async (value: boolean) => {
@@ -261,29 +250,6 @@ export default function PreferencesModal({
               </TouchableOpacity>
             )}
 
-            {/* Verified songs only */}
-            <View style={styles.row}>
-              <Ionicons name="shield-checkmark-outline" size={20} color={colors.textPrimary} />
-              <View style={styles.rowText}>
-                <View style={styles.labelRow}>
-                  <Text style={styles.rowTitle}>Verified Songs Only</Text>
-                  <TouchableOpacity
-                    onPress={showVerifiedRangeInfo}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="information-circle-outline" size={17} color={colors.link} />
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.rowSub}>Hide community uploads in search</Text>
-              </View>
-              <Switch
-                value={verifiedOnly}
-                onValueChange={(v) => void toggleVerified(v)}
-                trackColor={{ false: colors.backgroundTertiary, true: colors.highlightAlt }}
-                thumbColor={verifiedOnly ? colors.primary : colors.textTertiary}
-              />
-            </View>
-
             {/* Tool Hints */}
             <View style={styles.row}>
               <Ionicons name="bulb-outline" size={20} color={colors.textPrimary} />
@@ -407,11 +373,6 @@ const createStyles = (colors: typeof import("../../styles/theme").LightColors) =
     },
     rowText: {
       flex: 1,
-    },
-    labelRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
     },
     rowTitle: {
       fontSize: 16,

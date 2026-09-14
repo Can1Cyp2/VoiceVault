@@ -148,11 +148,19 @@ export const fetchSongsInList = async (listName: string) => {
 // Function to delete a song from a specific list
 export const deleteSongFromList = async (songId: number) => {
   try {
-    // Delete the song by its ID
+    // Get the current authenticated user
+    const session = supabase.auth.session();
+    if (!session?.user) {
+      Alert.alert("Error", "Please log in to remove songs from a list.");
+      return;
+    }
+
+    // Delete the song by its ID, scoped to the current user for RLS safety
     const { error } = await supabase
       .from("saved_songs")
       .delete()
-      .eq("id", songId);
+      .eq("id", songId)
+      .eq("user_id", session.user.id);
 
     if (error) throw error;
 

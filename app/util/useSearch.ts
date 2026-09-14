@@ -5,6 +5,7 @@ import Fuse from "fuse.js";
 import {
   searchArtistsByQuery,
   getRandomSongs,
+  getFilteredSongsPage,
   getTrendingSongs,
   smartSearchSongs,
 } from "../util/api";
@@ -14,6 +15,11 @@ import {
   calculateOverallRange,
   noteToValue,
 } from "./vocalRange";
+import {
+  SongInfoFilters,
+  hasActiveSongInfoFilters,
+  songMatchesSongInfoFilters,
+} from "./songFilters";
 
 // Cache for search results and artist data
 const searchCache = new Map<string, any[]>();
@@ -42,6 +48,12 @@ interface UseSearchProps {
   setInitialFetchDone: (done: boolean) => void;
   /** When true, browse (no query) results are ordered by recent search popularity. */
   trendingFirst?: boolean;
+  /** Filters over BPM/genre/year/length/key/tessitura - see songFilters.ts. */
+  songInfoFilters?: SongInfoFilters;
+  /** Only admin-added songs. Passed in so it can be applied DB-side while
+   *  browsing, which keeps pages full instead of hollowing them out after
+   *  the fact. */
+  verifiedOnly?: boolean;
 }
 
 export const useSearch = ({
@@ -51,6 +63,8 @@ export const useSearch = ({
   initialFetchDone,
   setInitialFetchDone,
   trendingFirst = false,
+  songInfoFilters,
+  verifiedOnly = false,
 }: UseSearchProps) => {
   const [state, setState] = useState<SearchState>({
     results: [],
@@ -68,6 +82,26 @@ export const useSearch = ({
   const [hasMoreArtists, setHasMoreArtists] = useState(true);
   const [endReachedLoading, setEndReachedLoading] = useState(false);
   const loadingMoreRef = useRef(false);
+  // How many browse songs are currently loaded, used as the pagination
+  // offset. Kept in a ref because fetchResults reads it inside an async
+  // closure, where `state` would be the value from when the call started.
+  const currentSongCountRef = useRef(0);
+
+  useEffect(() => {
+    currentSongCountRef.current = state.allSongs.length;
+  }, [state.allSongs.length]);
+
+  // Browsing uses real pagination when narrowed by filters, and random
+  // sampling otherwise. That distinction decides what a SHORT page means:
+  // on the paginated path it truly is the end of the matching set, but on
+  // the random path it only means that draw happened to miss, and there are
+  // always more songs to draw. Treating the latter as "no more results" is
+  // what previously froze infinite scroll and forced a manual refresh.
+  const browseIsPaginated =
+    (!!songInfoFilters && hasActiveSongInfoFilters(songInfoFilters)) || verifiedOnly;
+
+  const computeHasMoreSongs = (fetched: any[], isBrowse: boolean): boolean =>
+    isBrowse && !browseIsPaginated ? true : fetched.length >= SONGS_PAGE_SIZE;
 
   // Memoize range checking functions
   const isSongInRange = useCallback(
@@ -125,7 +159,34 @@ export const useSearch = ({
   // Songs shown when there's no query: trending-first when that filter is
   // on (topped up with random songs so the list is always full), otherwise
   // the classic random selection.
-  const fetchBrowseSongs = async (limitCount: number): Promise<any[]> => {
+  //
+  // Song Info filters: get_trending_songs() has no filter parameters (it is
+  // a fixed-shape SQL function), so a Song Info filter is applied to the
+  // trending set CLIENT-SIDE instead - safe here because it returns full
+  // song rows (SELECT s.*) and the set is small enough that filtering it in
+  // place is cheap. The random top-up, however, goes through the real
+  // DB-side filter in getRandomSongs, since sampling random ids and
+  // filtering client-side would hit the same thin-page problem browsing
+  // without Trending already has to guard against.
+  //
+  // `offset` matters only on the filtered path, which is the one that
+  // paginates for real; the random paths ignore it because each draw is
+  // independent.
+  const fetchBrowseSongs = async (
+    limitCount: number,
+    offset: number = 0
+  ): Promise<any[]> => {
+    const narrowed =
+      (songInfoFilters && hasActiveSongInfoFilters(songInfoFilters)) || verifiedOnly;
+
+    // Filtered browsing uses REAL pagination rather than random sampling, so
+    // scrolling reaches every matching song exactly once and a short page
+    // truthfully means "that is all of them". See getFilteredSongsPage for
+    // why random sampling cannot do that.
+    if (narrowed) {
+      return getFilteredSongsPage(limitCount, offset, songInfoFilters, { verifiedOnly });
+    }
+
     if (!trendingFirst) return getRandomSongs(limitCount);
 
     const trending = await getTrendingSongs(limitCount);
@@ -236,7 +297,14 @@ export const useSearch = ({
       return;
     }
 
-    const cacheKey = `${filter}-${query}-${pageNum}`;
+    // Song Info filters must be part of the cache key - otherwise toggling a
+    // filter on the same query/page would silently reuse a cached response
+    // fetched under different filters and show the wrong results.
+    const filtersKey =
+      songInfoFilters && hasActiveSongInfoFilters(songInfoFilters)
+        ? JSON.stringify(songInfoFilters)
+        : "";
+    const cacheKey = `${filter}-${query}-${pageNum}-${filtersKey}`;
     if (searchCache.has(cacheKey) && !append) {
       const cachedResults = searchCache.get(cacheKey)!;
       setState((prev) => ({
@@ -265,19 +333,23 @@ export const useSearch = ({
               ...prev,
               allSongs: prev.randomSongs,
               results: prev.randomSongs,
-              hasMoreSongs: prev.randomSongs.length >= SONGS_PAGE_SIZE,
+              hasMoreSongs: computeHasMoreSongs(prev.randomSongs, true),
               songsLoading: false,
             }));
             loadingMoreRef.current = false;
             setEndReachedLoading(false);
             return;
           }
-          newSongs = await getRandomSongs(SONGS_PAGE_SIZE);
+          // Browse "load more". Offset from what is already loaded so the
+          // filtered path continues where it left off rather than re-serving
+          // page 1; the random path ignores it (see fetchBrowseSongs).
+          newSongs = await fetchBrowseSongs(SONGS_PAGE_SIZE, currentSongCountRef.current);
         } else {
           newSongs = await smartSearchSongs(
             query.trim(),
             SONGS_PAGE_SIZE,
-            (pageNum - 1) * SONGS_PAGE_SIZE
+            (pageNum - 1) * SONGS_PAGE_SIZE,
+            songInfoFilters
           );
         }
 
@@ -292,7 +364,7 @@ export const useSearch = ({
               ...prev,
               allSongs: [...prev.allSongs, ...uniqueSongs],
               results: [...prev.results, ...uniqueSongs],
-              hasMoreSongs: newSongs.length >= SONGS_PAGE_SIZE,
+              hasMoreSongs: computeHasMoreSongs(newSongs, query.trim() === ""),
             };
           });
         } else {
@@ -300,7 +372,7 @@ export const useSearch = ({
             ...prev,
             allSongs: newSongs,
             results: newSongs,
-            hasMoreSongs: newSongs.length >= SONGS_PAGE_SIZE,
+            hasMoreSongs: computeHasMoreSongs(newSongs, query.trim() === ""),
           }));
         }
 
@@ -382,7 +454,7 @@ export const useSearch = ({
           allSongs: songs,
           results: songs,
           error: null,
-          hasMoreSongs: songs.length >= SONGS_PAGE_SIZE,
+          hasMoreSongs: computeHasMoreSongs(songs, true),
           songsLoading: false,
         }));
         setInitialFetchDone(true);
@@ -419,7 +491,7 @@ export const useSearch = ({
           ...prev, 
           results: prev.randomSongs,
           allSongs: prev.randomSongs,
-          hasMoreSongs: prev.randomSongs.length >= SONGS_PAGE_SIZE,
+          hasMoreSongs: computeHasMoreSongs(prev.randomSongs, true),
         }));
       } else {
         setState((prev) => ({ ...prev, results: prev.allArtists }));
@@ -457,14 +529,14 @@ export const useSearch = ({
           const artists = await deriveArtistsFromSongs(newSongs, 20, query);
           setState((prev) => ({
             ...prev,
-            hasMoreSongs: newSongs.length >= SONGS_PAGE_SIZE,
+            hasMoreSongs: computeHasMoreSongs(newSongs, true),
             randomSongs: newSongs,
             allSongs: newSongs,
             results: newSongs,
             allArtists: artists,
           }));
         } else {
-          newSongs = await smartSearchSongs(query, SONGS_PAGE_SIZE, 0);
+          newSongs = await smartSearchSongs(query, SONGS_PAGE_SIZE, 0, songInfoFilters);
           const artists = await deriveArtistsFromSongs(newSongs, 20, query);
           setState((prev) => ({
             ...prev,
@@ -524,6 +596,23 @@ export const useSearch = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trendingFirst]);
+
+  // Re-fetch (browsing or searching) whenever Song Info filters change, the
+  // same way the trending toggle does above. Keyed on a JSON snapshot rather
+  // than the object reference, since callers are not guaranteed to memoize
+  // songInfoFilters and a new-but-equal object must not re-trigger a fetch.
+  const songInfoFiltersKey = JSON.stringify(songInfoFilters ?? {});
+  const songInfoMountedRef = useRef(false);
+  useEffect(() => {
+    if (!songInfoMountedRef.current) {
+      songInfoMountedRef.current = true;
+      return;
+    }
+    if (filter === "songs") {
+      void handleRefresh();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [songInfoFiltersKey]);
 
   const handleLoadMore = () => {
     if (filter === "songs" && state.hasMoreSongs && !endReachedLoading) {

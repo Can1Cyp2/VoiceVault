@@ -36,6 +36,7 @@ import SongFilterModal from "../../components/SongFilters/SongFilterModal";
 import RequestSongModal from "../../components/RequestSong/RequestSongModal";
 import {
   countActiveSongFilters,
+  countActiveSongInfoFilters,
   DEFAULT_SONG_FILTERS,
   getSongFilters,
   isSongWithinBounds,
@@ -44,6 +45,12 @@ import {
 } from "../../util/songFilters";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Search">;
+
+// Enough rows to fill a screen and leave something to scroll toward.
+const MIN_VISIBLE_SONGS = 8;
+// Cap on consecutive automatic page loads, so a filter that matches almost
+// nothing cannot walk the entire catalogue in one go.
+const MAX_AUTO_LOADS = 5;
 
 // This component renders a search screen with a search bar, filter buttons, and a list of results (songs or artists):
 export default function SearchScreen() {
@@ -73,6 +80,7 @@ export default function SearchScreen() {
     error,
     endReachedLoading,
     hasMoreArtists,
+    hasMoreSongs,
     isSongInRange,
     isArtistInRange,
     handleRefresh,
@@ -85,6 +93,10 @@ export default function SearchScreen() {
     initialFetchDone,
     setInitialFetchDone,
     trendingFirst: songFilters.trendingFirst,
+    songInfoFilters: songFilters.songInfo,
+    // Applied DB-side while browsing so pages come back full, instead of
+    // being hollowed out by the client-side pass below.
+    verifiedOnly: songFilters.verifiedOnly || verifiedSongsOnly,
   });
 
   // Create themed styles
@@ -134,6 +146,42 @@ export default function SearchScreen() {
     return uniqueResults;
   }, [results, filter, songFilters, verifiedSongsOnly, isSongInRange, isArtistInRange]);
   const isLoading = songsLoading || (filter === "artists" && artistsLoading);
+
+  // Auto-fill thin pages.
+  //
+  // "In Range" and "Chosen Range" have to be applied here rather than in the
+  // query, because they compare parsed note values ("C3 - A4") that SQL
+  // cannot evaluate. So a full page of 25 fetched songs can render as two
+  // rows, which used to look like "no results" and left pull-to-refresh as
+  // the only way to see more. Instead, keep requesting pages until there is
+  // enough to actually scroll, or the data genuinely runs out.
+  //
+  // Bounded on purpose: a filter matching almost nothing must not spin
+  // through the whole catalogue. After MAX_AUTO_LOADS the user still has
+  // normal scroll-to-load-more, it just stops doing it automatically.
+  const autoLoadCountRef = React.useRef(0);
+
+  // A new query or filter set is a fresh start, so allow auto-filling again.
+  React.useEffect(() => {
+    autoLoadCountRef.current = 0;
+  }, [query, filter, songFilters]);
+
+  React.useEffect(() => {
+    if (filter !== "songs") return;
+    if (isLoading || endReachedLoading || !hasMoreSongs) return;
+    if (displayData.length >= MIN_VISIBLE_SONGS) return;
+    if (autoLoadCountRef.current >= MAX_AUTO_LOADS) return;
+
+    autoLoadCountRef.current += 1;
+    handleLoadMore();
+    // handleLoadMore is intentionally not a dependency: it is recreated on
+    // every render, which would re-run this effect constantly and spend the
+    // auto-load budget on renders that never actually fetched. The listed
+    // deps are all stable primitives, so this runs only on real changes, and
+    // endReachedLoading flipping true immediately re-runs it into the guard
+    // above until the in-flight page lands.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayData.length, hasMoreSongs, isLoading, endReachedLoading, filter]);
 
   const refreshRecentHistory = useCallback(async () => {
     const [items, enabled, verifiedOnly] = await Promise.all([
@@ -296,6 +344,7 @@ export default function SearchScreen() {
     !!vocalRange && vocalRange.min_range !== "C0" && vocalRange.max_range !== "C0";
 
   const activeFilterCount = countActiveSongFilters(songFilters);
+  const activeSongInfoFilterCount = countActiveSongInfoFilters(songFilters.songInfo);
 
   // Save or tap-outside from the filter popup: persist and apply
   const handleFiltersSave = (filters: SongFilters) => {
@@ -303,6 +352,7 @@ export default function SearchScreen() {
     void saveSongFilters(filters);
     setFilterVisible(false);
   };
+
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -410,7 +460,9 @@ export default function SearchScreen() {
           <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>No results found.</Text>
           {(activeFilterCount > 0 || verifiedSongsOnly) && (
             <Text style={[styles.emptyStateHint, { color: colors.textTertiary }]}>
-              Your active filters may be hiding songs. Try widening your range or turning some off.
+              {activeSongInfoFilterCount > 0
+                ? "Not every song has this extra info yet, which may be hiding results. Try widening your Song Info filters or turning some off."
+                : "Your active filters may be hiding songs. Try widening your range or turning some off."}
             </Text>
           )}
           <View style={styles.emptyStateButtons}>

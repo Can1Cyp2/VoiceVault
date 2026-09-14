@@ -165,13 +165,14 @@ Contributions are welcome! If you can help resolve any issues or have ideas for 
 - **Feature Enhancements**: Contribute to planned features like song difficulty ratings, recording integration, or AI vocal coaching.
 - **Bug Fixes**: Address any other bugs or improve performance.
 
+*Currently (as of about October 2025), AI is occasionally used to assist with code generation and moreso for documentation/comments, but all contributions are reviewed (by me) and should be reviewed (by others if contributing), human review is mandatory before any code is merged to main for accuracy and quality*
+
 ---
 
 ## 🔮 Future Enhancements
 
 - **Song Difficulty Ratings**: Add difficulty levels (e.g., beginner, intermediate, advanced) based on vocal range, technique, and style.
 - **Recording Integration**: Allow users to record their singing sessions and compare them to the song's vocal range.
-- **AI Vocal Coaching**: Integrate AI to provide real-time feedback on pitch, tone, and technique during practice.
 - **Expanded Database**: Add more songs, artists, and vocal range data to the Supabase database.
 - **Offline Mode**: Cache song and artist data for offline access.
 

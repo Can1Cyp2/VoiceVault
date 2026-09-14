@@ -10,19 +10,26 @@
       <stop offset="1" stop-color="#211F25"/>
     </linearGradient>
     <radialGradient id="background-warmth" gradientUnits="userSpaceOnUse" cx="512" cy="455" r="690">
-      <stop offset="0" stop-color="#A44325" stop-opacity="0.72"/>
+      <stop offset="0" stop-color="#A44325" stop-opacity="0.75"/>
       <stop offset="0.38" stop-color="#713027" stop-opacity="0.52"/>
       <stop offset="0.72" stop-color="#42252A" stop-opacity="0.30"/>
       <stop offset="1" stop-color="#211F25" stop-opacity="0"/>
     </radialGradient>
+    <radialGradient id="top-warmth" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#8B3929" stop-opacity="0.28"/>
+      <stop offset="0.55" stop-color="#67302A" stop-opacity="0.13"/>
+      <stop offset="1" stop-color="#42252A" stop-opacity="0"/>
+    </radialGradient>
     <radialGradient id="microphone-ambience" cx="50%" cy="50%" r="50%">
-      <stop offset="0" stop-color="#FF6A16" stop-opacity="0.36"/>
-      <stop offset="0.46" stop-color="#FF5720" stop-opacity="0.19"/>
+      <stop offset="0" stop-color="#FF6A16" stop-opacity="0.16"/>
+      <stop offset="0.46" stop-color="#FF5720" stop-opacity="0.10"/>
       <stop offset="1" stop-color="#FF4A18" stop-opacity="0"/>
     </radialGradient>
     <radialGradient id="wordmark-ambience" cx="50%" cy="50%" r="50%">
-      <stop offset="0" stop-color="#FF6316" stop-opacity="0.25"/>
-      <stop offset="0.55" stop-color="#FF4F1A" stop-opacity="0.11"/>
+      <stop offset="0" stop-color="#FF6316" stop-opacity="0.40"/>
+      <stop offset="0.45" stop-color="#FF4F1A" stop-opacity="0.28"/>
+      <stop offset="0.72" stop-color="#FF4F1A" stop-opacity="0.09"/>
+      <stop offset="0.90" stop-color="#FF4F1A" stop-opacity="0.07"/>
       <stop offset="1" stop-color="#FF4A18" stop-opacity="0"/>
     </radialGradient>
 
@@ -51,18 +58,19 @@
   <g id="background">
     <rect width="1024" height="1024" fill="url(#background-base)"/>
     <rect width="1024" height="1024" fill="url(#background-warmth)"/>
+    <ellipse cx="512" cy="180" rx="430" ry="320" fill="url(#top-warmth)"/>
     <ellipse cx="512" cy="385" rx="430" ry="360" fill="url(#microphone-ambience)"/>
     <ellipse cx="512" cy="790" rx="500" ry="205" fill="url(#wordmark-ambience)"/>
   </g>
 
   <g id="microphone" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <g id="microphone-wide-glow" stroke="#FF4A00" stroke-width="48" opacity="0.42" filter="url(#glow-wide)">
+    <g id="microphone-wide-glow" stroke="#E94B0B" stroke-width="48" opacity="0.38" filter="url(#glow-wide)">
       <use xlink:href="#microphone-lines"/>
     </g>
-    <g id="microphone-tight-glow" stroke="#FF6500" stroke-width="34" opacity="0.72" filter="url(#glow-tight)">
+    <g id="microphone-tight-glow" stroke="#FF7208" stroke-width="34" opacity="0.88" filter="url(#glow-tight)">
       <use xlink:href="#microphone-lines"/>
     </g>
-    <g id="microphone-orange-edge" stroke="#FF5B00" stroke-width="25">
+    <g id="microphone-orange-edge" stroke="#FA6C03" stroke-width="25">
       <use xlink:href="#microphone-lines"/>
     </g>
     <g id="microphone-cream-core" stroke="#FFFCC2" stroke-width="14">
@@ -71,8 +79,8 @@
   </g>
 
   <g id="wordmark" transform="translate(78 670) scale(1.015 1.18)" stroke-linejoin="round">
-    <use xlink:href="#voicevault-wordmark" fill="#FF4A00" stroke="#FF4A00" stroke-width="26" opacity="0.52" filter="url(#glow-wide)"/>
-    <use xlink:href="#voicevault-wordmark" fill="#FF6500" stroke="#FF6500" stroke-width="13" opacity="0.76" filter="url(#glow-tight)"/>
-    <use xlink:href="#voicevault-wordmark" fill="#FFFCC2" stroke="#FF5B00" stroke-width="6"/>
+    <use xlink:href="#voicevault-wordmark" fill="#E94B0B" stroke="#E94B0B" stroke-width="26" opacity="0.42" filter="url(#glow-wide)"/>
+    <use xlink:href="#voicevault-wordmark" fill="#FF7208" stroke="#FF7208" stroke-width="13" opacity="0.68" filter="url(#glow-tight)"/>
+    <use xlink:href="#voicevault-wordmark" fill="#FFFCC2" stroke="#FA6C03" stroke-width="6"/>
   </g>
 </svg>

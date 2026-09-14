@@ -14,6 +14,7 @@ import { supabase } from "../../util/supabase";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/StackNavigator";
 import { Ionicons } from "@expo/vector-icons";
+import { Image as ExpoImage } from "expo-image";
 import LoginModal from "../LoginScreen/LoginModal";
 import SignupModal from "../SignupScreen/SignupModal";
 import { CompositeScreenProps } from "@react-navigation/native";
@@ -298,18 +299,23 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         </TouchableOpacity>
       </View>
 
-      {/* Logo Section - Two images layered, toggle visibility instantly */}
+      {/* Logo Section */}
       <View style={styles.logoContainer}>
-        <Image
-          source={require("../../../assets/transparent-icon.png")}
-          style={[styles.logo, { opacity: isDark ? 0 : 1 }]}
-          resizeMode="contain"
-        />
-        <Image
-          source={require("../../../assets/transparent-icon-dark.png")}
-          style={[styles.logo, { opacity: isDark ? 1 : 0, position: 'absolute' }]}
-          resizeMode="contain"
-        />
+        {isDark ? (
+          <ExpoImage
+            source={require("../../../assets/VoiceVault Icon.svg")}
+            style={styles.logo}
+            contentFit="contain"
+            accessibilityLabel="VoiceVault"
+          />
+        ) : (
+          <Image
+            source={require("../../../assets/transparent-icon.png")}
+            style={styles.logo}
+            resizeMode="contain"
+            accessibilityLabel="VoiceVault"
+          />
+        )}
       </View>
       <Text style={[styles.title, { color: colors.textPrimary }]}>Welcome to VoiceVault!</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>

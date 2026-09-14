@@ -10,7 +10,6 @@
 import React, { useCallback, useRef, useState } from "react";
 import {
   Alert,
-  Image,
   Modal,
   Platform,
   Share as NativeShare,
@@ -21,6 +20,7 @@ import {
 } from "react-native";
 import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
+import { Image as ExpoImage } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { FONTS } from "../../styles/theme";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -160,10 +160,11 @@ export default function ShareRangeModal({
             style={styles.card}
           >
             <View style={styles.cardHeader}>
-              <Image
-                source={require("../../../assets/transparent-icon-dark.png")}
+              <ExpoImage
+                source={require("../../../assets/VoiceVault Icon.svg")}
                 style={styles.cardLogo}
-                resizeMode="contain"
+                contentFit="contain"
+                accessibilityLabel="VoiceVault"
               />
               <Text style={styles.cardAppName}>VoiceVault</Text>
             </View>

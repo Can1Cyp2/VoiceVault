@@ -304,7 +304,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         {isDark ? (
           <ExpoImage
             source={require("../../../assets/VoiceVault Icon.svg")}
-            style={styles.logo}
+            style={[styles.logo, styles.darkModeLogo]}
             contentFit="contain"
             accessibilityLabel="VoiceVault"
           />
@@ -443,6 +443,9 @@ const styles = StyleSheet.create({
   logo: {
     width: 150,
     height: 150,
+  },
+  darkModeLogo: {
+    transform: [{ scale: 1.1 }],
   },
   title: {
     fontSize: 28,

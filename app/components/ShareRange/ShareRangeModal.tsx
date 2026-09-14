@@ -34,7 +34,7 @@ import {
 // identical no matter which theme the sender uses.
 const CARD_COLORS = {
   background: "#1a1a1a",
-  accent: "#FF6208",
+  accent: "#E66A35",
   text: "#ffffff",
   textMuted: "#b0b0b0",
   border: "#333333",

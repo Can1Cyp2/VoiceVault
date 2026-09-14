@@ -8,7 +8,7 @@
 // there is nothing to say. Each row inside is likewise conditional.
 
 import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { FONTS } from "../../styles/theme";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -19,17 +19,32 @@ import {
   formatBpm,
   formatDuration,
   describeTempo,
-  relativeKey,
-  KEY_HEDGE_THRESHOLD,
+  tempoBlurb,
+  keyConfidenceTier,
+  keyConfidenceDetail,
+  keyConfidencePercent,
+  keyEmotionalCharacter,
+  KeyConfidenceTier,
 } from "../../util/songMetadata";
+
+// Fallback wording for the marker when a key predates confidence scoring and
+// has no percentage to show.
+const TIER_LABEL: Record<KeyConfidenceTier, string> = {
+  agreed: "Agreed",
+  single: "Estimate",
+  disputed: "Disputed",
+};
 
 type Props = {
   metadata: SongMetadata | null;
+  /** Song title + artist, used for the tap-to-explain chip popups. */
+  songName?: string;
+  artistName?: string | null;
   /** Plays a reference note - reused from the parent screen. */
   onPlayNote?: (note: string) => void;
 };
 
-const SongMetadataCard: React.FC<Props> = ({ metadata, onPlayNote }) => {
+const SongMetadataCard: React.FC<Props> = ({ metadata, songName, artistName, onPlayNote }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [isTessituraInfoVisible, setTessituraInfoVisible] = useState(false);
@@ -37,16 +52,63 @@ const SongMetadataCard: React.FC<Props> = ({ metadata, onPlayNote }) => {
   if (!hasAnyMetadata(metadata)) return null;
 
   const bpmText = formatBpm(metadata.bpm);
-  const tempoWord = describeTempo(metadata.bpm);
+  const tempoText = tempoBlurb(metadata.bpm);
   const durationText = formatDuration(metadata.durationSec);
   const showTessitura = hasTessitura(metadata);
+  const keyTier = keyConfidenceTier(metadata.keySourcesChecked, metadata.keySourcesAgree);
+  const tierColor = colors[keyTier === "agreed" ? "success" : keyTier === "disputed" ? "danger" : "warning"];
+  const keyPercent = keyConfidencePercent(metadata.keyConfidence);
 
-  // Chips: only the facts we actually have.
-  const chips: { icon: any; label: string }[] = [];
-  if (bpmText) chips.push({ icon: "speedometer-outline", label: bpmText });
-  if (metadata.genre) chips.push({ icon: "musical-notes-outline", label: metadata.genre });
-  if (metadata.releaseYear) chips.push({ icon: "calendar-outline", label: String(metadata.releaseYear) });
-  if (durationText) chips.push({ icon: "time-outline", label: durationText });
+  // "for {song} by {artist}" clause, gracefully dropping the artist if unknown.
+  const songClause = songName
+    ? artistName
+      ? `"${songName}" by ${artistName}`
+      : `"${songName}"`
+    : "this song";
+
+  // Chips: only the facts we actually have. Genre/year/length are tappable and
+  // explain themselves in a popup using data we've already fetched.
+  const chips: { icon: any; label: string; onPress?: () => void }[] = [];
+  if (bpmText)
+    chips.push({
+      icon: "speedometer-outline",
+      label: bpmText,
+      // BPM is detected automatically from the recording, not confirmed by
+      // anyone - and the detector can lock onto a doubled or halved pulse
+      // (a slow ballad's flowing arpeggios read as a much faster tempo than
+      // it actually feels). Worth saying explicitly rather than presenting
+      // the number as settled fact.
+      onPress: () =>
+        Alert.alert(
+          "BPM",
+          `The BPM for ${songClause} is estimated automatically, and can be wrong. ` +
+            "It may also be displayed at double or half time than the real tempo of the song."
+        ),
+    });
+  if (metadata.genre)
+    chips.push({
+      icon: "musical-notes-outline",
+      label: metadata.genre,
+      onPress: () =>
+        Alert.alert("Genre", `The genre for ${songClause} is ${metadata.genre}.`),
+    });
+  if (metadata.releaseYear)
+    chips.push({
+      icon: "calendar-outline",
+      label: String(metadata.releaseYear),
+      onPress: () =>
+        Alert.alert(
+          "Release Year",
+          `${songClause} was released in ${metadata.releaseYear}.`
+        ),
+    });
+  if (durationText)
+    chips.push({
+      icon: "time-outline",
+      label: durationText,
+      onPress: () =>
+        Alert.alert("Song Length", `${songClause} is ${durationText} long.`),
+    });
 
   return (
     <View style={styles.section}>
@@ -65,7 +127,7 @@ const SongMetadataCard: React.FC<Props> = ({ metadata, onPlayNote }) => {
         >
           <View style={styles.tessituraHeader}>
             <Ionicons name="pulse-outline" size={18} color={colors.primary} />
-            <Text style={styles.tessituraTitle}>Where the voice sits</Text>
+            <Text style={styles.tessituraTitle}>Where the voice sits - Tessitura</Text>
             <Ionicons
               name="information-circle-outline"
               size={19}
@@ -113,45 +175,79 @@ const SongMetadataCard: React.FC<Props> = ({ metadata, onPlayNote }) => {
             Most of this song lives in this range. The full vocal range above
             includes notes that are only touched briefly.
           </Text>
-
-          <View style={styles.tessituraLearnMore}>
-            <Text style={styles.tessituraLearnMoreText}>What is tessitura?</Text>
-            <Ionicons name="chevron-forward" size={13} color={colors.primary} />
-          </View>
         </TouchableOpacity>
       )}
 
-      {/* Key is an ESTIMATE derived from tab data, so it is labelled as one
-          and shows the relative key (same seven notes) as the alternative -
-          that is the most likely way for the estimate to be wrong. */}
+      {/* Key is an ESTIMATE, so it's labelled as one and colour-graded by
+          whether independent sources actually agreed on it - a single
+          source's own confidence number isn't trustworthy on its own (see
+          util/songMetadata.ts), so the badge reflects agreement, not that. */}
       {metadata.songKey && (
         <View style={styles.keyCard}>
           <View style={styles.keyRow}>
             <Ionicons name="key-outline" size={16} color={colors.textSecondary} />
             <Text style={styles.keyLabel}>Estimated key</Text>
             <Text style={styles.keyValue}>{metadata.songKey}</Text>
+            <TouchableOpacity
+              style={[styles.keyTierBadge, { backgroundColor: `${tierColor}22` }]}
+              onPress={() =>
+                Alert.alert(
+                  "Key confidence",
+                  keyConfidenceDetail(
+                    metadata.songKey,
+                    metadata.keyConfidence,
+                    metadata.keySourcesChecked,
+                    metadata.keySourcesAgree
+                  ) ?? ""
+                )
+              }
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={
+                keyPercent !== null
+                  ? `Key confidence ${keyPercent} percent. Tap for details.`
+                  : "Key confidence details"
+              }
+            >
+              <Text style={[styles.keyTierText, { color: tierColor }]}>
+                {keyPercent !== null ? `${keyPercent}%` : TIER_LABEL[keyTier]}
+              </Text>
+              <Ionicons name="information-circle-outline" size={12} color={tierColor} />
+            </TouchableOpacity>
           </View>
           <Text style={styles.keyHint}>
-            {metadata.keyConfidence !== null &&
-            metadata.keyConfidence < KEY_HEDGE_THRESHOLD
-              ? `Worked out from the song's notes, but not certain — it may be ${
-                  relativeKey(metadata.songKey) ?? "a related key"
-                }.`
-              : `Worked out from the song's notes. If it sounds off, try ${
-                  relativeKey(metadata.songKey) ?? "the relative key"
-                } — it uses the same notes.`}
+            {keyEmotionalCharacter(metadata.songKey, metadata.bpm)}
           </Text>
         </View>
       )}
 
       {chips.length > 0 && (
         <View style={styles.chipRow}>
-          {chips.map((chip) => (
-            <View key={chip.label} style={styles.chip}>
-              <Ionicons name={chip.icon} size={14} color={colors.textSecondary} />
-              <Text style={styles.chipText}>{chip.label}</Text>
-            </View>
-          ))}
+          {chips.map((chip) =>
+            chip.onPress ? (
+              <TouchableOpacity
+                key={chip.label}
+                style={styles.chip}
+                onPress={chip.onPress}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+              >
+                <Ionicons name={chip.icon} size={14} color={colors.textSecondary} />
+                <Text style={styles.chipText}>{chip.label}</Text>
+                <Ionicons
+                  name="information-circle-outline"
+                  size={13}
+                  color={colors.textTertiary}
+                  style={styles.chipInfoIcon}
+                />
+              </TouchableOpacity>
+            ) : (
+              <View key={chip.label} style={styles.chip}>
+                <Ionicons name={chip.icon} size={14} color={colors.textSecondary} />
+                <Text style={styles.chipText}>{chip.label}</Text>
+              </View>
+            )
+          )}
           {metadata.explicit === true && (
             <View style={[styles.chip, styles.explicitChip]}>
               <Text style={styles.explicitText}>EXPLICIT</Text>
@@ -160,12 +256,7 @@ const SongMetadataCard: React.FC<Props> = ({ metadata, onPlayNote }) => {
         </View>
       )}
 
-      {tempoWord && bpmText && (
-        <Text style={styles.tempoNote}>
-          {tempoWord} tempo — useful for setting the metronome before you
-          practise.
-        </Text>
-      )}
+      {tempoText && bpmText && <Text style={styles.tempoNote}>{tempoText}</Text>}
 
       {/* Tessitura explainer */}
       <Modal
@@ -200,16 +291,16 @@ const SongMetadataCard: React.FC<Props> = ({ metadata, onPlayNote }) => {
               <Text style={styles.modalLabel}>What it means</Text>
               <Text style={styles.modalBody}>
                 Tessitura is the part of a song's range where the melody spends
-                most of its time — the notes you sing again and again, rather
-                than the single highest or lowest notes that might only be hit
-                once.
+                most of its time. It's the notes you sing again and again,
+                rather than the single highest or lowest notes that might only
+                be hit once.
               </Text>
 
               <Text style={styles.modalLabel}>Where the word comes from</Text>
               <Text style={styles.modalBody}>
                 It's the Italian word for “texture”, from the Latin texere, “to
                 weave”. Musicians borrowed it to describe the overall weave or
-                feel of a vocal line — where it naturally sits — instead of just
+                feel of a vocal line, where it naturally sits, instead of just
                 its outer limits.
               </Text>
 
@@ -226,9 +317,9 @@ const SongMetadataCard: React.FC<Props> = ({ metadata, onPlayNote }) => {
               <Text style={styles.modalLabel}>How we work it out</Text>
               <Text style={styles.modalBody}>
                 We look at every note in the melody and take the middle band
-                where most of them fall (the 25th–75th percentile). The centre
-                figure is the median — the single pitch the song revolves around
-                most.
+                where most of them fall (the 25th to 75th percentile). The
+                centre figure is the median, the single pitch the song revolves
+                around most.
               </Text>
             </ScrollView>
 
@@ -320,19 +411,6 @@ const createStyles = (colors: any) =>
       marginTop: 4,
       paddingVertical: 2,
     },
-    tessituraLearnMore: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 2,
-      marginTop: 12,
-    },
-    tessituraLearnMoreText: {
-      fontSize: 12.5,
-      fontWeight: "600",
-      color: colors.primary,
-      fontFamily: FONTS.primary,
-    },
     tessituraNoteButton: {
       flexDirection: "row",
       alignItems: "center",
@@ -392,6 +470,20 @@ const createStyles = (colors: any) =>
       color: colors.textPrimary,
       fontFamily: FONTS.primary,
     },
+    keyTierBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+      marginLeft: 8,
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: 10,
+    },
+    keyTierText: {
+      fontSize: 12,
+      fontWeight: "700",
+      fontFamily: FONTS.primary,
+    },
     keyHint: {
       fontSize: 12,
       color: colors.textTertiary,
@@ -419,6 +511,9 @@ const createStyles = (colors: any) =>
       fontFamily: FONTS.primary,
       marginLeft: 5,
       fontWeight: "500",
+    },
+    chipInfoIcon: {
+      marginLeft: 6,
     },
     explicitChip: {
       backgroundColor: "transparent",

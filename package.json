@@ -52,7 +52,7 @@
     "react-native-device-info": "^14.0.4",
     "react-native-elements": "^3.4.3",
     "react-native-gesture-handler": "~2.32.0",
-    "react-native-google-mobile-ads": "^15.4.0",
+    "react-native-google-mobile-ads": "^17.2.0",
     "react-native-permissions": "^5.6.1",
     "react-native-pitch-detector": "^0.1.6",
     "react-native-safe-area-context": "~5.7.0",

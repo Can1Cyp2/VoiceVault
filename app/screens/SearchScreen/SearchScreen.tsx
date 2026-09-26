@@ -34,6 +34,12 @@ import { getVerifiedSongsOnly, isVerifiedSong } from "../../util/preferences";
 import { logSongSearch } from "../../util/api";
 import SongFilterModal from "../../components/SongFilters/SongFilterModal";
 import RequestSongModal from "../../components/RequestSong/RequestSongModal";
+import SongRowAd from "../../components/SongRowAd/SongRowAd";
+import {
+  isAdMarker,
+  SEARCH_AD_SPACING,
+  withAdSlots,
+} from "../../components/SongRowAd/songListAds";
 import {
   countActiveFiltersForView,
   countActiveSongInfoFilters,
@@ -155,6 +161,9 @@ export default function SearchScreen() {
 
     return uniqueResults;
   }, [results, filter, songFilters, verifiedSongsOnly, isSongInRange, isArtistInRange]);
+  // Ads are interleaved only for rendering; the auto-fill logic below keeps
+  // counting real results via displayData.
+  const listData = useMemo(() => withAdSlots(displayData, SEARCH_AD_SPACING), [displayData]);
   const isLoading = songsLoading || (filter === "artists" && artistsLoading);
 
   // Auto-fill thin pages.
@@ -540,9 +549,18 @@ export default function SearchScreen() {
           contentContainerStyle={{
             paddingBottom: 90
           }}
-          keyExtractor={(item) => filter === "songs" ? `song-${item.id}` : `artist-${item.name}`}
-          data={displayData}
+          keyExtractor={(item) =>
+            isAdMarker(item)
+              ? `ad-${item.__adSlot}`
+              : filter === "songs" ? `song-${item.id}` : `artist-${item.name}`
+          }
+          data={listData}
           renderItem={({ item }) => {
+            if (isAdMarker(item)) {
+              // Separate placements so switching tabs never hands one ad to
+              // both lists while the old one is still unmounting.
+              return <SongRowAd placement={`search-${filter}`} slot={item.__adSlot} />;
+            }
             if (filter === "songs" && (!item.name || !item.artist || !item.vocalRange)) return null;
             if (filter === "artists" && !item.name) return null;
             return (

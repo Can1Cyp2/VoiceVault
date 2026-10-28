@@ -9,8 +9,12 @@ import * as TrackingTransparency from "expo-tracking-transparency";
 const isExpoGo = Constants.appOwnership === "expo";
 const isDev = __DEV__;
 
-// Consistent test device ID across the app
-const ADMIN_TEST_DEVICE_ID = "3BCF74E4-2002-4788-B97C-84D1F37DEBC7";
+// Consistent test device IDs across the app (iOS first, then Android)
+export const ADMIN_TEST_DEVICE_IDS = [
+  "3BCF74E4-2002-4788-B97C-84D1F37DEBC7",
+  "85b00e76-e0e4-43cf-be16-dfda82d34abf",
+];
+const ADMIN_TEST_DEVICE_ID = ADMIN_TEST_DEVICE_IDS[0];
 
 class AdService {
   private rewardedAd: any = null;
@@ -68,9 +72,9 @@ class AdService {
 
       // Configure test device FIRST - before any SDK operations
       if (isDev) {
-        console.log(`Configuring test device: ${ADMIN_TEST_DEVICE_ID}`);
+        console.log(`Configuring test devices: ${ADMIN_TEST_DEVICE_IDS.join(", ")}`);
         await MobileAds().setRequestConfiguration({
-          testDeviceIdentifiers: [ADMIN_TEST_DEVICE_ID],
+          testDeviceIdentifiers: ADMIN_TEST_DEVICE_IDS,
           // Add additional privacy controls for testing
           tagForChildDirectedTreatment: false, // False because app does not directly target children
           tagForUnderAgeOfConsent: false, // False because app does not directly target children. only set to true for users under consent age in their country

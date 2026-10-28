@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
+import type { ViewInstance } from "react-native";
 import { supabase } from "../../util/supabase";
 import { COLORS, FONTS } from "../../styles/theme";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -35,7 +36,7 @@ export const ArtistDetailsScreen = ({ route }: any) => {
   const [loading, setLoading] = useState(true);
   const [userRange, setUserRange] = useState<{ min_range: string; max_range: string } | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
-  const indicatorRef = useRef<View>(null);
+  const indicatorRef = useRef<ViewInstance>(null);
   // Each visit gets its own ads: several artist pages can be open in the
   // stack at once, and an ad can only be shown in one place.
   const adPlacement = `artist-${useId()}`;

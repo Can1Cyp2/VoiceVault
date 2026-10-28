@@ -2,6 +2,7 @@
 
 import React, { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, Dimensions, ScrollView, Modal, Share, Platform } from "react-native";
+import type { ScrollViewInstance } from "react-native";
 import { useTheme } from "../../contexts/ThemeContext";
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from "@react-navigation/native";
@@ -44,8 +45,8 @@ export default function TunerScreen() {
   const stopDetectionRef = useRef<(() => void) | null>(null);
   const needleRotation = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const scrollViewRef = useRef<ScrollView>(null);
-  const pianoScrollRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
+  const pianoScrollRef = useRef<ScrollViewInstance>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
   useFocusEffect(

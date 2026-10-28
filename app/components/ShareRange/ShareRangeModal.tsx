@@ -18,7 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import ViewShot from "react-native-view-shot";
+import ViewShot, { type ViewShotRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import { Image as ExpoImage } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
@@ -56,7 +56,7 @@ export default function ShareRangeModal({
   username,
 }: ShareRangeModalProps) {
   const { colors } = useTheme();
-  const viewShotRef = useRef<ViewShot>(null);
+  const viewShotRef = useRef<ViewShotRef>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [storeLinkType, setStoreLinkType] = useState<StoreLinkType>(
     Platform.OS === "ios" ? "apple" : "android"

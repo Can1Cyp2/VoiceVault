@@ -14,6 +14,7 @@ import {
   ScrollView,
   useWindowDimensions,
 } from "react-native";
+import type { ViewInstance } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/StackNavigator";
@@ -86,7 +87,7 @@ export default function SearchScreen() {
   const [isAddMenuVisible, setAddMenuVisible] = useState(false);
   const [addMenuTop, setAddMenuTop] = useState(150);
   const [isRequestSongVisible, setRequestSongVisible] = useState(false);
-  const addButtonRef = React.useRef<View>(null);
+  const addButtonRef = React.useRef<ViewInstance>(null);
 
 
   const {

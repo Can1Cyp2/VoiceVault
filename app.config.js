@@ -104,7 +104,7 @@ module.exports = () => {
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.RECORD_AUDIO",
       ],
-      compileSdkVersion: 36,
+      compileSdkVersion: 37,
       targetSdkVersion: 36,
       config: {
         googleMobileAdsAppId: "ca-app-pub-7846050438990670~7402587455",
@@ -132,10 +132,11 @@ module.exports = () => {
             useFrameworks: "static",
           },
           android: {
-            kotlinVersion: "2.1.20",
-            compileSdkVersion: 36,
+            // Kotlin, compileSdk (37) and NDK come from React Native 0.88's defaults.
             targetSdkVersion: 36,
-            ndkVersion: "27.0.12077973",
+            // SDK 58 turns R8 on for release builds; keep it off until a
+            // minified release has been tested on a device.
+            enableMinifyInReleaseBuilds: false,
             architectures: ["arm64-v8a", "armeabi-v7a", "x86", "x86_64"],
           },
         },

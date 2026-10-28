@@ -19,6 +19,7 @@ import ContentModerationScreen from "../screens/ContentModerationScreen/ContentM
 import ForgotPasswordScreen from "../screens/ForgotPasswordScreen/ForgotPasswordScreen";
 import ResetPasswordScreen from "../screens/ResetPasswordScreen/ResetPasswordScreen";
 import RangeHistoryScreen from "../screens/RangeHistoryScreen/RangeHistoryScreen";
+import type { FeaturedInfo } from "../util/featuredSongs";
 
 // Define the types for navigation parameters
 export type RootStackParamList = {
@@ -29,6 +30,8 @@ export type RootStackParamList = {
     artist: string;
     username?: string;
     showAddToListModal?: boolean;
+    /** Set when opened from Featured: why the song was picked. */
+    featured?: FeaturedInfo;
   };
   ArtistDetails: { name: string };
   AddSong: undefined;

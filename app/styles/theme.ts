@@ -51,6 +51,11 @@ export const LightColors = {
   gray: 'gray',
   lightGray: '#f0f0f0',
   darkGray: '#ccc',
+
+  // Featured songs (purple, so it reads as its own thing next to tomato)
+  featured: '#7c3aed',
+  featuredBackground: '#f3edff',
+  featuredBorder: '#ddd0fb',
 };
 
 // Dark theme colors
@@ -104,6 +109,11 @@ export const DarkColors = {
   gray: '#999',
   lightGray: '#2d3748',            // Adjusted for dark mode
   darkGray: '#555',
+
+  // Featured songs - lighter purple holds contrast on the dark cards
+  featured: '#c4a7ff',
+  featuredBackground: '#251d3d',
+  featuredBorder: '#3e3166',
 };
 
 // Legacy exports for backward compatibility

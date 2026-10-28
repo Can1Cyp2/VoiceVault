@@ -51,7 +51,7 @@ import {
 } from "react-native";
 import { supabase } from "../../util/supabase";
 import { checkAdminStatus } from "../../util/adminUtils";
-import { adService } from "../../components/SupportModal/AdService"; // Import your ad service
+import { adService, ADMIN_TEST_DEVICE_IDS } from "../../components/SupportModal/AdService"; // Import your ad service
 import { useTheme } from "../../contexts/ThemeContext";
 import { useLoadingIntro } from "../../contexts/LoadingIntroContext";
 import {
@@ -569,7 +569,7 @@ export default function AdminProfileScreen({ navigation }: AdminScreenProps) {
 
             if (__DEV__) {
                 await MobileAds().setRequestConfiguration({
-                    testDeviceIdentifiers: ['3BCF74E4-2002-4788-B97C-84D1F37DEBC7'],
+                    testDeviceIdentifiers: ADMIN_TEST_DEVICE_IDS,
                 });
                 addDebugLog("Test device ID set for Ad Inspector");
             }

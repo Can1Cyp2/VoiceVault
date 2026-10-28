@@ -38,6 +38,7 @@ import RequestSongModal from "../../components/RequestSong/RequestSongModal";
 import SongRowAd from "../../components/SongRowAd/SongRowAd";
 import FeaturedSongsList from "../../components/Featured/FeaturedSongsList";
 import { estimateVoiceProfile, FeaturedSong } from "../../util/featuredSongs";
+import { calculateRangeStats } from "../../util/audioAnalysis";
 import { setLoginGlow } from "../../util/loginPrompt";
 import {
   isAdMarker,
@@ -75,7 +76,7 @@ export default function SearchScreen() {
   const [isFeatured, setFeatured] = useState(false);
   const { width: screenWidth } = useWindowDimensions();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [vocalRange, setVocalRange] = useState<{ min_range: string; max_range: string } | null>(null);
+  const [vocalRange, setVocalRange] = useState<{ min_range: string; max_range: string; voice_type?: string | null } | null>(null);
   const [songFilters, setSongFilters] = useState<SongFilters>(DEFAULT_SONG_FILTERS);
   const [isFilterVisible, setFilterVisible] = useState(false);
   const [initialFetchDone, setInitialFetchDone] = useState(false);
@@ -256,18 +257,22 @@ export default function SearchScreen() {
       setIsLoggedIn(true);
       const { data, error: rangeError } = await supabase
         .from("user_vocal_ranges")
-        .select("min_range, max_range")
+        .select("min_range, max_range, voice_type")
         .eq("user_id", user.id)
         .single();
       if (!rangeError) {
         // Keep the same object when nothing changed: a new one would re-run
         // every in-range check (and reload Featured) for nothing.
         setVocalRange((prev) =>
-          prev && data && prev.min_range === data.min_range && prev.max_range === data.max_range
+          prev &&
+          data &&
+          prev.min_range === data.min_range &&
+          prev.max_range === data.max_range &&
+          prev.voice_type === data.voice_type
             ? prev
             : data
         );
-        return data as { min_range: string; max_range: string } | null;
+        return data as { min_range: string; max_range: string; voice_type?: string | null } | null;
       }
       setVocalRange(null);
       return null;
@@ -390,7 +395,7 @@ export default function SearchScreen() {
 
   // Three pills share the row between the add and filter buttons, so they
   // tighten on narrow phones (iPhone SE, small Androids) to avoid overlap.
-  const pillPadding = screenWidth < 370 ? 9 : screenWidth < 400 ? 12 : 18;
+  const pillPadding = screenWidth < 370 ? 8 : screenWidth < 400 ? 11 : 14;
 
   // Featured needs an account and a saved range. The range is re-fetched
   // here when missing because this screen only loads it on mount, and the
@@ -432,6 +437,15 @@ export default function SearchScreen() {
     setFeatured(true);
   };
 
+  // Same rule as the Profile screen: the saved voice type, or the one
+  // estimated from the range when it's left on Auto.
+  const userVoiceType = useMemo(() => {
+    if (!vocalRange) return null;
+    if (vocalRange.voice_type) return vocalRange.voice_type;
+    const { classification } = calculateRangeStats(vocalRange.min_range, vocalRange.max_range);
+    return classification !== "Unknown" ? classification : null;
+  }, [vocalRange]);
+
   const handleFeaturedSongPress = ({ song, info }: FeaturedSong) => {
     // Feeds the "Trending" filter, same as opening a song from search
     void logSongSearch(song.id);
@@ -440,7 +454,7 @@ export default function SearchScreen() {
       artist: song.artist,
       vocalRange: song.vocalRange,
       username: song.username,
-      featured: info,
+      featured: { ...info, userVoiceType },
     });
   };
 
@@ -513,6 +527,9 @@ export default function SearchScreen() {
           >
             <Text
               maxFontSizeMultiplier={1.3}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
               style={[styles.filterText, { color: colors.textPrimary }, !showFeatured && filter === "songs" && { color: colors.textInverse }]}
             >
               Songs
@@ -531,6 +548,9 @@ export default function SearchScreen() {
           >
             <Text
               maxFontSizeMultiplier={1.3}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
               style={[styles.filterText, { color: colors.textPrimary }, !showFeatured && filter === "artists" && { color: colors.textInverse }]}
             >
               Artists
@@ -539,7 +559,8 @@ export default function SearchScreen() {
           <TouchableOpacity
             style={[
               styles.filterButton,
-              { borderColor: colors.featured, backgroundColor: colors.backgroundCard, paddingHorizontal: pillPadding - 2 },
+              styles.featuredButton,
+              { borderColor: colors.featured, backgroundColor: colors.backgroundCard, paddingHorizontal: pillPadding },
               showFeatured && { backgroundColor: colors.featured, borderColor: colors.featured }
             ]}
             onPress={() => void handleFeaturedPress()}
@@ -547,32 +568,37 @@ export default function SearchScreen() {
             accessibilityLabel="Featured songs for your voice"
             accessibilityState={{ selected: showFeatured }}
           >
+            {/* An icon rather than the ✨ emoji: the emoji renders much wider
+                than the text and made this pill outgrow the others. */}
+            <Ionicons name="sparkles" size={13} color={showFeatured ? colors.textInverse : colors.featured} />
             <Text
               maxFontSizeMultiplier={1.3}
               numberOfLines={1}
-              style={[styles.filterText, { color: colors.featured }, showFeatured && { color: colors.textInverse }]}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+              style={[styles.filterText, styles.featuredText, { color: colors.featured }, showFeatured && { color: colors.textInverse }]}
             >
-              ✨ Featured
+              Featured
             </Text>
           </TouchableOpacity>
-          {/* Search filters don't shape Featured, so the button steps aside
-              there instead of looking like it does nothing. */}
-          {!showFeatured && (
-          <Pressable
-            style={({ pressed }) => [styles.filterButtonRight, pressed && { opacity: 0.7 }]}
-            onPress={() => setFilterVisible(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Open song filters"
-          >
-            <Ionicons name="options" size={30} color={colors.primary} />
-            {activeFilterCount > 0 && (
-              <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
-                <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
-              </View>
-            )}
-          </Pressable>
-          )}
         </View>
+        {/* Search filters don't shape Featured, so the button steps aside
+            there instead of looking like it does nothing. */}
+        {!showFeatured && (
+        <Pressable
+          style={({ pressed }) => [styles.filterButtonRight, pressed && { opacity: 0.7 }]}
+          onPress={() => setFilterVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Open song filters"
+        >
+          <Ionicons name="options" size={30} color={colors.primary} />
+          {activeFilterCount > 0 && (
+            <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
+              <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+            </View>
+          )}
+        </Pressable>
+        )}
       </View>
 
       {showFeatured && voiceProfile && (
@@ -1019,13 +1045,26 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     flexDirection: "row",
     justifyContent: "center",
     flex: 1,
+    // Clear the absolutely positioned add (left) and filter (right) buttons,
+    // equally on both sides so the pills stay centred on screen.
+    marginHorizontal: 42,
   },
   filterButton: {
     paddingVertical: 10,
     paddingHorizontal: 24,
-    marginHorizontal: 5,
+    marginHorizontal: 4,
     borderRadius: 20,
     borderWidth: 1,
+    flexShrink: 1,
+  },
+  featuredButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  featuredText: {
+    flexShrink: 1,
   },
   activeFilter: { 
     // Colors applied inline
@@ -1117,7 +1156,7 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   // button above it.
   filterButtonRight: {
     position: "absolute",
-    right: 0,
+    right: 16,
     width: 42,
     height: 42,
     alignItems: "center",

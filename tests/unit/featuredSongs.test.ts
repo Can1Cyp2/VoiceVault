@@ -19,6 +19,7 @@ import {
   tessituraOverlap,
   notesInZone,
   describeVoiceProfile,
+  voiceTypeHighlights,
 } from "../../app/util/featuredSongs";
 import { NOTES } from "../../app/util/vocalRange";
 import { makeSong, resetSongIds } from "../helpers/factories";
@@ -56,7 +57,7 @@ describe("estimateVoiceProfile", () => {
     expect(p.tessLow).toBe(v("F3"));
     expect(p.tessHigh).toBe(v("F#4"));
     expect(p.lowConfidence).toBe(false);
-    expect(describeVoiceProfile(p)).toEqual({ range: "C3 - C5", tessitura: "F3 - F#4" });
+    expect(describeVoiceProfile(p)).toEqual({ range: "C3 to C5", tessitura: "F3 to F#4" });
   });
 
   test("comfort zone centre sits below the middle of the range", () => {
@@ -142,7 +143,7 @@ describe("scoreSong", () => {
     const song = makeSong({ vocalRange: "E3 - D5" });
     const result = scoreSong(song, profile)!;
     expect(result.info.category).toBe("stretch");
-    expect(result.info.summary).toBe("Just 2 semitones above your range - a good stretch goal.");
+    expect(result.info.summary).toBe("Just 2 semitones above your range. A good stretch goal.");
     const fix = result.info.reasons.find((r) => r.kind === "stretch-fix")!;
     expect(fix.detail).toBe("Transpose it down 2 semitones and every note lands inside your range.");
   });
@@ -180,6 +181,55 @@ describe("scoreSong", () => {
     const fits = scoreSong(makeSong({ vocalRange: "D3 - B4", ...tess }), profile, 0)!;
     const stretch = scoreSong(makeSong({ vocalRange: "D3 - C#5", ...tess }), profile, 1)!;
     expect(fits.score).toBeGreaterThan(stretch.score);
+  });
+});
+
+describe("section highlights", () => {
+  const profile = estimateVoiceProfile("C3", "C5")!; // zone F3 - F#4
+
+  test("a fitting tessitura pick explains both its range and its tessitura", () => {
+    const song = makeSong({
+      vocalRange: "D3 - A4",
+      tessitura_low: "G3",
+      tessitura_median: "B3",
+      tessitura_high: "D4",
+    });
+    const { highlights } = scoreSong(song, profile)!.info;
+    expect(highlights.range.title).toBe("Fits your range");
+    expect(highlights.range.detail).toContain("entirely inside your range of C3 to C5");
+    expect(highlights.tessitura!.detail).toContain("is G3 to D4");
+    expect(highlights.tessitura!.detail).toContain("all of it is inside your zone");
+    expect(highlights.tessitura!.detail).toContain("near the middle of that zone");
+  });
+
+  test("a stretch pick's range note says how far out it is, and how to fix it", () => {
+    const { highlights } = scoreSong(makeSong({ vocalRange: "E3 - D5" }), profile)!.info;
+    expect(highlights.range.title).toBe("Just outside your range");
+    expect(highlights.range.detail).toContain("2 semitones above your highest recorded note");
+    expect(highlights.range.detail).toContain("Transpose it down 2 semitones");
+  });
+
+  test("no tessitura note when the tessitura isn't why it was picked", () => {
+    const song = makeSong({
+      vocalRange: "C4 - C5",
+      tessitura_low: "G4",
+      tessitura_median: "A4",
+      tessitura_high: "B4",
+    });
+    expect(scoreSong(song, profile)!.info.highlights.tessitura).toBeUndefined();
+    expect(scoreSong(makeSong({ vocalRange: "E3 - G4" }), profile)!.info.highlights.tessitura).toBeUndefined();
+  });
+
+  test("voice type matches the Best Fit side it belongs to, blends included", () => {
+    const fit = { male: "Tenor", female: "Alto" };
+    expect(Object.keys(voiceTypeHighlights("Tenor", fit))).toEqual(["male"]);
+    expect(Object.keys(voiceTypeHighlights("Mezzo-Soprano / Alto", fit))).toEqual(["female"]);
+    expect(voiceTypeHighlights("tenor", fit).male!.detail).toContain("fits the Tenor voice type best");
+  });
+
+  test("no voice type note when it doesn't match or isn't known", () => {
+    expect(voiceTypeHighlights("Bass", { male: "Tenor", female: "Alto" })).toEqual({});
+    expect(voiceTypeHighlights(null, { male: "Tenor", female: "Alto" })).toEqual({});
   });
 });
 

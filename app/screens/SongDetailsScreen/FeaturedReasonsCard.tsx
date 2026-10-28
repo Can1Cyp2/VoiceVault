@@ -62,7 +62,7 @@ export default function FeaturedReasonsCard({ info }: Props) {
 
       <Text style={[styles.footer, { color: colors.textTertiary }]}>
         Your range: {info.userRange} · Estimated comfort zone: {info.userTessitura}. Featured is in
-        beta - your comfort zone is estimated from your saved range.
+        beta, and your comfort zone is estimated from your saved range.
       </Text>
     </View>
   );

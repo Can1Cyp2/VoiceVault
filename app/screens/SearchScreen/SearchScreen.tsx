@@ -35,10 +35,12 @@ import { logSongSearch } from "../../util/api";
 import SongFilterModal from "../../components/SongFilters/SongFilterModal";
 import RequestSongModal from "../../components/RequestSong/RequestSongModal";
 import {
-  countActiveSongFilters,
+  countActiveFiltersForView,
   countActiveSongInfoFilters,
+  countPausedFiltersForView,
   DEFAULT_SONG_FILTERS,
   getSongFilters,
+  isArtistWithinBounds,
   isSongWithinBounds,
   saveSongFilters,
   SongFilters,
@@ -111,6 +113,14 @@ export default function SearchScreen() {
       filteredResults = filter === "songs"
         ? results.filter((item) => isSongInRange(item.vocalRange))
         : results.filter((item) => isArtistInRange(item));
+    }
+
+    if (filter === "artists" && songFilters.customRangeEnabled) {
+      // Same "Chosen Range" filter as songs, judged on the artist's overall
+      // range - the figure their own screen shows.
+      filteredResults = filteredResults.filter((item) =>
+        isArtistWithinBounds(item, songFilters.customRangeMin, songFilters.customRangeMax)
+      );
     }
 
     if (filter === "songs") {
@@ -343,8 +353,14 @@ export default function SearchScreen() {
   const hasVocalRange =
     !!vocalRange && vocalRange.min_range !== "C0" && vocalRange.max_range !== "C0";
 
-  const activeFilterCount = countActiveSongFilters(songFilters);
-  const activeSongInfoFilterCount = countActiveSongInfoFilters(songFilters.songInfo);
+  // Badge and empty-state copy describe the CURRENT view only: in the
+  // Artists view the song-only filters stay saved but do not narrow
+  // anything, so counting them would blame results on filters that are not
+  // running. countPausedFiltersForView is what powers the note that says so.
+  const activeFilterCount = countActiveFiltersForView(songFilters, filter);
+  const pausedFilterCount = countPausedFiltersForView(songFilters, filter);
+  const activeSongInfoFilterCount =
+    filter === "songs" ? countActiveSongInfoFilters(songFilters.songInfo) : 0;
 
   // Save or tap-outside from the filter popup: persist and apply
   const handleFiltersSave = (filters: SongFilters) => {
@@ -390,10 +406,10 @@ export default function SearchScreen() {
               { borderColor: colors.border, backgroundColor: colors.backgroundCard },
               filter === "songs" && [styles.activeFilter, { backgroundColor: colors.primary, borderColor: colors.primary }]
             ]}
-            onPress={() => {
-              setQuery("");
-              setFilter("songs");
-            }}
+            // The query carries over between the two views, so switching is
+            // "show me the artists for what I just typed" rather than
+            // starting the search again from nothing.
+            onPress={() => setFilter("songs")}
           >
             <Text style={[styles.filterText, { color: colors.textPrimary }, filter === "songs" && { color: colors.textInverse }]}>Songs</Text>
           </TouchableOpacity>
@@ -403,10 +419,7 @@ export default function SearchScreen() {
               { borderColor: colors.border, backgroundColor: colors.backgroundCard },
               filter === "artists" && [styles.activeFilter, { backgroundColor: colors.primary, borderColor: colors.primary }]
             ]}
-            onPress={() => {
-              setQuery("");
-              setFilter("artists");
-            }}
+            onPress={() => setFilter("artists")}
           >
             <Text style={[styles.filterText, { color: colors.textPrimary }, filter === "artists" && { color: colors.textInverse }]}>Artists</Text>
           </TouchableOpacity>
@@ -458,15 +471,17 @@ export default function SearchScreen() {
         >
           <Ionicons name="search-outline" size={44} color={colors.textTertiary} />
           <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>No results found.</Text>
-          {(activeFilterCount > 0 || verifiedSongsOnly) && (
+          {(activeFilterCount > 0 || (filter === "songs" && verifiedSongsOnly)) && (
             <Text style={[styles.emptyStateHint, { color: colors.textTertiary }]}>
-              {activeSongInfoFilterCount > 0
-                ? "Not every song has this extra info yet, which may be hiding results. Try widening your Song Info filters or turning some off."
-                : "Your active filters may be hiding songs. Try widening your range or turning some off."}
+              {filter === "artists"
+                ? "Artists are matched on their overall range, which is wider than any one song's - so a range filter hides them quickly. Try widening it or turning it off."
+                : activeSongInfoFilterCount > 0
+                  ? "Not every song has this extra info yet, which may be hiding results. Try widening your Song Info filters or turning some off."
+                  : "Your active filters may be hiding songs. Try widening your range or turning some off."}
             </Text>
           )}
           <View style={styles.emptyStateButtons}>
-            {(activeFilterCount > 0 || verifiedSongsOnly) && (
+            {(activeFilterCount > 0 || (filter === "songs" && verifiedSongsOnly)) && (
               <TouchableOpacity
                 style={[styles.refreshButton, { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border }]}
                 onPress={() => setFilterVisible(true)}
@@ -487,6 +502,27 @@ export default function SearchScreen() {
             Pull down to refresh
           </Text>
         </ScrollView>
+      )}
+      {/* Says out loud what the badge no longer counts: song-only filters
+          are still saved, they just do not narrow the artist list. Without
+          this the artists view looks like it is ignoring the filters. */}
+      {filter === "artists" && pausedFilterCount > 0 && (
+        <Pressable
+          style={({ pressed }) => [
+            styles.pausedFiltersBanner,
+            { backgroundColor: colors.backgroundTertiary, borderColor: colors.border },
+            pressed && { opacity: 0.7 },
+          ]}
+          onPress={() => setFilterVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Song-only filters are paused in the artists view. Open filters."
+        >
+          <Ionicons name="lock-closed" size={14} color={colors.textTertiary} />
+          <Text style={[styles.pausedFiltersText, { color: colors.textSecondary }]}>
+            {pausedFilterCount} song-only {pausedFilterCount === 1 ? "filter" : "filters"} paused
+            here - still applied under Songs.
+          </Text>
+        </Pressable>
       )}
       {filter === "artists" &&
         !artistsLoading &&
@@ -644,6 +680,7 @@ export default function SearchScreen() {
       <SongFilterModal
         visible={isFilterVisible}
         filters={songFilters}
+        view={filter}
         isLoggedIn={isLoggedIn}
         hasVocalRange={hasVocalRange}
         onSave={handleFiltersSave}
@@ -956,6 +993,22 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
   },
   loadingFooter: {
     paddingVertical: 10,
+  },
+  pausedFiltersBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginHorizontal: 12,
+    marginBottom: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  pausedFiltersText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
   },
   inRangeExplanationContainer: {
     paddingHorizontal: 10,

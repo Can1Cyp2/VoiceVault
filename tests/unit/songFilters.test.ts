@@ -17,9 +17,12 @@ jest.mock("../../app/util/supabase", () =>
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
+  countActiveFiltersForView,
   countActiveSongFilters,
+  countPausedFiltersForView,
   DEFAULT_SONG_FILTERS,
   getSongFilters,
+  isArtistWithinBounds,
   isSongWithinBounds,
   saveSongFilters,
 } from "../../app/util/songFilters";
@@ -117,5 +120,56 @@ describe("isSongWithinBounds", () => {
 
   it("rejects when the bounds themselves are invalid notes", () => {
     expect(isSongWithinBounds("C3 - A4", "bogus", "C6")).toBe(false);
+  });
+});
+
+describe("filters in the artists view", () => {
+  // Everything switched on: two range filters plus three song-only ones.
+  const allOn = {
+    ...DEFAULT_SONG_FILTERS,
+    inRangeOnly: true,
+    customRangeEnabled: true,
+    trendingFirst: true,
+    verifiedOnly: true,
+    songInfo: { ...DEFAULT_SONG_FILTERS.songInfo, hasBpm: true },
+  };
+
+  it("counts every filter in the songs view", () => {
+    expect(countActiveFiltersForView(allOn, "songs")).toBe(
+      countActiveSongFilters(allOn)
+    );
+    expect(countPausedFiltersForView(allOn, "songs")).toBe(0);
+  });
+
+  it("counts only the range filters in the artists view", () => {
+    expect(countActiveFiltersForView(allOn, "artists")).toBe(2);
+    // Trending, Verified and the BPM song-info filter sit this view out
+    expect(countPausedFiltersForView(allOn, "artists")).toBe(3);
+  });
+
+  it("reports nothing paused when only range filters are on", () => {
+    const rangeOnly = { ...DEFAULT_SONG_FILTERS, inRangeOnly: true };
+    expect(countActiveFiltersForView(rangeOnly, "artists")).toBe(1);
+    expect(countPausedFiltersForView(rangeOnly, "artists")).toBe(0);
+  });
+});
+
+describe("isArtistWithinBounds", () => {
+  const artist = (...ranges: string[]) => ({
+    songs: ranges.map((vocalRange) => ({ vocalRange })),
+  });
+
+  it("matches when every song sits inside the bounds", () => {
+    expect(isArtistWithinBounds(artist("C3 - A4", "E3 - G4"), "C2", "C6")).toBe(true);
+  });
+
+  it("rejects an artist whose overall range spills past the bounds", () => {
+    // The second song alone is in bounds; the artist's overall range is not
+    expect(isArtistWithinBounds(artist("C2 - A4", "E3 - G4"), "C3", "C5")).toBe(false);
+  });
+
+  it("rejects artists with no songs to judge", () => {
+    expect(isArtistWithinBounds(artist(), "C2", "C6")).toBe(false);
+    expect(isArtistWithinBounds(null, "C2", "C6")).toBe(false);
   });
 });

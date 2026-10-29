@@ -6,7 +6,7 @@
 // the classic behaviour: randomized songs, nothing hidden.
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { noteToValue } from "./vocalRange";
+import { noteToValue, calculateOverallRange } from "./vocalRange";
 import { TempoBand, TEMPO_BAND_RANGES, describeTempo } from "./songMetadata";
 
 // Tempo bands reuse the exact boundaries from TEMPO_BAND_RANGES in
@@ -201,6 +201,36 @@ export const countActiveSongFilters = (filters: SongFilters): number =>
     filters.customRangeEnabled,
   ].filter(Boolean).length + countActiveSongInfoFilters(filters.songInfo);
 
+/** Which half of the Search screen the filters are being applied to. */
+export type SearchView = "songs" | "artists";
+
+/**
+ * Badge count for the current view: only the filters that actually narrow
+ * the list being shown.
+ *
+ * An artist row is derived from its songs and carries only a name and the
+ * vocal ranges of those songs (see searchArtistsByQuery in api.ts), so the
+ * two range filters - In Range and Chosen Range - are the only ones with
+ * anything to work on. Sorting, Song Type and Song Info describe individual
+ * songs and have no meaning for an artist, so in the Artists view they stay
+ * switched on but sit out until the user goes back to Songs; they are never
+ * silently cleared.
+ */
+export const countActiveFiltersForView = (
+  filters: SongFilters,
+  view: SearchView
+): number =>
+  view === "songs"
+    ? countActiveSongFilters(filters)
+    : [filters.inRangeOnly, filters.customRangeEnabled].filter(Boolean).length;
+
+/** How many switched-on filters are being ignored in the current view. */
+export const countPausedFiltersForView = (
+  filters: SongFilters,
+  view: SearchView
+): number =>
+  countActiveSongFilters(filters) - countActiveFiltersForView(filters, view);
+
 /**
  * True when the song's range (e.g. "C3 - A4") fits entirely inside the
  * chosen [minNote, maxNote] bounds. Unparseable ranges never match.
@@ -223,6 +253,24 @@ export const isSongWithinBounds = (
   }
 
   return songMinVal >= minVal && songMaxVal <= maxVal;
+};
+
+/**
+ * Artist-level version of isSongWithinBounds: true when the artist's overall
+ * range (lowest note across their songs to the highest) fits entirely inside
+ * the chosen bounds. Matches how the Artist Details screen presents an
+ * artist, so a "Chosen Range" filter and that screen always agree.
+ */
+export const isArtistWithinBounds = (
+  artist: { songs?: { vocalRange: string }[] } | null | undefined,
+  minNote: string,
+  maxNote: string
+): boolean => {
+  const songs = artist?.songs;
+  if (!songs || songs.length === 0) return false;
+
+  const { lowestNote, highestNote } = calculateOverallRange(songs);
+  return isSongWithinBounds(`${lowestNote} - ${highestNote}`, minNote, maxNote);
 };
 
 /**

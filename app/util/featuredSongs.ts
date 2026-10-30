@@ -314,13 +314,22 @@ export const scoreSong = (song: any, profile: VoiceProfile, jitter = 0): Feature
   }
 
   if (outBy === 0) {
+    const spare =
+      footroom > 0 && headroom > 0
+        ? `, with ${semis(footroom)} to spare at the bottom and ${semis(headroom)} at the top`
+        : footroom > 0
+          ? `, with ${semis(footroom)} to spare at the bottom`
+          : headroom > 0
+            ? `, with ${semis(headroom)} to spare at the top`
+            : "";
     reasons.push({
       kind: "fits-range",
       title: "Every note fits your range",
       detail:
-        `The song runs from ${noteName(low)} to ${noteName(high)}, entirely inside your range of ` +
-        `${noteName(profile.low)} to ${noteName(profile.high)}, with ${semis(footroom)} to spare at the ` +
-        `bottom and ${semis(headroom)} at the top.`,
+        footroom === 0 && headroom === 0
+          ? `The song runs from ${noteName(low)} to ${noteName(high)}, an exact match for your range.`
+          : `The song runs from ${noteName(low)} to ${noteName(high)}, entirely inside your range of ` +
+            `${noteName(profile.low)} to ${noteName(profile.high)}${spare}.`,
     });
     if (headroom >= 3) {
       reasons.push({

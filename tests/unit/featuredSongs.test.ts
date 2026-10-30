@@ -182,6 +182,19 @@ describe("scoreSong", () => {
     const stretch = scoreSong(makeSong({ vocalRange: "D3 - C#5", ...tess }), profile, 1)!;
     expect(fits.score).toBeGreaterThan(stretch.score);
   });
+
+  test("a song matching the range exactly never says 0 semitones", () => {
+    const { reasons } = scoreSong(makeSong({ vocalRange: "C3 - C5" }), profile)!.info;
+    const fits = reasons.find((r) => r.kind === "fits-range")!;
+    expect(fits.detail).toBe("The song runs from C3 to C5, an exact match for your range.");
+  });
+
+  test("only the side with room to spare is mentioned", () => {
+    const fits = (vocalRange: string) =>
+      scoreSong(makeSong({ vocalRange }), profile)!.info.reasons.find((r) => r.kind === "fits-range")!.detail;
+    expect(fits("C3 - A4")).toMatch(/inside your range of C3 to C5, with 3 semitones to spare at the top\.$/);
+    expect(fits("D3 - C5")).toMatch(/inside your range of C3 to C5, with 2 semitones to spare at the bottom\.$/);
+  });
 });
 
 describe("section highlights", () => {

@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Animated,
   Modal,
   Pressable,
   RefreshControl,
@@ -65,6 +66,10 @@ const MIN_VISIBLE_SONGS = 8;
 // Cap on consecutive automatic page loads, so a filter that matches almost
 // nothing cannot walk the entire catalogue in one go.
 const MAX_AUTO_LOADS = 5;
+// Below this the screen is a phone, and the Featured pill collapses to a sparkle.
+const COMPACT_WIDTH = 600;
+// Only caps the label's expand animation, so it has to clear the largest text size.
+const FEATURED_LABEL_MAX_WIDTH = 110;
 
 // This component renders a search screen with a search bar, filter buttons, and a list of results (songs or artists):
 export default function SearchScreen() {
@@ -398,6 +403,21 @@ export default function SearchScreen() {
   // tighten on narrow phones (iPhone SE, small Androids) to avoid overlap.
   const pillPadding = screenWidth < 370 ? 8 : screenWidth < 400 ? 11 : 14;
 
+  // Phones can't fit the full Featured pill beside the add and filter
+  // buttons, so it stays a sparkle until it's selected. The filter button
+  // steps aside at that point, which leaves room for the label.
+  const isCompact = screenWidth < COMPACT_WIDTH;
+  const featuredLabelVisible = !isCompact || showFeatured;
+  const featuredLabelAnim = React.useRef(new Animated.Value(featuredLabelVisible ? 1 : 0)).current;
+
+  React.useEffect(() => {
+    Animated.timing(featuredLabelAnim, {
+      toValue: featuredLabelVisible ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  }, [featuredLabelVisible, featuredLabelAnim]);
+
   // Featured needs an account and a saved range. The range is re-fetched
   // here when missing because this screen only loads it on mount, and the
   // user may have just set one on their profile.
@@ -561,7 +581,7 @@ export default function SearchScreen() {
             style={[
               styles.filterButton,
               styles.featuredButton,
-              { borderColor: colors.featured, backgroundColor: colors.backgroundCard, paddingHorizontal: pillPadding },
+              { borderColor: colors.featured, backgroundColor: colors.backgroundCard, paddingHorizontal: isCompact ? 11 : pillPadding },
               showFeatured && { backgroundColor: colors.featured, borderColor: colors.featured }
             ]}
             onPress={() => void handleFeaturedPress()}
@@ -571,16 +591,25 @@ export default function SearchScreen() {
           >
             {/* An icon rather than the ✨ emoji: the emoji renders much wider
                 than the text and made this pill outgrow the others. */}
-            <Ionicons name="sparkles" size={13} color={showFeatured ? colors.textInverse : colors.featured} />
-            <Text
-              maxFontSizeMultiplier={1.3}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.85}
-              style={[styles.filterText, styles.featuredText, { color: colors.featured }, showFeatured && { color: colors.textInverse }]}
+            <Ionicons name="sparkles" size={isCompact ? 15 : 13} color={showFeatured ? colors.textInverse : colors.featured} />
+            <Animated.View
+              style={[
+                styles.featuredLabel,
+                {
+                  opacity: featuredLabelAnim,
+                  maxWidth: featuredLabelAnim.interpolate({ inputRange: [0, 1], outputRange: [0, FEATURED_LABEL_MAX_WIDTH] }),
+                },
+              ]}
             >
-              Featured
-            </Text>
+              <Text
+                maxFontSizeMultiplier={1.3}
+                numberOfLines={1}
+                ellipsizeMode="clip"
+                style={[styles.filterText, styles.featuredText, { color: colors.featured }, showFeatured && { color: colors.textInverse }]}
+              >
+                Featured
+              </Text>
+            </Animated.View>
           </TouchableOpacity>
         </View>
         {/* Search filters don't shape Featured, so the button steps aside
@@ -1062,10 +1091,15 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
   },
-  featuredText: {
+  featuredLabel: {
     flexShrink: 1,
+    overflow: "hidden",
+  },
+  // Spacing sits on the text, inside the clipped label, so the collapsed
+  // sparkle stays centred in its pill.
+  featuredText: {
+    marginLeft: 4,
   },
   activeFilter: { 
     // Colors applied inline

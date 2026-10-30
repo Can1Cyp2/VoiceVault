@@ -9,13 +9,22 @@ import * as TrackingTransparency from "expo-tracking-transparency";
 const isExpoGo = Constants.appOwnership === "expo";
 const isDev = __DEV__;
 
-// Consistent test device ID across the app
-const ADMIN_TEST_DEVICE_ID = "3BCF74E4-2002-4788-B97C-84D1F37DEBC7";
+// Consistent test device IDs across the app (iOS first, then Android)
+export const ADMIN_TEST_DEVICE_IDS = [
+  "3BCF74E4-2002-4788-B97C-84D1F37DEBC7",
+  "85b00e76-e0e4-43cf-be16-dfda82d34abf",
+];
+const ADMIN_TEST_DEVICE_ID = ADMIN_TEST_DEVICE_IDS[0];
 
 class AdService {
   private rewardedAd: any = null;
   private interstitialAd: any = null;
   private isInitialized = false;
+  private initPromise: Promise<void> | null = null;
+  private consentAllowsAds = true;
+  // Set once MobileAds().initialize() succeeds. isInitialized is also set
+  // after a failed init (to stop retry loops), so it cannot answer this.
+  private sdkReady = false;
   private adCount = 0;
   private lastAdTime = 0;
   private lastAdType: "rewarded" | "interstitial" | null = null;
@@ -31,8 +40,16 @@ class AdService {
   private AdEventType: any = null;
   private RewardedAdEventType: any = null;
 
-  async initialize() {
-    if (this.isInitialized || isExpoGo) return;
+  // Several callers (App start, useAds, in-list native ads) can ask for
+  // initialization at once; they all share one run instead of racing.
+  initialize(): Promise<void> {
+    if (isExpoGo) return Promise.resolve();
+    if (!this.initPromise) this.initPromise = this.runInitialize();
+    return this.initPromise;
+  }
+
+  private async runInitialize() {
+    if (this.isInitialized) return;
 
     try {
       const {
@@ -55,9 +72,9 @@ class AdService {
 
       // Configure test device FIRST - before any SDK operations
       if (isDev) {
-        console.log(`Configuring test device: ${ADMIN_TEST_DEVICE_ID}`);
+        console.log(`Configuring test devices: ${ADMIN_TEST_DEVICE_IDS.join(", ")}`);
         await MobileAds().setRequestConfiguration({
-          testDeviceIdentifiers: [ADMIN_TEST_DEVICE_ID],
+          testDeviceIdentifiers: ADMIN_TEST_DEVICE_IDS,
           // Add additional privacy controls for testing
           tagForChildDirectedTreatment: false, // False because app does not directly target children
           tagForUnderAgeOfConsent: false, // False because app does not directly target children. only set to true for users under consent age in their country
@@ -69,10 +86,11 @@ class AdService {
       console.log("Initializing AdMob SDK...");
       const initResult = await MobileAds().initialize();
       console.log("✅ AdMob SDK initialized successfully");
+      this.sdkReady = true;
       console.log("SDK initialization result:", initResult);
 
       // Handle consent
-      await this.initConsent();
+      this.consentAllowsAds = (await this.initConsent()) !== false;
 
       // Choose ad unit IDs
       const rewardedAdUnit = isDev
@@ -203,11 +221,15 @@ class AdService {
       console.error("Rewarded ad created:", !!this.rewardedAd);
       console.error("Interstitial ad created:", !!this.interstitialAd);
       
-      // Show alert to user about the specific error
-      Alert.alert(
-        "Ad Initialization Error",
-        `Failed to initialize ads: ${error?.message || 'Unknown error'}\n\nRewarded: ${!!this.rewardedAd ? 'OK' : 'FAILED'}\nInterstitial: ${!!this.interstitialAd ? 'OK' : 'FAILED'}`
-      );
+      // Only surface this while developing. In release, ads failing to set
+      // up should be invisible: ad slots collapse and the support buttons
+      // report "Ad Not Available" when tapped.
+      if (isDev) {
+        Alert.alert(
+          "Ad Initialization Error",
+          `Failed to initialize ads: ${error?.message || 'Unknown error'}\n\nRewarded: ${!!this.rewardedAd ? 'OK' : 'FAILED'}\nInterstitial: ${!!this.interstitialAd ? 'OK' : 'FAILED'}`
+        );
+      }
       
       // Still mark as initialized to prevent infinite retry loops
       this.isInitialized = true;
@@ -269,6 +291,15 @@ class AdService {
       // Don't throw, continue with ads anyway for development
       return true;
     }
+  }
+
+  // For ad formats loaded outside this service (the native ads in song lists).
+  // Resolves to null when ads must not be requested at all.
+  async getRequestOptionsIfAllowed() {
+    if (isExpoGo) return null;
+    await this.initialize();
+    if (!this.sdkReady || !this.consentAllowsAds) return null;
+    return this.currentRequestOptions();
   }
 
   private async currentRequestOptions() {

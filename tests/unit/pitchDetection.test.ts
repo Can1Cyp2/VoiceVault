@@ -6,8 +6,8 @@
  * microphone integration is intentionally not tested here.
  */
 
-jest.mock("expo-av", () => ({
-  Audio: { requestPermissionsAsync: jest.fn() },
+jest.mock("expo-audio", () => ({
+  requestRecordingPermissionsAsync: jest.fn(),
 }));
 jest.mock("@sentry/react-native", () => ({
   captureException: jest.fn(),

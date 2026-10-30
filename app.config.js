@@ -154,7 +154,7 @@ module.exports = () => {
         "@sentry/react-native",
         {
           organization: "voicevault-z4",
-          project: "react-native"
+          project: "voicevault"
         }
       ],
       [

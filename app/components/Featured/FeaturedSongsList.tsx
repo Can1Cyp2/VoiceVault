@@ -1,9 +1,9 @@
 // app/components/Featured/FeaturedSongsList.tsx
 //
 // The "Featured" view on the search screen: songs picked for the signed-in
-// user's voice by app/util/featuredSongs.ts, grouped by why they were picked,
-// each with a one-line reason. Tapping a song hands the full reasoning to
-// Song Details. Only rendered once the user has a vocal range - the search
+// user's voice by app/util/featuredSongs.ts, led by a shuffled top 3 and then
+// grouped by why they were picked, each with a one-line reason. Tapping a
+// song hands the full reasoning to Song Details. Only rendered once the user has a vocal range - the search
 // screen gates entry.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -24,6 +24,8 @@ import {
   describeVoiceProfile,
   FeaturedCategory,
   FeaturedSong,
+  songKey,
+  TOP_PICK_COUNT,
   VoiceProfile,
 } from "../../util/featuredSongs";
 import { fetchFeaturedSongs } from "../../util/featuredSongsApi";
@@ -35,8 +37,9 @@ type Props = {
 };
 
 type Row =
+  | { type: "top-section"; count: number }
   | { type: "section"; category: FeaturedCategory }
-  | { type: "song"; item: FeaturedSong };
+  | { type: "song"; item: FeaturedSong; top?: boolean };
 
 const SECTIONS: Record<FeaturedCategory, { title: string; icon: keyof typeof Ionicons.glyphMap; blurb: string }> = {
   tessitura: {
@@ -77,11 +80,14 @@ export default function FeaturedSongsList({ profile, verifiedOnly, onOpenSong }:
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [items, setItems] = useState<FeaturedSong[]>([]);
+  const [topItems, setTopItems] = useState<FeaturedSong[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [failed, setFailed] = useState(false);
   // Drops results from an older request that finishes after a newer one.
   const requestIdRef = useRef(0);
+  // The top picks on screen, so a refresh can show different ones.
+  const shownTopRef = useRef(new Set<string>());
 
   const described = describeVoiceProfile(profile);
 
@@ -92,9 +98,11 @@ export default function FeaturedSongsList({ profile, verifiedOnly, onOpenSong }:
       else setRefreshing(true);
       setFailed(false);
       try {
-        const result = await fetchFeaturedSongs(profile, { verifiedOnly });
+        const result = await fetchFeaturedSongs(profile, { verifiedOnly, avoidTop: shownTopRef.current });
         if (requestId !== requestIdRef.current) return;
-        setItems(result);
+        shownTopRef.current = new Set(result.top.map((t) => songKey(t.song)));
+        setTopItems(result.top);
+        setItems(result.songs);
       } catch (err) {
         console.warn("Featured songs failed to load:", err);
         if (requestId !== requestIdRef.current) return;
@@ -115,6 +123,10 @@ export default function FeaturedSongsList({ profile, verifiedOnly, onOpenSong }:
 
   const rows = useMemo(() => {
     const out: Row[] = [];
+    if (topItems.length > 0) {
+      out.push({ type: "top-section", count: topItems.length });
+      for (const item of topItems) out.push({ type: "song", item, top: true });
+    }
     let current: FeaturedCategory | null = null;
     for (const item of items) {
       if (item.info.category !== current) {
@@ -124,7 +136,7 @@ export default function FeaturedSongsList({ profile, verifiedOnly, onOpenSong }:
       out.push({ type: "song", item });
     }
     return out;
-  }, [items]);
+  }, [items, topItems]);
 
   const header = (
     <View>
@@ -198,7 +210,11 @@ export default function FeaturedSongsList({ profile, verifiedOnly, onOpenSong }:
       contentContainerStyle={styles.listContent}
       data={rows}
       keyExtractor={(row) =>
-        row.type === "section" ? `section-${row.category}` : `featured-${row.item.song.id ?? row.item.song.name}`
+        row.type === "top-section"
+          ? "section-top"
+          : row.type === "section"
+            ? `section-${row.category}`
+            : `featured-${row.item.song.id ?? row.item.song.name}`
       }
       ListHeaderComponent={header}
       ListEmptyComponent={
@@ -212,6 +228,21 @@ export default function FeaturedSongsList({ profile, verifiedOnly, onOpenSong }:
         </View>
       }
       renderItem={({ item: row }) => {
+        if (row.type === "top-section") {
+          return (
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleRow}>
+                <Ionicons name="star" size={16} color={colors.featured} />
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                  {row.count === TOP_PICK_COUNT ? `Your top ${TOP_PICK_COUNT}` : "Your top picks"}
+                </Text>
+              </View>
+              <Text style={[styles.sectionBlurb, { color: colors.textTertiary }]}>
+                The best fits right now: they suit your range, going at most 2 semitones past your top note, and the melody sits in the middle of your comfort zone.
+              </Text>
+            </View>
+          );
+        }
         if (row.type === "section") {
           const section = SECTIONS[row.category];
           return (
@@ -227,9 +258,15 @@ export default function FeaturedSongsList({ profile, verifiedOnly, onOpenSong }:
         const { song, info } = row.item;
         return (
           <TouchableOpacity onPress={() => onOpenSong(row.item)} activeOpacity={0.75}>
-            <View style={[styles.resultItem, { backgroundColor: colors.backgroundCard, shadowColor: colors.shadow }]}>
+            <View
+              style={[
+                styles.resultItem,
+                { backgroundColor: colors.backgroundCard, shadowColor: colors.shadow },
+                row.top && { borderWidth: 1, borderColor: colors.featured },
+              ]}
+            >
               <View style={[styles.resultIcon, { backgroundColor: colors.featuredBackground }]}>
-                <Ionicons name="musical-notes" size={24} color={colors.featured} />
+                <Ionicons name={row.top ? "star" : "musical-notes"} size={24} color={colors.featured} />
               </View>
               <View style={styles.resultTextContainer}>
                 <Text style={[styles.resultText, { color: colors.textPrimary }]} numberOfLines={2}>

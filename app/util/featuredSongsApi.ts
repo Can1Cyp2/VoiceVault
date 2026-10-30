@@ -21,6 +21,9 @@ import {
   FeaturedSong,
   notesInZone,
   selectFeaturedSongs,
+  selectTopSongs,
+  songKey,
+  TOP_PICK_COUNT,
   VoiceProfile,
 } from "./featuredSongs";
 
@@ -65,14 +68,20 @@ const countTessituraMatches = async (zoneNotes: string[], verifiedOnly: boolean)
   return count ?? 0;
 };
 
+export type FeaturedResults = {
+  top: FeaturedSong[];
+  songs: FeaturedSong[];
+};
+
 /**
  * Build a fresh Featured list for this voice. Every call draws new random
- * pools, which is what "refresh for a new list" relies on.
+ * pools, which is what "refresh for a new list" relies on. `avoidTop` holds
+ * the previous top picks, so a refresh doesn't show them again.
  */
 export const fetchFeaturedSongs = async (
   profile: VoiceProfile,
-  opts: { verifiedOnly?: boolean } = {}
-): Promise<FeaturedSong[]> => {
+  opts: { verifiedOnly?: boolean; avoidTop?: Set<string> } = {}
+): Promise<FeaturedResults> => {
   const verifiedOnly = !!opts.verifiedOnly;
   const zoneNotes = notesInZone(profile);
 
@@ -93,9 +102,16 @@ export const fetchFeaturedSongs = async (
     for (let i = 0; i < windows; i++) {
       candidates = candidates.concat(await fetchTessituraWindow(zoneNotes, matchCount, verifiedOnly));
       const picks = selectFeaturedSongs(candidates, profile, { random: () => 0 });
-      if (picks.filter((p) => p.info.category === "tessitura").length >= MIN_TESSITURA_PICKS) break;
+      const enoughTessitura = picks.filter((p) => p.info.category === "tessitura").length >= MIN_TESSITURA_PICKS;
+      if (enoughTessitura && selectTopSongs(candidates, profile).length >= TOP_PICK_COUNT) break;
     }
   }
 
-  return selectFeaturedSongs(candidates, profile);
+  const top = selectTopSongs(candidates, profile, { avoid: opts.avoidTop });
+  const topKeys = new Set(top.map((t) => songKey(t.song)));
+  return {
+    top,
+    // Top picks only appear once, above the rest of the list.
+    songs: selectFeaturedSongs(candidates.filter((song) => !topKeys.has(songKey(song))), profile),
+  };
 };

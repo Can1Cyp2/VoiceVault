@@ -26,6 +26,8 @@ import {
   keyEmotionalCharacter,
   KeyConfidenceTier,
 } from "../../util/songMetadata";
+import type { FeaturedHighlight } from "../../util/featuredSongs";
+import { FeaturedHintBadge, FeaturedHintCallout } from "../../components/Featured/FeaturedHint";
 
 // Fallback wording for the marker when a key predates confidence scoring and
 // has no percentage to show.
@@ -42,9 +44,21 @@ type Props = {
   artistName?: string | null;
   /** Plays a reference note - reused from the parent screen. */
   onPlayNote?: (note: string) => void;
+  /** Opened from Featured with a tessitura match: why it suits the user. */
+  featuredTessitura?: FeaturedHighlight;
+  featuredTessituraOpen?: boolean;
+  onToggleFeaturedTessitura?: () => void;
 };
 
-const SongMetadataCard: React.FC<Props> = ({ metadata, songName, artistName, onPlayNote }) => {
+const SongMetadataCard: React.FC<Props> = ({
+  metadata,
+  songName,
+  artistName,
+  onPlayNote,
+  featuredTessitura,
+  featuredTessituraOpen = false,
+  onToggleFeaturedTessitura,
+}) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [isTessituraInfoVisible, setTessituraInfoVisible] = useState(false);
@@ -169,6 +183,20 @@ const SongMetadataCard: React.FC<Props> = ({ metadata, songName, artistName, onP
             <Text style={styles.tessituraCentre}>
               Centred on {metadata.tessituraMedian}
             </Text>
+          )}
+
+          {/* Opened from Featured: the sparkle pill captures its own tap, so it
+              reveals the reason instead of opening the tessitura explainer. */}
+          {featuredTessitura && onToggleFeaturedTessitura && (
+            <View style={styles.featuredTessitura}>
+              <FeaturedHintBadge
+                highlight={featuredTessitura}
+                label="Fits your voice"
+                expanded={featuredTessituraOpen}
+                onPress={onToggleFeaturedTessitura}
+              />
+              {featuredTessituraOpen && <FeaturedHintCallout highlight={featuredTessitura} />}
+            </View>
           )}
 
           <Text style={styles.tessituraHint}>
@@ -436,6 +464,10 @@ const createStyles = (colors: any) =>
       textAlign: "center",
       fontWeight: "600",
       marginTop: 4,
+    },
+    featuredTessitura: {
+      alignItems: "center",
+      marginTop: 10,
     },
     tessituraHint: {
       fontSize: 12,

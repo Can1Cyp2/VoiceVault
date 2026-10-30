@@ -42,7 +42,7 @@ const SECTIONS: Record<FeaturedCategory, { title: string; icon: keyof typeof Ion
   tessitura: {
     title: "In your sweet spot",
     icon: "sparkles",
-    blurb: "Most of the melody sits where your voice is most comfortable (your tessitura).",
+    blurb: "Most of the melody sits where we estimate that your voice is most comfortable (your tessitura).",
   },
   range: {
     title: "Fits your range",
@@ -53,14 +53,14 @@ const SECTIONS: Record<FeaturedCategory, { title: string; icon: keyof typeof Ion
     title: "Stretch goals",
     icon: "trending-up",
     blurb:
-      "Up to 2 semitones past your range. Peak notes are usually brief and range grows with practice - or transpose slightly to fit.",
+      "Up to 2 semitones past your range. Peak notes are usually brief and range grows with practice, or you can transpose slightly to fit.",
   },
 };
 
 const showTessituraInfo = (range: string, tessitura: string, lowConfidence: boolean) =>
   Alert.alert(
     "Your comfortable zone",
-    `Your range is ${range}. Your estimated tessitura - the part you can sing comfortably for a whole song - is ${tessitura}.\n\n` +
+    `Your range is ${range}. Your estimated tessitura, the part you can sing comfortably for a whole song, is ${tessitura}.\n\n` +
       "We estimate it by trimming the outer edges of your range (more off the top, since your highest notes are the hardest to sustain), the way voice teachers think about where a voice sits best.\n\n" +
       (lowConfidence
         ? "Your saved range is quite narrow, so we've used all of it. Re-testing your range will make this more accurate."
@@ -70,7 +70,7 @@ const showTessituraInfo = (range: string, tessitura: string, lowConfidence: bool
 const showCustomizeComingSoon = () =>
   Alert.alert(
     "Customization coming soon ✨",
-    "Soon you'll be able to customize the algorithm behind your Featured songs - like favourite genres, how many stretch songs you see, and more. Stay tuned!"
+    "Coming soon! You will be able to customize the algorithm behind your Featured songs: like favourite genres, how many stretch songs you see, and more. Stay tuned!"
   );
 
 export default function FeaturedSongsList({ profile, verifiedOnly, onOpenSong }: Props) {
@@ -207,7 +207,7 @@ export default function FeaturedSongsList({ profile, verifiedOnly, onOpenSong }:
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             {failed
               ? "Couldn't load featured songs. Check your connection and pull down to try again."
-              : "No matches this time - pull down or tap New list to try another batch."}
+              : "No matches this time. Pull down or tap New list to try another batch."}
           </Text>
         </View>
       }

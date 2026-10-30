@@ -41,6 +41,8 @@ import { SongImage as SongImageData } from "../../util/songImages";
 import SingThisModal from "./SingThisModal";
 import SongMetadataCard from "./SongMetadataCard";
 import FeaturedReasonsCard from "./FeaturedReasonsCard";
+import { FeaturedHintBadge, FeaturedHintCallout } from "../../components/Featured/FeaturedHint";
+import { FeaturedInfo, voiceTypeHighlights } from "../../util/featuredSongs";
 import { fetchSongMetadata, SongMetadata } from "../../util/songMetadata";
 import { goToStackScreen, isSameArtist } from "../../navigation/stackNav";
 
@@ -56,6 +58,17 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
 
   const { male, female, maleOutOfRange, femaleOutOfRange } =
     findClosestVocalRangeFit(vocalRange);
+
+  // Opened from Featured: sparkle badges beside each section that was part of
+  // the pick. One callout open at a time; tapping its sparkle again closes it.
+  const featured: FeaturedInfo | undefined = route.params.featured;
+  const voiceHints = useMemo(
+    () => voiceTypeHighlights(featured?.userVoiceType, { male, female }),
+    [featured?.userVoiceType, male, female]
+  );
+  const [openHint, setOpenHint] = useState<"range" | "male" | "female" | "tessitura" | null>(null);
+  const toggleHint = (hint: NonNullable<typeof openHint>) =>
+    setOpenHint((current) => (current === hint ? null : hint));
 
   const [isModalVisible, setModalVisible] = useState(false);
   const [customListName, setCustomListName] = useState("");
@@ -435,15 +448,29 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       )}
 
       {/* Opened from Featured: explain the pick before anything else */}
-      {route.params.featured && <FeaturedReasonsCard info={route.params.featured} />}
+      {featured && <FeaturedReasonsCard info={featured} />}
 
       {/* Vocal Range Header */}
       {vocalRange && (
         <>
-          <View style={styles.vocalRangeHeader}>
+          <View style={[styles.vocalRangeHeader, featured?.highlights && openHint === "range" && styles.vocalRangeHeaderOpen]}>
             <Text style={styles.vocalRangeIcon}>🎤</Text>
             <Text style={styles.vocalRangeTitle}>Vocal Range: {vocalRange}</Text>
+            {featured?.highlights && (
+              <View style={styles.featuredHintSpacer}>
+                <FeaturedHintBadge
+                  highlight={featured.highlights.range}
+                  expanded={openHint === "range"}
+                  onPress={() => toggleHint("range")}
+                />
+              </View>
+            )}
           </View>
+          {featured?.highlights && openHint === "range" && (
+            <View style={styles.featuredCalloutWrap}>
+              <FeaturedHintCallout highlight={featured.highlights.range} />
+            </View>
+          )}
 
           <Piano vocalRange={vocalRange} />
 
@@ -495,22 +522,46 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
           <View style={styles.bestFitSection}>
             <Text style={styles.bestFitTitle}>Best Fit Analysis</Text>
             <View style={styles.bestFitCard}>
-              <Text style={styles.bestFitLabel}>Male Voice:</Text>
-              <Text style={styles.bestFitValue}>{male}</Text>
+              <View style={styles.bestFitRow}>
+                <View style={styles.bestFitText}>
+                  <Text style={styles.bestFitLabel}>Male Voice:</Text>
+                  <Text style={styles.bestFitValue}>{male}</Text>
+                </View>
+                {voiceHints.male && (
+                  <FeaturedHintBadge
+                    highlight={voiceHints.male}
+                    expanded={openHint === "male"}
+                    onPress={() => toggleHint("male")}
+                  />
+                )}
+              </View>
               {maleOutOfRange && (
                 <Text style={styles.outOfRangeText}>
                   {getOutOfRangeMessage(maleOutOfRange)}
                 </Text>
               )}
+              {voiceHints.male && openHint === "male" && <FeaturedHintCallout highlight={voiceHints.male} />}
             </View>
             <View style={styles.bestFitCard}>
-              <Text style={styles.bestFitLabel}>Female Voice:</Text>
-              <Text style={styles.bestFitValue}>{female}</Text>
+              <View style={styles.bestFitRow}>
+                <View style={styles.bestFitText}>
+                  <Text style={styles.bestFitLabel}>Female Voice:</Text>
+                  <Text style={styles.bestFitValue}>{female}</Text>
+                </View>
+                {voiceHints.female && (
+                  <FeaturedHintBadge
+                    highlight={voiceHints.female}
+                    expanded={openHint === "female"}
+                    onPress={() => toggleHint("female")}
+                  />
+                )}
+              </View>
               {femaleOutOfRange && (
                 <Text style={styles.outOfRangeText}>
                   {getOutOfRangeMessage(femaleOutOfRange)}
                 </Text>
               )}
+              {voiceHints.female && openHint === "female" && <FeaturedHintCallout highlight={voiceHints.female} />}
             </View>
           </View>
 
@@ -531,6 +582,9 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
         onPlayNote={(note) => {
           void playReferenceNote(note);
         }}
+        featuredTessitura={featured?.highlights?.tessitura}
+        featuredTessituraOpen={openHint === "tessitura"}
+        onToggleFeaturedTessitura={() => toggleHint("tessitura")}
       />
 
       {/* Personalized Recommendation Component */}
@@ -802,6 +856,25 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     fontWeight: '600',
     color: colors.textPrimary,
     fontFamily: FONTS.primary,
+  },
+  // The open callout sits between the header and the piano, so the header
+  // gives up its bottom margin to the callout.
+  vocalRangeHeaderOpen: {
+    marginBottom: 0,
+  },
+  featuredHintSpacer: {
+    marginLeft: 10,
+  },
+  featuredCalloutWrap: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  bestFitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bestFitText: {
+    flex: 1,
   },
 
   

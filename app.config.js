@@ -2,8 +2,6 @@
 // Developer: Can1Cyp2
 // Email: can1cyp2apps@gmail.com
 // Website: https://SebastianLandry.ca
-require("dotenv").config(); // Load .env.local for local development
-
 module.exports = () => {
   return {
     name: "VoiceVault",
@@ -12,12 +10,12 @@ module.exports = () => {
     orientation: "default",
     icon: "./assets/dark-glow-nontransparent-icon2.png",
     userInterfaceStyle: "light",
-    newArchEnabled: false, // temp
+    newArchEnabled: true,
 
     splash: {
       image: "./assets/dark-glow-nontransparent-icon2.png",
       resizeMode: "contain",
-      backgroundColor: "#ffffff",
+      backgroundColor: "#090A10",
     },
     ios: {
       supportsTablet: true,
@@ -89,7 +87,7 @@ module.exports = () => {
       },
     },
     android: {
-      versionCode: 10312,
+      versionCode: 10332,
       adaptiveIcon: {
         foregroundImage: "./assets/icon.png",
         backgroundColor: "#ffffff",
@@ -134,7 +132,7 @@ module.exports = () => {
             useFrameworks: "static",
           },
           android: {
-            kotlinVersion: "2.0.21",
+            kotlinVersion: "2.1.20",
             compileSdkVersion: 36,
             targetSdkVersion: 36,
             ndkVersion: "27.0.12077973",
@@ -142,8 +140,12 @@ module.exports = () => {
           },
         },
       ],
+      "expo-audio",
       "expo-font",
+      "expo-image",
       "expo-secure-store",
+      "expo-sharing",
+      "expo-status-bar",
       "expo-video",
       "expo-tracking-transparency",
       "expo-asset",

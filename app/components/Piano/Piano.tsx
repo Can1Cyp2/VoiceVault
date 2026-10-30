@@ -2,7 +2,7 @@
 // app/components/Piano/Piano.tsx
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
-import { Audio } from 'expo-av';
+import { Audio } from '../../util/audio';
 import { LightColors } from '../../styles/theme';
 import { getPianoAudioFile } from '../../util/pianoNotes';
 

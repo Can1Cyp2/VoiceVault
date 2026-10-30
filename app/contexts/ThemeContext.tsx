@@ -8,6 +8,7 @@ type ThemeMode = 'light' | 'dark' | 'system';
 interface ThemeContextType {
   mode: ThemeMode;
   isDark: boolean;
+  isReady: boolean;
   colors: typeof LightColors;
   setMode: (mode: ThemeMode) => void;
 }
@@ -68,13 +69,8 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
     });
   };
 
-  // Don't render until theme is loaded to prevent flash
-  if (!isReady) {
-    return null;
-  }
-
   return (
-    <ThemeContext.Provider value={{ mode, isDark, colors, setMode }}>
+    <ThemeContext.Provider value={{ mode, isDark, isReady, colors, setMode }}>
       {children}
     </ThemeContext.Provider>
   );

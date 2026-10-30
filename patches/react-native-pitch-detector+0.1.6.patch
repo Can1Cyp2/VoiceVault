@@ -1,8 +1,8 @@
 diff --git a/node_modules/react-native-pitch-detector/ios/PitchDetector/PitchDetectorModule.swift b/node_modules/react-native-pitch-detector/ios/PitchDetector/PitchDetectorModule.swift
-index f635075..57dca83 100644
+index f635075..3216dc7 100644
 --- a/node_modules/react-native-pitch-detector/ios/PitchDetector/PitchDetectorModule.swift
 +++ b/node_modules/react-native-pitch-detector/ios/PitchDetector/PitchDetectorModule.swift
-@@ -35,14 +35,17 @@ open class PitchDetectorModule: RCTEventEmitter {
+@@ -35,26 +35,29 @@ open class PitchDetectorModule: RCTEventEmitter {
  
      @objc(start:resolve:reject:)
      func start(_ config: Dictionary<String, Any>, resolve:@escaping RCTPromiseResolveBlock, reject:@escaping RCTPromiseRejectBlock) -> Void {
@@ -12,7 +12,7 @@ index f635075..57dca83 100644
 -        processor.start(config)
 -        self.recording = true
 +    let promise = PromiseUtils(resolve, reject)
- 
+         
 -        return promise.resolve(nil)
 +    if (self.recording) {
 +        processor.stop()
@@ -26,24 +26,38 @@ index f635075..57dca83 100644
    }
      
    @objc(stop:reject:)
+     func stop(resolve:@escaping RCTPromiseResolveBlock,reject:@escaping RCTPromiseRejectBlock) -> Void {
+-    if (self.recording) {
+-        let promise = PromiseUtils(resolve, reject)
++    let promise = PromiseUtils(resolve, reject)
+         
++    if (self.recording) {
+         processor.stop()
+         self.recording = false
+-        
+-        return promise.resolve(nil)
+     }
++
++    return promise.resolve(nil)
+   }
+ 
+   @objc(isRecording:reject:)
 diff --git a/node_modules/react-native-pitch-detector/ios/PitchDetector/Processors/BaseProcessor.swift b/node_modules/react-native-pitch-detector/ios/PitchDetector/Processors/BaseProcessor.swift
-index 8635db4..ed3208f 100644
+index 8635db4..cbbc254 100644
 --- a/node_modules/react-native-pitch-detector/ios/PitchDetector/Processors/BaseProcessor.swift
 +++ b/node_modules/react-native-pitch-detector/ios/PitchDetector/Processors/BaseProcessor.swift
-@@ -31,15 +31,30 @@ class BaseProcessor: PitchEngineDelegate {
+@@ -31,15 +31,28 @@ class BaseProcessor: PitchEngineDelegate {
      func prepare(_ config: Dictionary<String, Any>) {
          let bufferSize = config["bufferSize"] as! Int
          let algorithm = AlgorithmUtils.parse(for: config["algorithm"] as! String)
-+        // VoiceVault fix: honor levelThreshold from JS config so callers can bypass the
-+        // broken AVCaptureSession averagePowerLevel gate on iOS 26 (it's stuck at -120 dB).
-+        let threshold = (config["levelThreshold"] as? NSNumber)?.floatValue ?? -30.0
- 
++        let levelThreshold = (config["levelThreshold"] as? NSNumber)?.floatValue ?? -85.0
+         
 -        let config = Config(bufferSize: AVAudioFrameCount(bufferSize), estimationStrategy: algorithm)
 -        processor = PitchEngine(config: config, delegate: self)
 -        processor?.levelThreshold = -30.0
-+        let cfg = Config(bufferSize: AVAudioFrameCount(bufferSize), estimationStrategy: algorithm)
-+        processor = PitchEngine(config: cfg, delegate: self)
-+        processor?.levelThreshold = threshold
++        let pitchConfig = Config(bufferSize: AVAudioFrameCount(bufferSize), estimationStrategy: algorithm)
++        processor = PitchEngine(config: pitchConfig, delegate: self)
++        processor?.levelThreshold = levelThreshold
 +    }
 +
 +    private func configureAudioSessionForPitchDetection() throws {
@@ -51,16 +65,46 @@ index 8635db4..ed3208f 100644
 +        try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetooth])
 +        try session.setActive(true)
      }
- 
+     
      func start(_ config: Dictionary<String, Any>) {
          prepare(config)
- 
+         
 +        do {
 +            try configureAudioSessionForPitchDetection()
 +        } catch {
 +            print("PitchDetector audio session setup failed: \(error)")
 +        }
-+
++        
          if ((processor?.active) != nil && !processor!.active) {
              processor?.start()
          }
+diff --git a/node_modules/react-native-pitch-detector/react-native-pitch-detector.podspec b/node_modules/react-native-pitch-detector/react-native-pitch-detector.podspec
+index a44ee68..5e22523 100644
+--- a/node_modules/react-native-pitch-detector/react-native-pitch-detector.podspec
++++ b/node_modules/react-native-pitch-detector/react-native-pitch-detector.podspec
+@@ -16,21 +16,10 @@ Pod::Spec.new do |s|
+ 
+   s.source_files = "ios/**/*.{h,m,mm,swift}"
+ 
+-  s.dependency "React-Core"
+   s.dependency "Beethoven"
+ 
+-  # Don't install the dependencies when we run `pod install` in the old architecture.
+-  if ENV['RCT_NEW_ARCH_ENABLED'] == '1' then
+-    s.compiler_flags = folly_compiler_flags + " -DRCT_NEW_ARCH_ENABLED=1"
+-    s.pod_target_xcconfig    = {
+-        "HEADER_SEARCH_PATHS" => "\"$(PODS_ROOT)/boost\"",
+-        "OTHER_CPLUSPLUSFLAGS" => "-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1",
+-        "CLANG_CXX_LANGUAGE_STANDARD" => "c++17"
+-    }
+-    s.dependency "React-Codegen"
+-    s.dependency "RCT-Folly"
+-    s.dependency "RCTRequired"
+-    s.dependency "RCTTypeSafety"
+-    s.dependency "ReactCommon/turbomodule/core"
+-  end
++  # Let the installed React Native version select the correct source or
++  # prebuilt dependencies. Direct RCT-Folly/RCTRequired dependencies are not
++  # available when React Native Core is provided as a prebuilt pod.
++  install_modules_dependencies(s)
+ end

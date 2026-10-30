@@ -18,7 +18,7 @@ import {
   Dimensions,
   Linking,
 } from "react-native";
-import { Audio } from "expo-av";
+import { Audio } from "../../util/audio";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, FONTS } from "../../styles/theme";
 import { useTheme } from "../../contexts/ThemeContext";

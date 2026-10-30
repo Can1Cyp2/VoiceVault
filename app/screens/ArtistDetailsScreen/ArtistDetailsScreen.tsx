@@ -1,7 +1,7 @@
 // app/screens/ArtistDetailsScreen/ArtistDetailsScreen.tsx
 
 import { useNavigation, NavigationProp } from "@react-navigation/native";
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useId } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,13 @@ import { useTheme } from "../../contexts/ThemeContext";
 import { noteToValue } from "../SongDetailsScreen/RangeBestFit";
 import { RootStackParamList } from "../../navigation/StackNavigator";
 import { goToStackScreen, isSameSong } from "../../navigation/stackNav";
+import SongRowAd from "../../components/SongRowAd/SongRowAd";
+import {
+  ARTIST_AD_SPACING,
+  isAdMarker,
+  releaseSongListAds,
+  withAdSlots,
+} from "../../components/SongRowAd/songListAds";
 
 export const ArtistDetailsScreen = ({ route }: any) => {
   const { colors } = useTheme();
@@ -29,6 +36,12 @@ export const ArtistDetailsScreen = ({ route }: any) => {
   const [userRange, setUserRange] = useState<{ min_range: string; max_range: string } | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
   const indicatorRef = useRef<View>(null);
+  // Each visit gets its own ads: several artist pages can be open in the
+  // stack at once, and an ad can only be shown in one place.
+  const adPlacement = `artist-${useId()}`;
+  const listData = useMemo(() => withAdSlots(songs, ARTIST_AD_SPACING), [songs]);
+
+  useEffect(() => () => releaseSongListAds(adPlacement), [adPlacement]);
 
     const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
@@ -262,16 +275,20 @@ export const ArtistDetailsScreen = ({ route }: any) => {
         <ActivityIndicator size="large" color="tomato" />
       ) : (
         <FlatList
-          data={songs}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <TouchableOpacity onPress={() => handleSongPress(item)}>
-              <View style={styles.songCard}>
-                <Text style={styles.songTitle}>{item.name}</Text>
-                <Text style={styles.songRange}>{item.vocalRange}</Text>
-              </View>
-            </TouchableOpacity>
-          )}
+          data={listData}
+          keyExtractor={(item) => (isAdMarker(item) ? `ad-${item.__adSlot}` : item.id.toString())}
+          renderItem={({ item }) =>
+            isAdMarker(item) ? (
+              <SongRowAd placement={adPlacement} slot={item.__adSlot} variant="artist" />
+            ) : (
+              <TouchableOpacity onPress={() => handleSongPress(item)}>
+                <View style={styles.songCard}>
+                  <Text style={styles.songTitle}>{item.name}</Text>
+                  <Text style={styles.songRange}>{item.vocalRange}</Text>
+                </View>
+              </TouchableOpacity>
+            )
+          }
           ListHeaderComponent={renderHeader}
         />
       )}

@@ -39,6 +39,14 @@ export const MIN_TESSITURA_SPAN = 7;
 export const MAX_STRETCH_SEMITONES = 2;
 /** Share of a song's tessitura that must be in the zone to count as a tessitura match. */
 export const TESSITURA_MATCH_THRESHOLD = 0.6;
+/** How many songs the Top section shows. */
+export const TOP_PICK_COUNT = 3;
+/** A top pick may peak this far above the range, and never goes below it. */
+export const TOP_PICK_MAX_ABOVE = 2;
+/** Share of a top pick's tessitura that must be in the comfort zone. */
+export const TOP_PICK_MIN_OVERLAP = 0.8;
+/** How far a top pick's melody centre may sit from the middle of the comfort zone. */
+export const TOP_PICK_MAX_CENTER_OFFSET = 2;
 
 const FLAT_TO_SHARP: Record<string, string> = {
   Db: "C#",
@@ -175,6 +183,8 @@ export type FeaturedSong = {
   song: any;
   score: number;
   info: FeaturedInfo;
+  /** Good on every count, so it can appear in the Top section. */
+  topFit: boolean;
 };
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -418,9 +428,19 @@ export const scoreSong = (song: any, profile: VoiceProfile, jitter = 0): Feature
     };
   }
 
+  // Top picks need both signals to be strong, so a song with no tessitura
+  // data can't qualify however well its range fits.
+  const topFit =
+    !!tess &&
+    below === 0 &&
+    above <= TOP_PICK_MAX_ABOVE &&
+    overlap >= TOP_PICK_MIN_OVERLAP &&
+    Math.abs(tess.t50 - profile.center) <= TOP_PICK_MAX_CENTER_OFFSET;
+
   return {
     song,
     score,
+    topFit,
     info: {
       category,
       summary: summarize(category, { tess, overlap, outBy, above, headroom, songSpan, userSpan }),
@@ -497,6 +517,61 @@ export type FeaturedSelectionOptions = {
   random?: () => number;
 };
 
+/** Identifies a song across fetches, where the same song can arrive twice. */
+export const songKey = (song: any): string =>
+  `${String(song?.name ?? "").toLowerCase()}|${String(song?.artist ?? "").toLowerCase()}`;
+
+const scoreCandidates = (candidates: any[], profile: VoiceProfile, random: () => number): FeaturedSong[] => {
+  const seen = new Set<string>();
+  const scored: FeaturedSong[] = [];
+  for (const song of candidates) {
+    const key = songKey(song);
+    if (seen.has(key)) continue;
+    const result = scoreSong(song, profile, random());
+    if (!result) continue;
+    seen.add(key);
+    scored.push(result);
+  }
+  return scored;
+};
+
+export type TopPickOptions = {
+  count?: number;
+  /** songKeys shown last time; only reused when too few other songs qualify. */
+  avoid?: Set<string>;
+  random?: () => number;
+};
+
+/**
+ * A random draw from every song that fits well on all counts. Every qualifier
+ * is equally likely rather than the highest scorers winning, otherwise a
+ * refresh would keep landing on the same few songs. One song per artist.
+ */
+export const selectTopSongs = (
+  candidates: any[],
+  profile: VoiceProfile,
+  { count = TOP_PICK_COUNT, avoid = new Set<string>(), random = Math.random }: TopPickOptions = {}
+): FeaturedSong[] => {
+  const pool = scoreCandidates(candidates, profile, () => 0).filter((s) => s.topFit);
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const fresh = pool.filter((s) => !avoid.has(songKey(s.song)));
+  const repeats = pool.filter((s) => avoid.has(songKey(s.song)));
+
+  const picked: FeaturedSong[] = [];
+  const artists = new Set<string>();
+  for (const item of [...fresh, ...repeats]) {
+    if (picked.length >= count) break;
+    const artist = String(item.song.artist ?? "").toLowerCase();
+    if (artists.has(artist)) continue;
+    artists.add(artist);
+    picked.push(item);
+  }
+  return picked;
+};
+
 /**
  * Score every candidate and pick a balanced list: tessitura matches first
  * (the strongest signal), then songs that fit the range, then a few stretch
@@ -514,16 +589,7 @@ export const selectFeaturedSongs = (
     random = Math.random,
   }: FeaturedSelectionOptions = {}
 ): FeaturedSong[] => {
-  const seen = new Set<string>();
-  const scored: FeaturedSong[] = [];
-  for (const song of candidates) {
-    const key = `${String(song?.name ?? "").toLowerCase()}|${String(song?.artist ?? "").toLowerCase()}`;
-    if (seen.has(key)) continue;
-    const result = scoreSong(song, profile, random());
-    if (!result) continue;
-    seen.add(key);
-    scored.push(result);
-  }
+  const scored = scoreCandidates(candidates, profile, random);
   scored.sort((a, b) => b.score - a.score);
 
   const picked: FeaturedSong[] = [];

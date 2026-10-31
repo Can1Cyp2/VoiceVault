@@ -40,6 +40,7 @@ import SongImage from "../../components/SongImage/SongImage";
 import { SongImage as SongImageData } from "../../util/songImages";
 import SingThisModal from "./SingThisModal";
 import SongMetadataCard from "./SongMetadataCard";
+import FeaturedReasonsCard from "./FeaturedReasonsCard";
 import { fetchSongMetadata, SongMetadata } from "../../util/songMetadata";
 import { goToStackScreen, isSameArtist } from "../../navigation/stackNav";
 
@@ -432,6 +433,9 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
           />
         </TouchableOpacity>
       )}
+
+      {/* Opened from Featured: explain the pick before anything else */}
+      {route.params.featured && <FeaturedReasonsCard info={route.params.featured} />}
 
       {/* Vocal Range Header */}
       {vocalRange && (

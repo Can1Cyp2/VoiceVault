@@ -12,6 +12,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  useWindowDimensions,
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -35,6 +36,9 @@ import { logSongSearch } from "../../util/api";
 import SongFilterModal from "../../components/SongFilters/SongFilterModal";
 import RequestSongModal from "../../components/RequestSong/RequestSongModal";
 import SongRowAd from "../../components/SongRowAd/SongRowAd";
+import FeaturedSongsList from "../../components/Featured/FeaturedSongsList";
+import { estimateVoiceProfile, FeaturedSong } from "../../util/featuredSongs";
+import { setLoginGlow } from "../../util/loginPrompt";
 import {
   isAdMarker,
   SEARCH_AD_SPACING,
@@ -66,6 +70,10 @@ export default function SearchScreen() {
   const { colors } = useTheme();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"songs" | "artists">("songs");
+  // Featured sits on top of the songs/artists search rather than replacing
+  // `filter`, so leaving it returns to exactly the list the user was on.
+  const [isFeatured, setFeatured] = useState(false);
+  const { width: screenWidth } = useWindowDimensions();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [vocalRange, setVocalRange] = useState<{ min_range: string; max_range: string } | null>(null);
   const [songFilters, setSongFilters] = useState<SongFilters>(DEFAULT_SONG_FILTERS);
@@ -235,33 +243,43 @@ export default function SearchScreen() {
     return () => clearTimeout(timeout);
   }, [filter, query, refreshRecentHistory, searchRecentsEnabled]);
 
+  // Fetch the user's vocal range. Returns what it found so the Featured
+  // button can re-check a range the user may have just set on their profile.
+  const fetchUserVocalRange = useCallback(async () => {
+    try {
+      const user = supabase.auth.user();
+      if (!user) {
+        setIsLoggedIn(false);
+        setVocalRange(null);
+        return null;
+      }
+      setIsLoggedIn(true);
+      const { data, error: rangeError } = await supabase
+        .from("user_vocal_ranges")
+        .select("min_range, max_range")
+        .eq("user_id", user.id)
+        .single();
+      if (!rangeError) {
+        // Keep the same object when nothing changed: a new one would re-run
+        // every in-range check (and reload Featured) for nothing.
+        setVocalRange((prev) =>
+          prev && data && prev.min_range === data.min_range && prev.max_range === data.max_range
+            ? prev
+            : data
+        );
+        return data as { min_range: string; max_range: string } | null;
+      }
+      setVocalRange(null);
+      return null;
+    } catch (err) {
+      console.error("Error fetching vocal range:", err);
+      setIsLoggedIn(false);
+      return null;
+    }
+  }, []);
+
   // Fetch the user's vocal range when the component mounts
   React.useEffect(() => {
-    const fetchUserVocalRange = async () => {
-      try {
-        const user = supabase.auth.user();
-        if (!user) {
-          setIsLoggedIn(false);
-          setVocalRange(null);
-          return;
-        }
-        setIsLoggedIn(true);
-        const { data, error: rangeError } = await supabase
-          .from("user_vocal_ranges")
-          .select("min_range, max_range")
-          .eq("user_id", user.id) 
-          .single();
-        if (!rangeError) {
-          setVocalRange(data);
-        } else {
-          setVocalRange(null);
-        }
-      } catch (err) {
-        console.error("Error fetching vocal range:", err);
-        setIsLoggedIn(false);
-      }
-    };
-
     fetchUserVocalRange();
 
     const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
@@ -271,6 +289,7 @@ export default function SearchScreen() {
       } else if (event === "SIGNED_OUT") {
         setIsLoggedIn(false);
         setVocalRange(null);
+        setFeatured(false);
         // The in-range filter needs an account; drop it on sign-out
         setSongFilters((prev) => {
           const next = { ...prev, inRangeOnly: false };
@@ -283,7 +302,7 @@ export default function SearchScreen() {
     return () => {
       subscription?.unsubscribe();
     };
-  }, []);
+  }, [fetchUserVocalRange]);
 
   // Opens the add/request dropdown anchored just below the plus button
   const handleAddPress = () => {
@@ -316,6 +335,7 @@ export default function SearchScreen() {
     setRecentVisible(false);
 
     if (isRecentSearchQuery(item)) {
+      setFeatured(false);
       setFilter(item.filter);
       setQuery(item.query);
       void logRecentSearchQuery(item.query, item.filter).then(refreshRecentHistory);
@@ -362,6 +382,74 @@ export default function SearchScreen() {
   const hasVocalRange =
     !!vocalRange && vocalRange.min_range !== "C0" && vocalRange.max_range !== "C0";
 
+  const voiceProfile = useMemo(
+    () => (vocalRange ? estimateVoiceProfile(vocalRange.min_range, vocalRange.max_range) : null),
+    [vocalRange]
+  );
+  const showFeatured = isFeatured && !!voiceProfile;
+
+  // Three pills share the row between the add and filter buttons, so they
+  // tighten on narrow phones (iPhone SE, small Androids) to avoid overlap.
+  const pillPadding = screenWidth < 370 ? 9 : screenWidth < 400 ? 12 : 18;
+
+  // Featured needs an account and a saved range. The range is re-fetched
+  // here when missing because this screen only loads it on mount, and the
+  // user may have just set one on their profile.
+  const handleFeaturedPress = async () => {
+    if (showFeatured) return;
+    if (!supabase.auth.user()) {
+      Alert.alert(
+        "✨ Featured",
+        "Sign in and set a vocal range to see songs that fit your voice.",
+        [
+          { text: "Not now", style: "cancel" },
+          {
+            text: "Sign In",
+            onPress: () => {
+              setLoginGlow(true);
+              (navigation.getParent() as any)?.navigate("Home");
+            },
+          },
+        ]
+      );
+      return;
+    }
+    const range = voiceProfile ? vocalRange : await fetchUserVocalRange();
+    if (!range || !estimateVoiceProfile(range.min_range, range.max_range)) {
+      Alert.alert(
+        "✨ Featured",
+        "Go to your profile and set a range to see songs recommended for you.",
+        [
+          { text: "Not now", style: "cancel" },
+          {
+            text: "Go to Profile",
+            onPress: () => (navigation.getParent() as any)?.navigate("Home"),
+          },
+        ]
+      );
+      return;
+    }
+    setFeatured(true);
+  };
+
+  const handleFeaturedSongPress = ({ song, info }: FeaturedSong) => {
+    // Feeds the "Trending" filter, same as opening a song from search
+    void logSongSearch(song.id);
+    navigation.navigate("Details", {
+      name: song.name,
+      artist: song.artist,
+      vocalRange: song.vocalRange,
+      username: song.username,
+      featured: info,
+    });
+  };
+
+  // Typing a search means the user wants search results, not Featured.
+  const handleQueryChange = (text: string) => {
+    setQuery(text);
+    if (text.trim().length > 0) setFeatured(false);
+  };
+
   // Badge and empty-state copy describe the CURRENT view only: in the
   // Artists view the song-only filters stay saved but do not narrow
   // anything, so counting them would blame results on filters that are not
@@ -382,7 +470,7 @@ export default function SearchScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.searchBarContainer}>
-        <SearchBar value={query} onSearch={setQuery} containerStyle={styles.searchInput} />
+        <SearchBar value={query} onSearch={handleQueryChange} containerStyle={styles.searchInput} />
         {searchRecentsEnabled && recentItems.length > 0 && (
           <Pressable
             accessibilityRole="button"
@@ -412,26 +500,64 @@ export default function SearchScreen() {
           <TouchableOpacity
             style={[
               styles.filterButton,
-              { borderColor: colors.border, backgroundColor: colors.backgroundCard },
-              filter === "songs" && [styles.activeFilter, { backgroundColor: colors.primary, borderColor: colors.primary }]
+              { borderColor: colors.border, backgroundColor: colors.backgroundCard, paddingHorizontal: pillPadding },
+              !showFeatured && filter === "songs" && [styles.activeFilter, { backgroundColor: colors.primary, borderColor: colors.primary }]
             ]}
             // The query carries over between the two views, so switching is
             // "show me the artists for what I just typed" rather than
             // starting the search again from nothing.
-            onPress={() => setFilter("songs")}
+            onPress={() => {
+              setFeatured(false);
+              setFilter("songs");
+            }}
           >
-            <Text style={[styles.filterText, { color: colors.textPrimary }, filter === "songs" && { color: colors.textInverse }]}>Songs</Text>
+            <Text
+              maxFontSizeMultiplier={1.3}
+              style={[styles.filterText, { color: colors.textPrimary }, !showFeatured && filter === "songs" && { color: colors.textInverse }]}
+            >
+              Songs
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
               styles.filterButton,
-              { borderColor: colors.border, backgroundColor: colors.backgroundCard },
-              filter === "artists" && [styles.activeFilter, { backgroundColor: colors.primary, borderColor: colors.primary }]
+              { borderColor: colors.border, backgroundColor: colors.backgroundCard, paddingHorizontal: pillPadding },
+              !showFeatured && filter === "artists" && [styles.activeFilter, { backgroundColor: colors.primary, borderColor: colors.primary }]
             ]}
-            onPress={() => setFilter("artists")}
+            onPress={() => {
+              setFeatured(false);
+              setFilter("artists");
+            }}
           >
-            <Text style={[styles.filterText, { color: colors.textPrimary }, filter === "artists" && { color: colors.textInverse }]}>Artists</Text>
+            <Text
+              maxFontSizeMultiplier={1.3}
+              style={[styles.filterText, { color: colors.textPrimary }, !showFeatured && filter === "artists" && { color: colors.textInverse }]}
+            >
+              Artists
+            </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              { borderColor: colors.featured, backgroundColor: colors.backgroundCard, paddingHorizontal: pillPadding - 2 },
+              showFeatured && { backgroundColor: colors.featured, borderColor: colors.featured }
+            ]}
+            onPress={() => void handleFeaturedPress()}
+            accessibilityRole="button"
+            accessibilityLabel="Featured songs for your voice"
+            accessibilityState={{ selected: showFeatured }}
+          >
+            <Text
+              maxFontSizeMultiplier={1.3}
+              numberOfLines={1}
+              style={[styles.filterText, { color: colors.featured }, showFeatured && { color: colors.textInverse }]}
+            >
+              ✨ Featured
+            </Text>
+          </TouchableOpacity>
+          {/* Search filters don't shape Featured, so the button steps aside
+              there instead of looking like it does nothing. */}
+          {!showFeatured && (
           <Pressable
             style={({ pressed }) => [styles.filterButtonRight, pressed && { opacity: 0.7 }]}
             onPress={() => setFilterVisible(true)}
@@ -445,10 +571,19 @@ export default function SearchScreen() {
               </View>
             )}
           </Pressable>
+          )}
         </View>
       </View>
 
-      {error && (
+      {showFeatured && voiceProfile && (
+        <FeaturedSongsList
+          profile={voiceProfile}
+          verifiedOnly={verifiedSongsOnly}
+          onOpenSong={handleFeaturedSongPress}
+        />
+      )}
+
+      {!showFeatured && error && (
         <View style={styles.errorContainer}>
           <Text style={[styles.errorText, { color: colors.textPrimary }]}>{error}</Text>
           <TouchableOpacity onPress={handleRetry} style={[styles.retryButton, { backgroundColor: colors.lightGray }]}>
@@ -456,7 +591,7 @@ export default function SearchScreen() {
           </TouchableOpacity>
         </View>
       )}
-      {!error && isLoading && (
+      {!showFeatured && !error && isLoading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.textPrimary }]}>
@@ -467,7 +602,7 @@ export default function SearchScreen() {
           </View>
         </View>
       )}
-      {!isLoading && initialFetchDone && displayData.length === 0 && !error && (
+      {!showFeatured && !isLoading && initialFetchDone && displayData.length === 0 && !error && (
         <ScrollView
           contentContainerStyle={styles.emptyStateContainer}
           refreshControl={
@@ -515,7 +650,7 @@ export default function SearchScreen() {
       {/* Says out loud what the badge no longer counts: song-only filters
           are still saved, they just do not narrow the artist list. Without
           this the artists view looks like it is ignoring the filters. */}
-      {filter === "artists" && pausedFilterCount > 0 && (
+      {!showFeatured && filter === "artists" && pausedFilterCount > 0 && (
         <Pressable
           style={({ pressed }) => [
             styles.pausedFiltersBanner,
@@ -533,7 +668,8 @@ export default function SearchScreen() {
           </Text>
         </Pressable>
       )}
-      {filter === "artists" &&
+      {!showFeatured &&
+        filter === "artists" &&
         !artistsLoading &&
         songFilters.inRangeOnly &&
         hasVocalRange && (
@@ -543,7 +679,7 @@ export default function SearchScreen() {
             </Text>
           </View>
         )}
-      {!isLoading && displayData.length > 0 && (
+      {!showFeatured && !isLoading && displayData.length > 0 && (
         <FlatList
           style={{ minHeight: '88%' }}
           contentContainerStyle={{

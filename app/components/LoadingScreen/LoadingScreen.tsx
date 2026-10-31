@@ -60,7 +60,7 @@ const LoadingScreen = ({
   const screenOpacity = useRef(new Animated.Value(1)).current;
   const mountedAt = useRef(Date.now());
   const onFinishedRef = useRef(onFinished);
-  const version = Constants.expoConfig?.version ?? "1.7.0";
+  const version = Constants.expoConfig?.version ?? "1.8.0";
 
   useEffect(() => {
     onFinishedRef.current = onFinished;

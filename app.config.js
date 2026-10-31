@@ -6,7 +6,7 @@ module.exports = () => {
   return {
     name: "VoiceVault",
     slug: "VoiceVault",
-    version: "1.7.0",
+    version: "1.8.0",
     orientation: "default",
     icon: "./assets/dark-glow-nontransparent-icon2.png",
     userInterfaceStyle: "light",
@@ -87,7 +87,7 @@ module.exports = () => {
       },
     },
     android: {
-      versionCode: 10332,
+      versionCode: 10333,
       adaptiveIcon: {
         foregroundImage: "./assets/icon.png",
         backgroundColor: "#ffffff",

@@ -53,7 +53,7 @@ const releaseShimmer = () => {
   }
 };
 
-const useReduceMotion = () => {
+export const useReduceMotion = () => {
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {

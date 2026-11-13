@@ -1,6 +1,7 @@
 // File location: app/screens/SearchScreen/SearchScreen.tsx
 import React, { useCallback, useState, useMemo } from "react";
 import {
+  ActivityIndicator,
   View,
   FlatList,
   Text,
@@ -39,6 +40,7 @@ import RequestSongModal from "../../components/RequestSong/RequestSongModal";
 import SongRowAd from "../../components/SongRowAd/SongRowAd";
 import FeaturedSongsList from "../../components/Featured/FeaturedSongsList";
 import { Skeleton, SkeletonGroup } from "../../components/Skeleton/Skeleton";
+import LoadingBar from "../../components/Skeleton/LoadingBar";
 import { estimateVoiceProfile, FeaturedSong } from "../../util/featuredSongs";
 import { calculateRangeStats } from "../../util/audioAnalysis";
 import { setLoginGlow } from "../../util/loginPrompt";
@@ -83,6 +85,9 @@ const SKELETON_ROW_WIDTHS: [DimensionValue, DimensionValue][] = [
   ["60%", "42%"],
   ["45%", "52%"],
 ];
+// Rows fade out as they go down, handing off to the "Loading songs..."
+// indicator beneath them on a first load.
+const SKELETON_FADE = [1, 0.85, 0.62, 0.38, 0.18];
 
 // This component renders a search screen with a search bar, filter buttons, and a list of results (songs or artists):
 export default function SearchScreen() {
@@ -193,6 +198,19 @@ export default function SearchScreen() {
   // counting real results via displayData.
   const listData = useMemo(() => withAdSlots(displayData, SEARCH_AD_SPACING), [displayData]);
   const isLoading = songsLoading || (filter === "artists" && artistsLoading);
+
+  // A pull-to-refresh swaps the list for the skeleton like any other load,
+  // which takes the native refresh spinner with it - so remember it was a
+  // refresh and show a loading bar in that spot instead.
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const onPullRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await handleRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [handleRefresh]);
 
   // Placeholder in the shape of a result card: same padding, icon and
   // in-range badge, so the list doesn't shift when the real rows arrive.
@@ -683,7 +701,29 @@ export default function SearchScreen() {
           label={filter === "songs" ? "Loading songs" : "Loading artists"}
           style={styles.skeletonList}
         >
-          {SKELETON_ROW_WIDTHS.map(renderSkeletonRow)}
+          {isRefreshing ? (
+            // Refresh: bar where the pull happened, full skeleton list below.
+            <>
+              <LoadingBar height={3} style={styles.refreshBar} />
+              {SKELETON_ROW_WIDTHS.map(renderSkeletonRow)}
+            </>
+          ) : (
+            // First load: a few rows that fade into the loading indicator.
+            <>
+              {SKELETON_FADE.map((opacity, index) => (
+                <View key={index} style={{ opacity }}>
+                  {renderSkeletonRow(SKELETON_ROW_WIDTHS[index], index)}
+                </View>
+              ))}
+              <View style={styles.skeletonIndicator}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={[styles.loadingText, { color: colors.textPrimary }]}>
+                  {filter === "songs" ? "Loading songs..." : "Loading artists..."}
+                </Text>
+                <LoadingBar width={140} />
+              </View>
+            </>
+          )}
         </SkeletonGroup>
       )}
       {!showFeatured && !isLoading && initialFetchDone && displayData.length === 0 && !error && (
@@ -692,8 +732,9 @@ export default function SearchScreen() {
           refreshControl={
             <RefreshControl
               refreshing={filter === "songs" ? songsLoading : artistsLoading}
-              onRefresh={handleRefresh}
+              onRefresh={onPullRefresh}
               colors={[colors.primary]}
+              tintColor={colors.primary}
             />
           }
         >
@@ -720,7 +761,7 @@ export default function SearchScreen() {
             )}
             <TouchableOpacity
               style={[styles.refreshButton, { backgroundColor: colors.primary }]}
-              onPress={handleRefresh}
+              onPress={onPullRefresh}
             >
               <Ionicons name="refresh" size={18} color={colors.buttonText} />
               <Text style={[styles.refreshButtonText, { color: colors.buttonText }]}>Try again</Text>
@@ -847,8 +888,9 @@ export default function SearchScreen() {
           refreshControl={
             <RefreshControl
               refreshing={filter === "songs" ? songsLoading : artistsLoading}
-              onRefresh={handleRefresh}
+              onRefresh={onPullRefresh}
               colors={[colors.primary]}
+              tintColor={colors.primary}
             />
           }
           overScrollMode="always" // Enable overscroll on Android
@@ -1263,6 +1305,15 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     flex: 1,
     overflow: "hidden",
   },
+  refreshBar: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  skeletonIndicator: {
+    alignItems: "center",
+    marginTop: 18,
+  },
+  loadingText: { textAlign: "center", marginVertical: 10 },
   skeletonIcon: {
     marginRight: 12,
   },

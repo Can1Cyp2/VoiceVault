@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-labelledby="title description">
+  <title id="title">VoiceVault glowing microphone actions — dark mode</title>
+  <desc id="description">A glowing orange microphone on a deep navy background, with a small negative action cue on the left and a small directional action cue on the right.</desc>
+
+  <defs>
+    <linearGradient id="background-gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#070A16"/>
+      <stop offset="0.52" stop-color="#0C1020"/>
+      <stop offset="1" stop-color="#111425"/>
+    </linearGradient>
+    <radialGradient id="center-ambience" cx="50%" cy="45%" r="57%">
+      <stop offset="0" stop-color="#FF6B35" stop-opacity="0.16"/>
+      <stop offset="0.45" stop-color="#FF6B35" stop-opacity="0.055"/>
+      <stop offset="1" stop-color="#FF6B35" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="orange-stroke" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFF3CB"/>
+      <stop offset="0.38" stop-color="#FFB14A"/>
+      <stop offset="1" stop-color="#FF6B35"/>
+    </linearGradient>
+    <linearGradient id="orange-fill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFB048"/>
+      <stop offset="0.55" stop-color="#FF7A36"/>
+      <stop offset="1" stop-color="#F04E2C"/>
+    </linearGradient>
+    <filter id="ambient-glow" x="-70%" y="-70%" width="240%" height="240%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="28"/>
+    </filter>
+    <filter id="strong-glow" x="-65%" y="-65%" width="230%" height="230%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="12" result="wide"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="tight"/>
+      <feMerge>
+        <feMergeNode in="wide"/>
+        <feMergeNode in="tight"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="soft-glow" x="-55%" y="-55%" width="210%" height="210%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g id="background">
+    <rect width="1200" height="720" rx="44" fill="url(#background-gradient)"/>
+    <rect width="1200" height="720" rx="44" fill="url(#center-ambience)"/>
+    <ellipse cx="600" cy="356" rx="310" ry="255" fill="#FF6B35" opacity="0.11" filter="url(#ambient-glow)"/>
+  </g>
+
+  <g id="left-negative-action" transform="translate(245 360)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g id="left-motion-lines" stroke="#FF7A45" stroke-width="10" opacity="0.74" filter="url(#soft-glow)">
+      <path d="M-101 -36 H-68"/>
+      <path d="M-119 0 H-72"/>
+      <path d="M-101 36 H-68"/>
+    </g>
+    <g id="negative-indicator" filter="url(#strong-glow)">
+      <circle r="47" stroke="#FF8151" stroke-width="7" fill="#14101B"/>
+      <path d="M-17 -17 L17 17 M17 -17 L-17 17" stroke="url(#orange-stroke)" stroke-width="10"/>
+    </g>
+  </g>
+
+  <g id="microphone-artwork" transform="translate(600 350)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g id="microphone-halo" stroke="#FF6B35" opacity="0.42" filter="url(#ambient-glow)">
+      <path d="M-102 -187 Q0 -244 102 -187" stroke-width="32"/>
+      <rect x="-105" y="-154" width="210" height="284" rx="102" stroke-width="34"/>
+      <path d="M-164 15 V55 A164 164 0 0 0 164 55 V15" stroke-width="32"/>
+      <path d="M0 219 V290 M-105 290 H105" stroke-width="34"/>
+    </g>
+
+    <g id="sound-waves" stroke="url(#orange-stroke)" stroke-width="13" filter="url(#soft-glow)">
+      <path d="M-160 -105 Q-222 -25 -160 55"/>
+      <path d="M-211 -144 Q-311 -25 -211 94"/>
+      <path d="M160 -105 Q222 -25 160 55"/>
+      <path d="M211 -144 Q311 -25 211 94"/>
+    </g>
+
+    <g id="microphone" filter="url(#strong-glow)">
+      <path id="microphone-cap" d="M-96 -174 Q-88 -252 0 -252 Q88 -252 96 -174 Z" fill="url(#orange-fill)" stroke="url(#orange-stroke)" stroke-width="10"/>
+      <rect id="microphone-band" x="-99" y="-151" width="198" height="37" rx="18.5" fill="#FF7A36" stroke="url(#orange-stroke)" stroke-width="9"/>
+      <path id="microphone-body" d="M-98 -88 H98 V28 A98 98 0 0 1 -98 28 Z" fill="url(#orange-fill)" stroke="url(#orange-stroke)" stroke-width="10"/>
+      <path id="microphone-yoke" d="M-151 7 V48 A151 151 0 0 0 151 48 V7" stroke="url(#orange-stroke)" stroke-width="17"/>
+      <path id="microphone-stand" d="M0 199 V287 M-111 287 H111" stroke="url(#orange-stroke)" stroke-width="17"/>
+    </g>
+  </g>
+
+  <g id="right-direction-action" transform="translate(955 360)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g id="directional-indicator" filter="url(#strong-glow)">
+      <circle r="47" stroke="#FF8151" stroke-width="7" fill="#14101B"/>
+      <path d="M-18 0 H17 M4 -14 L19 0 L4 14" stroke="url(#orange-stroke)" stroke-width="10"/>
+    </g>
+    <g id="right-motion-lines" stroke="#FF7A45" stroke-width="10" opacity="0.74" filter="url(#soft-glow)">
+      <path d="M68 -36 H101"/>
+      <path d="M72 0 H119"/>
+      <path d="M68 36 H101"/>
+    </g>
+  </g>
+
+  <g id="frame-highlight" fill="none">
+    <rect x="1.5" y="1.5" width="1197" height="717" rx="42.5" stroke="#FFFFFF" stroke-opacity="0.055" stroke-width="3"/>
+  </g>
+</svg>

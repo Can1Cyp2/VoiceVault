@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="1024"
+     height="1024"
+     viewBox="0 0 1024 1024"
+     role="img"
+     aria-labelledby="title description">
+  <title id="title">VoiceVault dark-mode glowing app icon</title>
+  <desc id="description">The VoiceVault microphone, sound waves, and wordmark rendered as editable glowing orange vector artwork on a dark background.</desc>
+
+  <defs>
+    <radialGradient id="dark-background" cx="50%" cy="42%" r="76%">
+      <stop offset="0" stop-color="#3B1812"/>
+      <stop offset="0.42" stop-color="#21151A"/>
+      <stop offset="1" stop-color="#090A10"/>
+    </radialGradient>
+    <radialGradient id="orange-ambience" cx="50%" cy="42%" r="60%">
+      <stop offset="0" stop-color="#FF6A00" stop-opacity="0.22"/>
+      <stop offset="0.55" stop-color="#FF4D00" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#FF4D00" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="tube-core" gradientUnits="userSpaceOnUse" x1="0" y1="80" x2="0" y2="900">
+      <stop offset="0" stop-color="#FFFBD2"/>
+      <stop offset="0.55" stop-color="#FFF2A3"/>
+      <stop offset="1" stop-color="#FFE074"/>
+    </linearGradient>
+    <linearGradient id="tube-orange" gradientUnits="userSpaceOnUse" x1="0" y1="80" x2="0" y2="900">
+      <stop offset="0" stop-color="#FF8A16"/>
+      <stop offset="0.55" stop-color="#FF6508"/>
+      <stop offset="1" stop-color="#FF4A00"/>
+    </linearGradient>
+    <filter id="orange-glow" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="23" result="wide-blur"/>
+      <feFlood flood-color="#FF4D00" flood-opacity="0.8" result="wide-color"/>
+      <feComposite in="wide-color" in2="wide-blur" operator="in" result="wide-glow"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="tight-blur"/>
+      <feFlood flood-color="#FF7A00" flood-opacity="0.95" result="tight-color"/>
+      <feComposite in="tight-color" in2="tight-blur" operator="in" result="tight-glow"/>
+      <feMerge>
+        <feMergeNode in="wide-glow"/>
+        <feMergeNode in="tight-glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="ambient-blur" x="-45%" y="-45%" width="190%" height="190%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="42"/>
+    </filter>
+
+    <!-- The artwork is defined once so the orange tube and pale core stay aligned. -->
+    <g id="microphone-shapes" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path id="mic-cap" d="M424 205 C424 141 461 108 512 108 C563 108 600 141 600 205 Z"/>
+      <rect id="mic-band" x="424" y="235" width="176" height="43" rx="21.5"/>
+      <path id="mic-body" d="M426 310 H598 V390 C598 452 562 484 512 484 C462 484 426 452 426 390 Z"/>
+      <path id="mic-yoke" d="M381 333 V397 C381 481 437 526 512 526 C587 526 643 481 643 397 V333"/>
+      <path id="mic-stand" d="M512 527 V619 M397 619 H627"/>
+      <path id="wave-left-inner" d="M337 247 C285 300 285 414 337 467"/>
+      <path id="wave-left-outer" d="M277 192 C194 277 194 437 277 522"/>
+      <path id="wave-right-inner" d="M687 247 C739 300 739 414 687 467"/>
+      <path id="wave-right-outer" d="M747 192 C830 277 830 437 747 522"/>
+    </g>
+  </defs>
+
+  <g id="background">
+    <rect id="background-base" width="1024" height="1024" fill="url(#dark-background)"/>
+    <rect id="background-ambience" width="1024" height="1024" fill="url(#orange-ambience)"/>
+    <ellipse id="microphone-ambient-glow" cx="512" cy="365" rx="360" ry="310" fill="#FF5A00" opacity="0.22" filter="url(#ambient-blur)"/>
+    <ellipse id="wordmark-ambient-glow" cx="512" cy="792" rx="440" ry="105" fill="#FF5A00" opacity="0.16" filter="url(#ambient-blur)"/>
+  </g>
+
+  <g id="microphone-artwork">
+    <g id="microphone-orange-tube"
+       stroke="url(#tube-orange)"
+       stroke-width="26"
+       filter="url(#orange-glow)">
+      <use xlink:href="#microphone-shapes"/>
+    </g>
+    <g id="microphone-light-core"
+       stroke="url(#tube-core)"
+       stroke-width="8">
+      <use xlink:href="#microphone-shapes"/>
+    </g>
+    <g id="outer-level-bars" fill="none" stroke-linecap="round">
+      <g id="outer-level-bars-orange-tube"
+         stroke="url(#tube-orange)"
+         stroke-width="26"
+         filter="url(#orange-glow)">
+        <path id="level-left-orange" d="M155 278 V414"/>
+        <path id="level-right-orange" d="M869 278 V414"/>
+      </g>
+      <g id="outer-level-bars-light-core"
+         stroke="url(#tube-core)"
+         stroke-width="8">
+        <path id="level-left-core" d="M155 278 V414"/>
+        <path id="level-right-core" d="M869 278 V414"/>
+      </g>
+    </g>
+  </g>
+
+  <g id="wordmark-artwork"
+     font-family="Arial Narrow, Roboto Condensed, Arial, Helvetica, sans-serif"
+     font-size="172"
+     font-weight="700"
+     letter-spacing="-9"
+     text-anchor="middle"
+     fill="none"
+     stroke-linejoin="round">
+    <text id="wordmark-orange-tube"
+          x="512"
+          y="848"
+          stroke="url(#tube-orange)"
+          stroke-width="20"
+          filter="url(#orange-glow)">VoiceVault</text>
+    <text id="wordmark-light-core"
+          x="512"
+          y="848"
+          stroke="url(#tube-core)"
+          stroke-width="6">VoiceVault</text>
+  </g>
+</svg>

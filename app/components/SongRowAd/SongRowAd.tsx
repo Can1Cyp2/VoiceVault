@@ -13,7 +13,8 @@ import {
   getCachedSongListAd,
   isAdPreviewMode,
   loadSongListAd,
-  setSongListAdMounted,
+  releaseSongListAd,
+  retainSongListAd,
 } from "./songListAds";
 
 type Variant = "search" | "artist";
@@ -28,7 +29,14 @@ type Props = {
 export default function SongRowAd(props: Props) {
   return (
     <SongRowAdBoundary>
-      {isAdPreviewMode ? <PreviewAdRow variant={props.variant} /> : <LiveAdRow {...props} />}
+      {isAdPreviewMode ? (
+        <PreviewAdRow variant={props.variant} />
+      ) : (
+        // Keyed so a list row reused for another placement (Search keeps the
+        // same row when switching Songs/Artists) starts over instead of
+        // carrying the other list's ad across.
+        <LiveAdRow key={`${props.placement}:${props.slot}`} {...props} />
+      )}
     </SongRowAdBoundary>
   );
 }
@@ -36,11 +44,6 @@ export default function SongRowAd(props: Props) {
 function LiveAdRow({ placement, slot, variant = "search" }: Props) {
   const [ad, setAd] = useState<any | null>(() => getCachedSongListAd(placement, slot));
   const [failure, setFailure] = useState<string | null>(null);
-
-  useEffect(() => {
-    setSongListAdMounted(placement, slot, true);
-    return () => setSongListAdMounted(placement, slot, false);
-  }, [placement, slot]);
 
   useEffect(() => {
     if (ad) return;
@@ -65,6 +68,13 @@ function LiveAdRow({ placement, slot, variant = "search" }: Props) {
 function NativeAdRow({ ad, variant }: { ad: any; variant: Variant }) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  // Holds the ad while this row's native ad view exists, so it is never
+  // freed out from under it.
+  useEffect(() => {
+    retainSongListAd(ad);
+    return () => releaseSongListAd(ad);
+  }, [ad]);
 
   // Required lazily: the native module does not exist in Expo Go, and
   // importing it at the top of the file would crash there.

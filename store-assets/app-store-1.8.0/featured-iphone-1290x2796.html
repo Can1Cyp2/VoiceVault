@@ -1,0 +1,160 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Featured Screenshot</title>
+<!-- App Store screenshot, iPhone 6.9"/6.7" (1290 x 2796).
+     Screen content is the real app screenshot (featured-screen.jpg).
+     Render: msedge --headless=new --window-size=1290,2796 --screenshot=out.png this-file -->
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1290px; height: 2796px; overflow: hidden; background: #0a1124; }
+  body { font-family: "Segoe UI", "Segoe UI Variable Display", Helvetica, Arial, sans-serif; position: relative; }
+
+  .bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(1150px 950px at -8% 104%, rgba(255, 90, 10, 0.85), rgba(255, 90, 10, 0) 70%),
+      radial-gradient(950px 750px at 110% -6%, rgba(255, 110, 30, 0.5), rgba(255, 110, 30, 0) 70%),
+      radial-gradient(1000px 1200px at 72% 62%, rgba(124, 58, 237, 0.38), rgba(124, 58, 237, 0) 70%),
+      linear-gradient(180deg, #0d1730 0%, #0a1124 55%, #140f24 100%);
+  }
+  /* Out-of-focus bokeh for depth behind everything */
+  .bokeh { position: absolute; border-radius: 50%; filter: blur(14px); }
+
+  .headline {
+    position: absolute; top: 260px; left: 0; right: 0; text-align: center;
+    color: #fff; font-weight: 700; font-size: 136px; line-height: 1.03; letter-spacing: -2.5px;
+    text-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  }
+  .headline .accent { color: #c4a7ff; text-shadow: 0 0 46px rgba(167, 128, 255, 0.65); }
+  .sub {
+    position: absolute; top: 610px; left: 140px; right: 140px; text-align: center;
+    color: #aab4cd; font-size: 60px; line-height: 1.25;
+  }
+
+  .float { position: absolute; }
+  .glow-purple { filter: drop-shadow(0 0 16px rgba(190, 160, 255, 0.95)) drop-shadow(0 0 50px rgba(124, 58, 237, 0.8)); }
+  .glow-orange { filter: drop-shadow(0 0 16px rgba(255, 120, 40, 0.95)) drop-shadow(0 0 50px rgba(255, 80, 0, 0.7)); }
+
+  /* ---------- 3D phone ---------- */
+  .stage { position: absolute; left: 215px; top: 935px; width: 904px; height: 1956px; perspective: 2300px; perspective-origin: 30% 30%; }
+  .phone {
+    position: absolute; inset: 0; transform-style: preserve-3d;
+    transform: rotateX(10deg) rotateY(-30deg) rotateZ(8deg);
+    transform-origin: 50% 45%;
+  }
+  .layer { position: absolute; inset: 0; border-radius: 150px; }
+  /* Body thickness: a stack of slices behind the face, lit from the upper left */
+  .slice { background: linear-gradient(100deg, #6b7080 0%, #2a2d36 30%, #16181e 60%, #4d525e 100%); }
+  .slice.edge { background: linear-gradient(100deg, #9aa0ae 0%, #3c404b 30%, #1d1f26 60%, #737988 100%); }
+  .back { background: linear-gradient(135deg, #2a2d36, #121318); box-shadow: -90px 120px 160px rgba(0,0,0,0.75); }
+  .btn { position: absolute; width: 14px; border-radius: 6px; background: linear-gradient(90deg, #8e94a2, #3a3e48); }
+
+  .face {
+    background: #050608; padding: 24px;
+    box-shadow: inset 0 0 0 5px #8a909e, inset 0 0 0 9px #1c1e24, inset 0 0 0 11px #3d414b;
+  }
+  .screen {
+    position: relative; width: 856px; height: 1908px; border-radius: 128px; overflow: hidden;
+    background: #0a0f1a url("featured-screen.jpg") center top / 856px auto no-repeat;
+  }
+  /* Clean status bar over the screenshot's (hides the alarm Live Activity) */
+  .statusbar {
+    position: absolute; left: 0; right: 0; top: 0; height: 106px; background: #0b0f1a;
+    display: flex; align-items: center; justify-content: space-between; padding: 14px 70px 0 92px;
+    color: #fff; font-weight: 600; font-size: 34px;
+  }
+  .statusbar .island { position: absolute; left: 50%; top: 22px; transform: translateX(-50%); width: 250px; height: 74px; border-radius: 40px; background: #000; }
+  .statusbar .icons { display: flex; gap: 12px; align-items: center; }
+  /* Glass glare across the screen */
+  .glare {
+    position: absolute; inset: 0; border-radius: 128px; pointer-events: none;
+    background:
+      linear-gradient(118deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.06) 26%, rgba(255,255,255,0) 27%),
+      linear-gradient(118deg, rgba(255,255,255,0) 55%, rgba(255,255,255,0.05) 70%, rgba(255,255,255,0) 85%);
+  }
+
+  /* The top pick lifts off the screen toward the viewer */
+  .pop-shadow {
+    position: absolute; left: 70px; top: 610px; width: 780px; height: 230px; border-radius: 28px;
+    background: rgba(0, 0, 0, 0.75); filter: blur(30px);
+    transform: translateZ(6px);
+  }
+  .pop {
+    position: absolute; left: 50px; top: 545px; width: 790px; height: 240px; border-radius: 26px;
+    background: #0a0f1a url("featured-screen.jpg") -35px -541px / 856px auto no-repeat;
+    border: 3px solid #cbb5ff;
+    box-shadow: 0 0 34px rgba(190, 160, 255, 0.85), 0 0 90px rgba(124, 58, 237, 0.6);
+    transform: translateZ(150px) translateX(-40px) translateY(-14px) scale(1.04);
+  }
+  .pop-sheen {
+    position: absolute; inset: 0; border-radius: 24px;
+    background: linear-gradient(120deg, rgba(255,255,255,0.14), rgba(255,255,255,0) 40%);
+  }
+</style>
+</head>
+<body>
+<div class="bg"></div>
+
+<div class="bokeh" style="left:120px; top:120px; width:70px; height:70px; background:rgba(255,140,60,0.35)"></div>
+<div class="bokeh" style="left:1080px; top:420px; width:90px; height:90px; background:rgba(196,167,255,0.25)"></div>
+<div class="bokeh" style="left:60px; top:820px; width:50px; height:50px; background:rgba(196,167,255,0.3)"></div>
+<div class="bokeh" style="left:1150px; top:1500px; width:60px; height:60px; background:rgba(255,140,60,0.35)"></div>
+<div class="bokeh" style="left:30px; top:1820px; width:110px; height:110px; background:rgba(255,120,40,0.28)"></div>
+<div class="bokeh" style="left:980px; top:2600px; width:120px; height:120px; background:rgba(196,167,255,0.22)"></div>
+
+<div class="headline">Songs Picked<br>for <span class="accent">Your Voice</span></div>
+<div class="sub">Featured finds the songs that sit right in your sweet spot.</div>
+
+<!-- Phone -->
+<div class="stage">
+  <div class="phone" id="phone"></div>
+</div>
+
+<!-- Floating neon icons (in front of the phone where they overlap) -->
+<svg class="float glow-purple" style="left:60px; top:1010px" width="230" height="230" viewBox="-115 -115 230 230">
+  <path d="M0,-104 C8,-32 32,-8 104,0 C32,8 8,32 0,104 C-8,32 -32,8 -104,0 C-32,-8 -8,-32 0,-104 Z" fill="none" stroke="#efe6ff" stroke-width="10" stroke-linejoin="round"/>
+</svg>
+<svg class="float glow-purple" style="left:255px; top:885px" width="84" height="84" viewBox="-42 -42 84 84">
+  <path d="M0,-38 C3,-12 12,-3 38,0 C12,3 3,12 0,38 C-3,12 -12,3 -38,0 C-12,-3 -3,-12 0,-38 Z" fill="#e2d4ff"/>
+</svg>
+<svg class="float glow-orange" style="right:34px; top:740px" width="180" height="220" viewBox="0 0 170 210">
+  <path d="M70,160 L70,30 L150,10 L150,135" fill="none" stroke="#ff9a52" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <ellipse cx="45" cy="165" rx="32" ry="25" fill="#ff7a26"/>
+  <ellipse cx="125" cy="142" rx="32" ry="25" fill="#ff7a26"/>
+</svg>
+<svg class="float glow-purple" style="left:30px; top:2150px" width="200" height="200" viewBox="-100 -100 200 200">
+  <path d="M0,-84 L24,-26 L86,-26 L37,12 L55,74 L0,37 L-55,74 L-37,12 L-86,-26 L-24,-26 Z" fill="none" stroke="#efe6ff" stroke-width="10" stroke-linejoin="round"/>
+</svg>
+<svg class="float glow-orange" style="right:44px; top:2300px" width="160" height="160" viewBox="0 0 150 150">
+  <path d="M95,20 L95,105" stroke="#ff9a52" stroke-width="14" stroke-linecap="round"/>
+  <path d="M95,20 C110,40 135,45 130,75" fill="none" stroke="#ff9a52" stroke-width="12" stroke-linecap="round"/>
+  <ellipse cx="68" cy="110" rx="32" ry="24" fill="#ff7a26"/>
+</svg>
+
+<script>
+  // Build the phone body: back plate, a stack of slices for thickness (with
+  // side buttons protruding from the middle slices), then the glass face.
+  const phone = document.getElementById("phone");
+  const DEPTH = 110, STEP = 2;
+  const html = [];
+  html.push(`<div class="layer back" style="transform:translateZ(${-DEPTH}px)"></div>`);
+  for (let z = -DEPTH + STEP; z < 0; z += STEP) {
+    const edge = z > -10 || z < -DEPTH + 10;
+    const mid = z > -DEPTH * 0.72 && z < -DEPTH * 0.28;
+    const buttons = mid
+      ? `<div class="btn" style="left:-9px; top:330px; height:70px"></div>
+         <div class="btn" style="left:-9px; top:450px; height:130px"></div>
+         <div class="btn" style="left:-9px; top:610px; height:130px"></div>
+         <div class="btn" style="right:-9px; top:500px; height:200px"></div>`
+      : "";
+    html.push(`<div class="layer slice${edge ? " edge" : ""}" style="transform:translateZ(${z}px)">${buttons}</div>`);
+  }
+  html.push(`<div class="layer face" style="transform:translateZ(0)"><div class="screen"><div class="statusbar"><span>2:19</span><div class="island"></div><span class="icons"><svg width="36" height="24" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#fff"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg><svg width="34" height="24" viewBox="0 0 17 12"><path d="M8.5,11.5 L5.6,8.4 A4.2,4.2 0 0 1 11.4,8.4 Z" fill="#fff"/><path d="M3.4,6.2 A7.3,7.3 0 0 1 13.6,6.2" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M1,3.6 A10.8,10.8 0 0 1 16,3.6" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg><svg width="54" height="26" viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="#fff" stroke-opacity="0.5"/><rect x="2.5" y="2.5" width="15" height="8" rx="2" fill="#fff"/><rect x="24.5" y="4.5" width="2" height="4" rx="1" fill="#fff" fill-opacity="0.5"/></svg></span></div><div class="glare"></div></div></div>`);
+  html.push(`<div class="pop-shadow"></div>`);
+  html.push(`<div class="pop"><div class="pop-sheen"></div></div>`);
+  phone.innerHTML = html.join("");
+</script>
+</body>
+</html>

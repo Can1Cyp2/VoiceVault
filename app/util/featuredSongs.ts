@@ -122,8 +122,8 @@ export const estimateVoiceProfile = (
 };
 
 export const describeVoiceProfile = (profile: VoiceProfile) => ({
-  range: `${noteName(profile.low)} - ${noteName(profile.high)}`,
-  tessitura: `${noteName(profile.tessLow)} - ${noteName(profile.tessHigh)}`,
+  range: `${noteName(profile.low)} to ${noteName(profile.high)}`,
+  tessitura: `${noteName(profile.tessLow)} to ${noteName(profile.tessHigh)}`,
 });
 
 export type FeaturedCategory = "tessitura" | "range" | "stretch";
@@ -148,6 +148,12 @@ export type FeaturedReason = {
   detail: string;
 };
 
+/** A tap-to-reveal note pinned to one section of Song Details. */
+export type FeaturedHighlight = {
+  title: string;
+  detail: string;
+};
+
 /** What travels to Song Details, so it can explain the pick in full. */
 export type FeaturedInfo = {
   category: FeaturedCategory;
@@ -155,6 +161,14 @@ export type FeaturedInfo = {
   reasons: FeaturedReason[];
   userRange: string;
   userTessitura: string;
+  /** Section-level notes: why the song's range and tessitura suit this voice. */
+  highlights: {
+    range: FeaturedHighlight;
+    /** Only when the tessitura is part of why it was picked. */
+    tessitura?: FeaturedHighlight;
+  };
+  /** The user's voice type (saved, or estimated from their range), for Best Fit. */
+  userVoiceType?: string | null;
 };
 
 export type FeaturedSong = {
@@ -241,8 +255,8 @@ export const scoreSong = (song: any, profile: VoiceProfile, jitter = 0): Feature
 
   // --- Reasons ------------------------------------------------------------
   const reasons: FeaturedReason[] = [];
-  const zoneText = `${noteName(profile.tessLow)}-${noteName(profile.tessHigh)}`;
-  const coreText = tess ? `${noteName(tess.t25)}-${noteName(tess.t75)}` : "";
+  const zoneText = `${noteName(profile.tessLow)} to ${noteName(profile.tessHigh)}`;
+  const coreText = tess ? `${noteName(tess.t25)} to ${noteName(tess.t75)}` : "";
 
   if (tess) {
     if (overlap >= 1) {
@@ -250,7 +264,7 @@ export const scoreSong = (song: any, profile: VoiceProfile, jitter = 0): Feature
         kind: "sweet-spot",
         title: "Sits in your sweet spot",
         detail:
-          `The middle half of this song's melody (${coreText}) - the notes you sing again and again - ` +
+          `The middle half of this song's melody (${coreText}), the notes you sing again and again, ` +
           `falls entirely inside your estimated comfortable zone of ${zoneText}. You'll spend the song ` +
           `where your voice is strongest instead of straining at the edges.`,
       });
@@ -276,7 +290,7 @@ export const scoreSong = (song: any, profile: VoiceProfile, jitter = 0): Feature
           (Math.abs(offset) < 1
             ? "right at the middle of your comfortable zone"
             : `within ${semis(Math.ceil(Math.abs(offset)))} of the middle of your comfortable zone`) +
-          `, so it should feel balanced - neither pushed nor buried.`,
+          `, so it should feel balanced, neither pushed nor buried.`,
       });
     } else if (overlap >= TESSITURA_MATCH_THRESHOLD) {
       reasons.push(
@@ -292,8 +306,8 @@ export const scoreSong = (song: any, profile: VoiceProfile, jitter = 0): Feature
               kind: "leans-high",
               title: "Uses the brighter, upper part of your voice",
               detail:
-                `The melody centres on ${noteName(tess.t50)}, in the upper part of your comfort zone - ` +
-                `great for building strength and brightness without leaving the zone.`,
+                `The melody centres on ${noteName(tess.t50)}, in the upper part of your comfort zone. ` +
+                `That's great for building strength and brightness without leaving the zone.`,
             }
       );
     }
@@ -304,8 +318,8 @@ export const scoreSong = (song: any, profile: VoiceProfile, jitter = 0): Feature
       kind: "fits-range",
       title: "Every note fits your range",
       detail:
-        `The song runs ${noteName(low)}-${noteName(high)}, entirely inside your range of ` +
-        `${noteName(profile.low)}-${noteName(profile.high)}, with ${semis(footroom)} to spare at the ` +
+        `The song runs from ${noteName(low)} to ${noteName(high)}, entirely inside your range of ` +
+        `${noteName(profile.low)} to ${noteName(profile.high)}, with ${semis(footroom)} to spare at the ` +
         `bottom and ${semis(headroom)} at the top.`,
     });
     if (headroom >= 3) {
@@ -314,7 +328,7 @@ export const scoreSong = (song: any, profile: VoiceProfile, jitter = 0): Feature
         title: "Plenty of headroom",
         detail:
           `Its highest note is ${semis(headroom)} below your top note, so the big moments won't push ` +
-          `you to your limit - your top notes are the hardest to sustain.`,
+          `you to your limit. Your top notes are the hardest to sustain.`,
       });
     } else if (headroom === 0) {
       reasons.push({
@@ -366,6 +380,35 @@ export const scoreSong = (song: any, profile: VoiceProfile, jitter = 0): Feature
     }
   }
 
+  // --- Section highlights -------------------------------------------------
+  // The same facts as the reasons above, regrouped by the part of Song
+  // Details they sit beside: the vocal range header and the tessitura card.
+  const reasonDetail = (kind: FeaturedReasonKind) => reasons.find((r) => r.kind === kind)?.detail;
+  const range: FeaturedHighlight =
+    outBy === 0
+      ? { title: "Fits your range", detail: reasonDetail("fits-range")! }
+      : {
+          title: "Just outside your range",
+          detail: [reasonDetail("stretch"), reasonDetail("stretch-fix")].filter(Boolean).join(" "),
+        };
+
+  let tessitura: FeaturedHighlight | undefined;
+  if (tess && overlap >= TESSITURA_MATCH_THRESHOLD) {
+    const share = overlap >= 1 ? "All" : `${Math.round(overlap * 100)}%`;
+    const offset = tess.t50 - profile.center;
+    const centre =
+      Math.abs(offset) <= 2
+        ? `Its centre note, ${noteName(tess.t50)}, sits near the middle of that zone.`
+        : `Its centre note, ${noteName(tess.t50)}, sits in the ${offset < 0 ? "lower" : "upper"} part of that zone.`;
+    tessitura = {
+      title: "Sits where your voice is comfortable",
+      detail:
+        `This song's tessitura, where the melody spends most of its time, is ${coreText}. ` +
+        `We compare it with your estimated comfortable zone of ${zoneText}, and ${share.toLowerCase()} ` +
+        `of it is inside your zone. ${centre}`,
+    };
+  }
+
   return {
     song,
     score,
@@ -373,10 +416,36 @@ export const scoreSong = (song: any, profile: VoiceProfile, jitter = 0): Feature
       category,
       summary: summarize(category, { tess, overlap, outBy, above, headroom, songSpan, userSpan }),
       reasons,
-      userRange: `${noteName(profile.low)} - ${noteName(profile.high)}`,
-      userTessitura: `${noteName(profile.tessLow)} - ${noteName(profile.tessHigh)}`,
+      userRange: `${noteName(profile.low)} to ${noteName(profile.high)}`,
+      userTessitura: `${noteName(profile.tessLow)} to ${noteName(profile.tessHigh)}`,
+      highlights: { range, ...(tessitura && { tessitura }) },
     },
   };
+};
+
+/**
+ * Best Fit Analysis labels a song with one male and one female voice type.
+ * When either matches the user's voice type, explain it. A voice type can
+ * be a blend ("Baritone / Tenor"), and any part of it counts as a match.
+ */
+export const voiceTypeHighlights = (
+  userVoiceType: string | null | undefined,
+  bestFit: { male: string; female: string }
+): { male?: FeaturedHighlight; female?: FeaturedHighlight } => {
+  if (!userVoiceType) return {};
+  const parts = userVoiceType.split("/").map((p) => p.trim().toLowerCase());
+  const explain = (type: string): FeaturedHighlight | undefined =>
+    parts.includes(type.toLowerCase())
+      ? {
+          title: "Matches your voice type",
+          detail:
+            `This song's range fits the ${type} voice type best, and your voice type is ` +
+            `${userVoiceType}. It's pitched for a voice like yours.`,
+        }
+      : undefined;
+  const male = explain(bestFit.male);
+  const female = explain(bestFit.female);
+  return { ...(male && { male }), ...(female && { female }) };
 };
 
 /** The one-line "why" shown under the song in the Featured list. */
@@ -395,8 +464,8 @@ const summarize = (
   if (category === "stretch") {
     const where = s.above > 0 && s.above < s.outBy ? "outside" : s.above > 0 ? "above" : "below";
     return s.tess && s.overlap >= TESSITURA_MATCH_THRESHOLD
-      ? `Mostly comfy, peaks ${semis(s.outBy)} ${where} your range - a stretch goal.`
-      : `Just ${semis(s.outBy)} ${where} your range - a good stretch goal.`;
+      ? `Mostly comfy, with peaks ${semis(s.outBy)} ${where} your range. A good stretch goal.`
+      : `Just ${semis(s.outBy)} ${where} your range. A good stretch goal.`;
   }
   if (category === "tessitura" && s.tess) {
     return s.overlap >= 1
@@ -404,7 +473,7 @@ const summarize = (
       : `${Math.round(s.overlap * 100)}% of the melody sits in your comfortable zone.`;
   }
   if (s.userSpan > 0 && s.songSpan / s.userSpan >= 0.75) {
-    return "Uses most of your range - a great showcase song.";
+    return "Uses most of your range, so it's a great showcase song.";
   }
   if (s.headroom >= 3) return `Fits your range with ${semis(s.headroom)} of headroom up top.`;
   return "Every note sits within your range.";

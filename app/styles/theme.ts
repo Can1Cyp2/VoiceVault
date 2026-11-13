@@ -56,6 +56,11 @@ export const LightColors = {
   featured: '#7c3aed',
   featuredBackground: '#f3edff',
   featuredBorder: '#ddd0fb',
+
+  // Skeleton loading placeholders
+  skeletonBase: '#e8e8ec',
+  skeletonHighlight: '#ffffff',
+  skeletonHighlightOpacity: 0.75,
 };
 
 // Dark theme colors
@@ -114,6 +119,11 @@ export const DarkColors = {
   featured: '#c4a7ff',
   featuredBackground: '#251d3d',
   featuredBorder: '#3e3166',
+
+  // Skeleton loading placeholders - a step up from backgroundCard
+  skeletonBase: '#22304a',
+  skeletonHighlight: '#ffffff',
+  skeletonHighlightOpacity: 0.07,
 };
 
 // Legacy exports for backward compatibility

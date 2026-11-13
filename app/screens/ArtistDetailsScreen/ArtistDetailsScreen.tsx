@@ -8,7 +8,7 @@ import {
   FlatList,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import type { ViewInstance } from "react-native";
 import { supabase } from "../../util/supabase";
@@ -18,12 +18,16 @@ import { noteToValue } from "../SongDetailsScreen/RangeBestFit";
 import { RootStackParamList } from "../../navigation/StackNavigator";
 import { goToStackScreen, isSameSong } from "../../navigation/stackNav";
 import SongRowAd from "../../components/SongRowAd/SongRowAd";
+import { Skeleton, SkeletonGroup } from "../../components/Skeleton/Skeleton";
 import {
   ARTIST_AD_SPACING,
   isAdMarker,
   releaseSongListAds,
   withAdSlots,
 } from "../../components/SongRowAd/songListAds";
+
+// Song title widths for the loading cards, varied so they read as real titles.
+const SKELETON_SONG_WIDTHS = ["58%", "42%", "66%", "50%", "38%", "60%", "46%"] as const;
 
 export const ArtistDetailsScreen = ({ route }: any) => {
   const { colors } = useTheme();
@@ -273,7 +277,33 @@ export const ArtistDetailsScreen = ({ route }: any) => {
   return (
     <View style={styles.container}>
       {loading ? (
-        <ActivityIndicator size="large" color="tomato" />
+        // The name is already known from navigation, so it shows straight
+        // away; only the parts that come from the database shimmer.
+        <ScrollView scrollEnabled={false}>
+          <View style={styles.headerContainer}>
+            <Text style={styles.title}>{name}</Text>
+            <SkeletonGroup label={`Loading songs by ${name}`}>
+              <View style={styles.card}>
+                <Skeleton width="78%" height={20} />
+                {isLoggedIn && (
+                  <View style={styles.skeletonRangeRow}>
+                    <Skeleton width="56%" height={17} />
+                    <Skeleton circle height={15} style={styles.skeletonIndicator} />
+                  </View>
+                )}
+              </View>
+              <Skeleton width={96} height={22} style={styles.skeletonSubtitle} />
+            </SkeletonGroup>
+          </View>
+          <View importantForAccessibility="no-hide-descendants">
+            {SKELETON_SONG_WIDTHS.map((titleWidth, index) => (
+              <View key={index} style={styles.songCard}>
+                <Skeleton width={titleWidth} height={17} />
+                <Skeleton width={72} height={15} />
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       ) : (
         <FlatList
           data={listData}
@@ -406,6 +436,18 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     fontFamily: FONTS.primary,
     flexShrink: 1,
     marginRight: 10,
+  },
+  skeletonRangeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  skeletonIndicator: {
+    marginLeft: 10,
+  },
+  skeletonSubtitle: {
+    marginHorizontal: 20,
+    marginVertical: 12,
   },
   songRange: {
     fontSize: 16,

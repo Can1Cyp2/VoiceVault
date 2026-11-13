@@ -10,6 +10,7 @@ import { StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 import { Image } from "expo-image";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
+import { Skeleton } from "../Skeleton/Skeleton";
 import {
   fetchSongImage,
   SongImage as SongImageData,
@@ -47,6 +48,12 @@ type SongImageProps = {
   style?: StyleProp<ViewStyle>;
   /** Fires once artwork resolves (or fails) so parents can show attribution. */
   onResolved?: (image: SongImageData | null) => void;
+  /**
+   * Shimmer until the artwork lookup finishes instead of flashing the
+   * gradient placeholder first. Meant for the big hero image - list
+   * thumbnails are better off with the instant placeholder.
+   */
+  showLoadingSkeleton?: boolean;
 };
 
 export default function SongImage({
@@ -56,8 +63,10 @@ export default function SongImage({
   borderRadius = 20,
   style,
   onResolved,
+  showLoadingSkeleton = false,
 }: SongImageProps) {
   const [image, setImage] = useState<SongImageData | null>(null);
+  const [resolved, setResolved] = useState(false);
   const onResolvedRef = useRef(onResolved);
   onResolvedRef.current = onResolved;
 
@@ -74,6 +83,7 @@ export default function SongImage({
       if (!enabled) {
         if (!cancelled) {
           setImage(null);
+          setResolved(true);
           onResolvedRef.current?.(null);
         }
         return;
@@ -83,17 +93,31 @@ export default function SongImage({
       const result = await fetchSongImage(name, artist, source);
       if (!cancelled) {
         setImage(result);
+        setResolved(true);
         onResolvedRef.current?.(result);
       }
     };
 
     setImage(null);
-    void resolve();
+    setResolved(false);
+    // A failed lookup falls back to the gradient rather than leaving the
+    // loading skeleton up for good.
+    resolve().catch(() => {
+      if (!cancelled) {
+        setImage(null);
+        setResolved(true);
+        onResolvedRef.current?.(null);
+      }
+    });
 
     return () => {
       cancelled = true;
     };
   }, [name, artist]);
+
+  if (showLoadingSkeleton && !resolved) {
+    return <Skeleton width={size} height={size} radius={borderRadius} style={style} />;
+  }
 
   return (
     <View

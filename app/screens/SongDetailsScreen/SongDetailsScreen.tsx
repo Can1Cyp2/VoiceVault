@@ -37,6 +37,7 @@ import { getPianoAudioFile } from "../../util/pianoNotes";
 import { showVerifiedRangeInfo } from "../../util/verifiedInfo";
 import { useAdminStatus } from "../../util/adminUtils";
 import SongImage from "../../components/SongImage/SongImage";
+import { Skeleton } from "../../components/Skeleton/Skeleton";
 import { SongImage as SongImageData } from "../../util/songImages";
 import SingThisModal from "./SingThisModal";
 import SongMetadataCard from "./SongMetadataCard";
@@ -79,8 +80,10 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   const referenceSoundRef = useRef<Audio.Sound | null>(null);
   const [isSingModalVisible, setSingModalVisible] = useState(false);
   const { isAdmin } = useAdminStatus();
-  const [songImage, setSongImage] = useState<SongImageData | null>(null);
+  // undefined while the artwork lookup is still running, null if none found.
+  const [songImage, setSongImage] = useState<SongImageData | null | undefined>(undefined);
   const [metadata, setMetadata] = useState<SongMetadata | null>(null);
+  const [metadataLoading, setMetadataLoading] = useState(true);
 
   // Parse vocal range to extract lowest and highest notes
   const parseVocalRange = (range: string) => {
@@ -191,10 +194,15 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
   // in which case the card renders nothing and the screen is unchanged.
   useEffect(() => {
     let cancelled = false;
+    setMetadataLoading(true);
+    setSongImage(undefined);
 
     void (async () => {
       const result = await fetchSongMetadata(name, artist ?? null);
-      if (!cancelled) setMetadata(result);
+      if (!cancelled) {
+        setMetadata(result);
+        setMetadataLoading(false);
+      }
     })();
 
     return () => {
@@ -389,9 +397,12 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
             size={280}
             borderRadius={20}
             onResolved={setSongImage}
+            showLoadingSkeleton
           />
         </View>
-        {songImage?.attributionUrl ? (
+        {songImage === undefined ? (
+          <Skeleton width={120} height={12} style={styles.attributionSkeleton} />
+        ) : songImage?.attributionUrl ? (
           <TouchableOpacity
             onPress={() => Linking.openURL(songImage.attributionUrl!)}
             activeOpacity={0.7}
@@ -577,6 +588,7 @@ export const SongDetailsScreen = ({ route, navigation }: any) => {
       {/* Tempo / tessitura / genre / year / length - hidden when unknown */}
       <SongMetadataCard
         metadata={metadata}
+        loading={metadataLoading}
         songName={name}
         artistName={artist}
         onPlayNote={(note) => {
@@ -779,6 +791,9 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     fontFamily: FONTS.primary,
     textAlign: 'center',
     marginTop: 10,
+  },
+  attributionSkeleton: {
+    marginTop: 14,
   },
   attributionTextMuted: {
     fontSize: 14,

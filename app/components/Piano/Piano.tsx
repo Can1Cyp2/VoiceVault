@@ -2,6 +2,7 @@
 // app/components/Piano/Piano.tsx
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
+import type { ScrollViewInstance } from 'react-native';
 import { Audio } from '../../util/audio';
 import { LightColors } from '../../styles/theme';
 import { getPianoAudioFile } from '../../util/pianoNotes';
@@ -31,7 +32,7 @@ const noteToValue = (note: string): number => {
 };
 
 const Piano = ({ vocalRange }: { vocalRange: string }) => {
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
   const hasScrolledRef = useRef(false);
   const soundRefs = useRef<Map<string, Audio.Sound[]>>(new Map());
   const [lowNote, highNote] = vocalRange.split(' - ');

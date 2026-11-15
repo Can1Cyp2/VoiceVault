@@ -16,6 +16,8 @@ import {
   parseRange,
   scoreSong,
   selectFeaturedSongs,
+  selectTopSongs,
+  songKey,
   tessituraOverlap,
   notesInZone,
   describeVoiceProfile,
@@ -181,6 +183,130 @@ describe("scoreSong", () => {
     const fits = scoreSong(makeSong({ vocalRange: "D3 - B4", ...tess }), profile, 0)!;
     const stretch = scoreSong(makeSong({ vocalRange: "D3 - C#5", ...tess }), profile, 1)!;
     expect(fits.score).toBeGreaterThan(stretch.score);
+  });
+
+  test("a song matching the range exactly never says 0 semitones", () => {
+    const { reasons } = scoreSong(makeSong({ vocalRange: "C3 - C5" }), profile)!.info;
+    const fits = reasons.find((r) => r.kind === "fits-range")!;
+    expect(fits.detail).toBe("The song runs from C3 to C5, an exact match for your range.");
+  });
+
+  test("only the side with room to spare is mentioned", () => {
+    const fits = (vocalRange: string) =>
+      scoreSong(makeSong({ vocalRange }), profile)!.info.reasons.find((r) => r.kind === "fits-range")!.detail;
+    expect(fits("C3 - A4")).toMatch(/inside your range of C3 to C5, with 3 semitones to spare at the top\.$/);
+    expect(fits("D3 - C5")).toMatch(/inside your range of C3 to C5, with 2 semitones to spare at the bottom\.$/);
+  });
+});
+
+describe("section highlights", () => {
+  const profile = estimateVoiceProfile("C3", "C5")!; // zone F3 - F#4
+
+  test("a fitting tessitura pick explains both its range and its tessitura", () => {
+    const song = makeSong({
+      vocalRange: "D3 - A4",
+      tessitura_low: "G3",
+      tessitura_median: "B3",
+      tessitura_high: "D4",
+    });
+    const { highlights } = scoreSong(song, profile)!.info;
+    expect(highlights.range.title).toBe("Fits your range");
+    expect(highlights.range.detail).toContain("entirely inside your range of C3 to C5");
+    expect(highlights.tessitura!.detail).toContain("is G3 to D4");
+    expect(highlights.tessitura!.detail).toContain("all of it is inside your zone");
+    expect(highlights.tessitura!.detail).toContain("near the middle of that zone");
+  });
+
+  test("a stretch pick's range note says how far out it is, and how to fix it", () => {
+    const { highlights } = scoreSong(makeSong({ vocalRange: "E3 - D5" }), profile)!.info;
+    expect(highlights.range.title).toBe("Just outside your range");
+    expect(highlights.range.detail).toContain("2 semitones above your highest recorded note");
+    expect(highlights.range.detail).toContain("Transpose it down 2 semitones");
+  });
+
+  test("no tessitura note when the tessitura isn't why it was picked", () => {
+    const song = makeSong({
+      vocalRange: "C4 - C5",
+      tessitura_low: "G4",
+      tessitura_median: "A4",
+      tessitura_high: "B4",
+    });
+    expect(scoreSong(song, profile)!.info.highlights.tessitura).toBeUndefined();
+    expect(scoreSong(makeSong({ vocalRange: "E3 - G4" }), profile)!.info.highlights.tessitura).toBeUndefined();
+  });
+
+  test("voice type matches the Best Fit side it belongs to, blends included", () => {
+    const fit = { male: "Tenor", female: "Alto" };
+    expect(Object.keys(voiceTypeHighlights("Tenor", fit))).toEqual(["male"]);
+    expect(Object.keys(voiceTypeHighlights("Mezzo-Soprano / Alto", fit))).toEqual(["female"]);
+    expect(voiceTypeHighlights("tenor", fit).male!.detail).toContain("fits the Tenor voice type best");
+  });
+
+  test("no voice type note when it doesn't match or isn't known", () => {
+    expect(voiceTypeHighlights("Bass", { male: "Tenor", female: "Alto" })).toEqual({});
+    expect(voiceTypeHighlights(null, { male: "Tenor", female: "Alto" })).toEqual({});
+  });
+});
+
+describe("top picks", () => {
+  const profile = estimateVoiceProfile("C3", "C5")!; // zone F3 - F#4
+  const tess = { tessitura_low: "G3", tessitura_median: "B3", tessitura_high: "D4" };
+  const qualifiers = (n: number) =>
+    Array.from({ length: n }, (_, i) => makeSong({ name: `Top${i}`, artist: `Artist${i}`, vocalRange: "D3 - A4", ...tess }));
+
+  test("needs a good range fit and a centred tessitura", () => {
+    const topFit = (fields: object) => scoreSong(makeSong(fields), profile)!.topFit;
+    expect(topFit({ vocalRange: "D3 - A4", ...tess })).toBe(true);
+    // Up to 2 semitones above the range is fine
+    expect(topFit({ vocalRange: "D3 - D5", ...tess })).toBe(true);
+    // Anything below it is not
+    expect(topFit({ vocalRange: "B2 - A4", ...tess })).toBe(false);
+    // No tessitura data to judge
+    expect(topFit({ vocalRange: "D3 - A4" })).toBe(false);
+    // In the zone, but far from its middle
+    expect(topFit({ vocalRange: "D3 - A4", tessitura_low: "F3", tessitura_median: "G3", tessitura_high: "A3" })).toBe(false);
+    // Centred, but too much of it is outside the zone
+    expect(topFit({ vocalRange: "C3 - C5", tessitura_low: "D#3", tessitura_median: "B3", tessitura_high: "G#4" })).toBe(false);
+  });
+
+  test("draws three, skipping songs that don't qualify", () => {
+    const filler = makeSong({ name: "Filler", artist: "Other", vocalRange: "E3 - G4" });
+    const picks = selectTopSongs([filler, ...qualifiers(3)], profile);
+    expect(picks.map((p) => p.song.name).sort()).toEqual(["Top0", "Top1", "Top2"]);
+  });
+
+  test("the draw is random, so the highest scorers don't always win", () => {
+    const pool = qualifiers(12);
+    const seen = new Set<string>();
+    for (let i = 0; i < 40; i++) {
+      for (const pick of selectTopSongs(pool, profile)) seen.add(pick.song.name);
+    }
+    expect(seen.size).toBeGreaterThan(6);
+  });
+
+  test("a refresh avoids the previous picks while enough others qualify", () => {
+    const pool = qualifiers(6);
+    const first = selectTopSongs(pool, profile);
+    const avoid = new Set(first.map((p) => songKey(p.song)));
+    const second = selectTopSongs(pool, profile, { avoid });
+    expect(second).toHaveLength(3);
+    expect(second.some((p) => avoid.has(songKey(p.song)))).toBe(false);
+  });
+
+  test("previous picks come back rather than showing fewer than three", () => {
+    const pool = qualifiers(4);
+    const avoid = new Set(pool.slice(0, 3).map(songKey));
+    const picks = selectTopSongs(pool, profile, { avoid });
+    expect(picks).toHaveLength(3);
+    expect(picks.map((p) => p.song.name)).toContain("Top3");
+  });
+
+  test("one song per artist, and fewer than three when that's all that qualifies", () => {
+    const same = Array.from({ length: 4 }, (_, i) =>
+      makeSong({ name: `Same${i}`, artist: "Prolific", vocalRange: "D3 - A4", ...tess })
+    );
+    expect(selectTopSongs(same, profile)).toHaveLength(1);
+    expect(selectTopSongs([], profile)).toEqual([]);
   });
 });
 

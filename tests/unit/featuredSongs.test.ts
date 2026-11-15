@@ -310,6 +310,55 @@ describe("top picks", () => {
   });
 });
 
+describe("section highlights", () => {
+  const profile = estimateVoiceProfile("C3", "C5")!; // zone F3 - F#4
+
+  test("a fitting tessitura pick explains both its range and its tessitura", () => {
+    const song = makeSong({
+      vocalRange: "D3 - A4",
+      tessitura_low: "G3",
+      tessitura_median: "B3",
+      tessitura_high: "D4",
+    });
+    const { highlights } = scoreSong(song, profile)!.info;
+    expect(highlights.range.title).toBe("Fits your range");
+    expect(highlights.range.detail).toContain("entirely inside your range of C3 to C5");
+    expect(highlights.tessitura!.detail).toContain("is G3 to D4");
+    expect(highlights.tessitura!.detail).toContain("all of it is inside your zone");
+    expect(highlights.tessitura!.detail).toContain("near the middle of that zone");
+  });
+
+  test("a stretch pick's range note says how far out it is, and how to fix it", () => {
+    const { highlights } = scoreSong(makeSong({ vocalRange: "E3 - D5" }), profile)!.info;
+    expect(highlights.range.title).toBe("Just outside your range");
+    expect(highlights.range.detail).toContain("2 semitones above your highest recorded note");
+    expect(highlights.range.detail).toContain("Transpose it down 2 semitones");
+  });
+
+  test("no tessitura note when the tessitura isn't why it was picked", () => {
+    const song = makeSong({
+      vocalRange: "C4 - C5",
+      tessitura_low: "G4",
+      tessitura_median: "A4",
+      tessitura_high: "B4",
+    });
+    expect(scoreSong(song, profile)!.info.highlights.tessitura).toBeUndefined();
+    expect(scoreSong(makeSong({ vocalRange: "E3 - G4" }), profile)!.info.highlights.tessitura).toBeUndefined();
+  });
+
+  test("voice type matches the Best Fit side it belongs to, blends included", () => {
+    const fit = { male: "Tenor", female: "Alto" };
+    expect(Object.keys(voiceTypeHighlights("Tenor", fit))).toEqual(["male"]);
+    expect(Object.keys(voiceTypeHighlights("Mezzo-Soprano / Alto", fit))).toEqual(["female"]);
+    expect(voiceTypeHighlights("tenor", fit).male!.detail).toContain("fits the Tenor voice type best");
+  });
+
+  test("no voice type note when it doesn't match or isn't known", () => {
+    expect(voiceTypeHighlights("Bass", { male: "Tenor", female: "Alto" })).toEqual({});
+    expect(voiceTypeHighlights(null, { male: "Tenor", female: "Alto" })).toEqual({});
+  });
+});
+
 describe("selectFeaturedSongs", () => {
   const profile = estimateVoiceProfile("C3", "C5")!;
   const tess = { tessitura_low: "G3", tessitura_median: "A3", tessitura_high: "D4" };

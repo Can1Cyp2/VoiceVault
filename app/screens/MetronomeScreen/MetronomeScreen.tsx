@@ -13,6 +13,7 @@ import {
   Dimensions,
   ScrollView,
 } from "react-native";
+import type { ScrollViewInstance } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Audio } from "../../util/audio";
 import { Slider } from "react-native-elements";
@@ -166,8 +167,8 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
   const previewOnLoadRef = useRef(false);
 
   // Time / Division selectors keep the selected chip centered in view
-  const timeScrollRef = useRef<ScrollView>(null);
-  const subScrollRef = useRef<ScrollView>(null);
+  const timeScrollRef = useRef<ScrollViewInstance>(null);
+  const subScrollRef = useRef<ScrollViewInstance>(null);
   const timeChipLayouts = useRef<Record<string, { x: number; width: number }>>({});
   const subChipLayouts = useRef<Record<number, { x: number; width: number }>>({});
   const timeScrollWidthRef = useRef(0);
@@ -175,7 +176,7 @@ export default function MetronomeScreen({ navigation }: MetronomeScreenProps) {
 
   const centerSelectedChip = useCallback(
     (
-      ref: React.RefObject<ScrollView | null>,
+      ref: React.RefObject<ScrollViewInstance | null>,
       layout: { x: number; width: number } | undefined,
       viewWidth: number,
       animated: boolean

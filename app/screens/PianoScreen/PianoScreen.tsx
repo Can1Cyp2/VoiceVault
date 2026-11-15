@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   Platform,
 } from "react-native";
+import type { ScrollViewInstance } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Audio } from "../../util/audio";
 import { Ionicons } from "@expo/vector-icons";
@@ -178,7 +179,7 @@ export default function PianoScreen({ navigation }: PianoScreenProps) {
   const soundRefs = useRef<Map<string, Audio.Sound[]>>(new Map());
   const heldNotes = useRef<Set<string>>(new Set());
   const sustainRef = useRef(false);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
   const [pianoHeight, setPianoHeight] = useState(240);
   const whiteKeyHeight = pianoHeight;
   const blackKeyHeight = Math.round(pianoHeight * BLACK_KEY_RATIO);

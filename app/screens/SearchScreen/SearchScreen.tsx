@@ -1,12 +1,12 @@
 // File location: app/screens/SearchScreen/SearchScreen.tsx
 import React, { useCallback, useState, useMemo } from "react";
 import {
+  ActivityIndicator,
   View,
   FlatList,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
   Animated,
   Modal,
@@ -15,7 +15,7 @@ import {
   ScrollView,
   useWindowDimensions,
 } from "react-native";
-import type { ViewInstance } from "react-native";
+import type { DimensionValue, ViewInstance } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/StackNavigator";
@@ -39,6 +39,8 @@ import SongFilterModal from "../../components/SongFilters/SongFilterModal";
 import RequestSongModal from "../../components/RequestSong/RequestSongModal";
 import SongRowAd from "../../components/SongRowAd/SongRowAd";
 import FeaturedSongsList from "../../components/Featured/FeaturedSongsList";
+import { Skeleton, SkeletonGroup } from "../../components/Skeleton/Skeleton";
+import LoadingBar from "../../components/Skeleton/LoadingBar";
 import { estimateVoiceProfile, FeaturedSong } from "../../util/featuredSongs";
 import { calculateRangeStats } from "../../util/audioAnalysis";
 import { setLoginGlow } from "../../util/loginPrompt";
@@ -70,6 +72,22 @@ const MAX_AUTO_LOADS = 5;
 const COMPACT_WIDTH = 600;
 // Only caps the label's expand animation, so it has to clear the largest text size.
 const FEATURED_LABEL_MAX_WIDTH = 110;
+// Title / subtitle widths for the loading rows. Varied so the placeholder
+// reads as a list of real names rather than a stack of identical bars.
+const SKELETON_ROW_WIDTHS: [DimensionValue, DimensionValue][] = [
+  ["62%", "44%"],
+  ["48%", "56%"],
+  ["74%", "38%"],
+  ["55%", "50%"],
+  ["40%", "46%"],
+  ["68%", "34%"],
+  ["52%", "58%"],
+  ["60%", "42%"],
+  ["45%", "52%"],
+];
+// Rows fade out as they go down, handing off to the "Loading songs..."
+// indicator beneath them on a first load.
+const SKELETON_FADE = [1, 0.85, 0.62, 0.38, 0.18];
 
 // This component renders a search screen with a search bar, filter buttons, and a list of results (songs or artists):
 export default function SearchScreen() {
@@ -180,6 +198,37 @@ export default function SearchScreen() {
   // counting real results via displayData.
   const listData = useMemo(() => withAdSlots(displayData, SEARCH_AD_SPACING), [displayData]);
   const isLoading = songsLoading || (filter === "artists" && artistsLoading);
+
+  // A pull-to-refresh swaps the list for the skeleton like any other load,
+  // which takes the native refresh spinner with it - so remember it was a
+  // refresh and show a loading bar in that spot instead.
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const onPullRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await handleRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [handleRefresh]);
+
+  // Placeholder in the shape of a result card: same padding, icon and
+  // in-range badge, so the list doesn't shift when the real rows arrive.
+  const renderSkeletonRow = ([titleWidth, subWidth]: [DimensionValue, DimensionValue], index: number) => (
+    <View
+      key={index}
+      style={[styles.resultItem, { backgroundColor: colors.backgroundCard, shadowColor: colors.shadow }]}
+    >
+      <Skeleton circle height={45} style={styles.skeletonIcon} />
+      <View style={styles.resultTextContainer}>
+        <Skeleton width={titleWidth} height={filter === "songs" ? 16 : 18} />
+        {filter === "songs" && (
+          <Skeleton width={subWidth} height={12} style={styles.skeletonSubLine} />
+        )}
+      </View>
+      {isLoggedIn && vocalRange && <Skeleton circle height={28} style={styles.skeletonTrailing} />}
+    </View>
+  );
 
   // Auto-fill thin pages.
   //
@@ -648,15 +697,34 @@ export default function SearchScreen() {
         </View>
       )}
       {!showFeatured && !error && isLoading && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textPrimary }]}>
-            {filter === "songs" ? "Loading songs..." : "Loading artists..."}
-          </Text>
-          <View style={[styles.loadingBarTrack, { backgroundColor: colors.lightGray }]}>
-            <View style={[styles.loadingBarFill, { backgroundColor: colors.primary }]} />
-          </View>
-        </View>
+        <SkeletonGroup
+          label={filter === "songs" ? "Loading songs" : "Loading artists"}
+          style={styles.skeletonList}
+        >
+          {isRefreshing ? (
+            // Refresh: bar where the pull happened, full skeleton list below.
+            <>
+              <LoadingBar height={3} style={styles.refreshBar} />
+              {SKELETON_ROW_WIDTHS.map(renderSkeletonRow)}
+            </>
+          ) : (
+            // First load: a few rows that fade into the loading indicator.
+            <>
+              {SKELETON_FADE.map((opacity, index) => (
+                <View key={index} style={{ opacity }}>
+                  {renderSkeletonRow(SKELETON_ROW_WIDTHS[index], index)}
+                </View>
+              ))}
+              <View style={styles.skeletonIndicator}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={[styles.loadingText, { color: colors.textPrimary }]}>
+                  {filter === "songs" ? "Loading songs..." : "Loading artists..."}
+                </Text>
+                <LoadingBar width={140} />
+              </View>
+            </>
+          )}
+        </SkeletonGroup>
       )}
       {!showFeatured && !isLoading && initialFetchDone && displayData.length === 0 && !error && (
         <ScrollView
@@ -664,8 +732,9 @@ export default function SearchScreen() {
           refreshControl={
             <RefreshControl
               refreshing={filter === "songs" ? songsLoading : artistsLoading}
-              onRefresh={handleRefresh}
+              onRefresh={onPullRefresh}
               colors={[colors.primary]}
+              tintColor={colors.primary}
             />
           }
         >
@@ -692,7 +761,7 @@ export default function SearchScreen() {
             )}
             <TouchableOpacity
               style={[styles.refreshButton, { backgroundColor: colors.primary }]}
-              onPress={handleRefresh}
+              onPress={onPullRefresh}
             >
               <Ionicons name="refresh" size={18} color={colors.buttonText} />
               <Text style={[styles.refreshButtonText, { color: colors.buttonText }]}>Try again</Text>
@@ -803,10 +872,9 @@ export default function SearchScreen() {
           }}
           ListFooterComponent={
             filter === "songs" && endReachedLoading ? (
-              <View style={styles.loadingFooter}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={[styles.loadingText, { color: colors.textPrimary }]}>Loading more...</Text>
-              </View>
+              <SkeletonGroup label="Loading more songs">
+                {SKELETON_ROW_WIDTHS.slice(0, 2).map(renderSkeletonRow)}
+              </SkeletonGroup>
             ) : filter === "artists" && query.length === 0 ? (
               <View style={[styles.swipeMessageContainer, { backgroundColor: colors.lightGray }]}>
                 <Text style={[styles.swipeMessageText, { color: colors.textPrimary }]}>
@@ -820,8 +888,9 @@ export default function SearchScreen() {
           refreshControl={
             <RefreshControl
               refreshing={filter === "songs" ? songsLoading : artistsLoading}
-              onRefresh={handleRefresh}
+              onRefresh={onPullRefresh}
               colors={[colors.primary]}
+              tintColor={colors.primary}
             />
           }
           overScrollMode="always" // Enable overscroll on Android
@@ -1010,18 +1079,6 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
-  },
-  loadingText: { textAlign: "center", marginVertical: 10 },
-  loadingBarTrack: {
-    width: 140,
-    height: 4,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  loadingBarFill: {
-    width: "65%",
-    height: "100%",
-    borderRadius: 2,
   },
   filterContainer: {
     flexDirection: "row",
@@ -1219,9 +1276,6 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     fontWeight: "600",
     textAlign: "center",
   },
-  loadingFooter: {
-    paddingVertical: 10,
-  },
   pausedFiltersBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -1247,10 +1301,27 @@ const createStyles = (colors: typeof import('../../styles/theme').LightColors) =
     fontSize: 14,
     textAlign: "center",
   },
-  loadingContainer: {
+  skeletonList: {
     flex: 1,
-    justifyContent: "center",
+    overflow: "hidden",
+  },
+  refreshBar: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  skeletonIndicator: {
     alignItems: "center",
+    marginTop: 18,
+  },
+  loadingText: { textAlign: "center", marginVertical: 10 },
+  skeletonIcon: {
+    marginRight: 12,
+  },
+  skeletonSubLine: {
+    marginTop: 8,
+  },
+  skeletonTrailing: {
+    marginLeft: 12,
   },
   swipeMessageContainer: {
     paddingHorizontal: 10,

@@ -27,7 +27,7 @@ export const ARTIST_AD_SPACING: AdSpacing = { first: 4, interval: 10 };
 const AD_MAX_AGE_MS = 55 * 60 * 1000;
 const LOAD_TIMEOUT_MS = 15000;
 const MAX_CONCURRENT_LOADS = 2;
-// Loaded ads hold native resources; unmounted ones beyond this are released.
+// Loaded ads hold native resources; ones no row draws beyond this are released.
 const MAX_CACHED_ADS = 8;
 // A slot that failed waits this long before it may try again.
 const SLOT_RETRY_DELAY_MS = 2 * 60 * 1000;
@@ -42,7 +42,9 @@ type CachedAd = { ad: any; loadedAt: number };
 
 const cache = new Map<string, CachedAd>();
 const inFlight = new Map<string, Promise<AdLoadResult>>();
-const mounted = new Map<string, number>();
+// How many rows are drawing each ad, keyed by the ad itself rather than its
+// slot, so an ad is never freed while any native view still shows it.
+const inUse = new Map<any, number>();
 const slotRetryAt = new Map<string, number>();
 let consecutiveFailures = 0;
 let pausedUntil = 0;
@@ -86,26 +88,26 @@ export function getCachedSongListAd(placement: string, slot: number): any | null
   return cached.ad;
 }
 
-// Rows report mount state so eviction never destroys an ad on screen.
-export function setSongListAdMounted(placement: string, slot: number, isMounted: boolean) {
-  const key = keyFor(placement, slot);
-  const count = (mounted.get(key) ?? 0) + (isMounted ? 1 : -1);
-  if (count > 0) mounted.set(key, count);
-  else mounted.delete(key);
+// The row drawing an ad holds it for as long as its native view exists.
+export function retainSongListAd(ad: any) {
+  inUse.set(ad, (inUse.get(ad) ?? 0) + 1);
+}
+
+export function releaseSongListAd(ad: any) {
+  const count = (inUse.get(ad) ?? 0) - 1;
+  if (count > 0) inUse.set(ad, count);
+  else inUse.delete(ad);
 }
 
 // Frees every ad a screen loaded, for screens that will not come back
 // (each Artist Details visit uses its own placement).
 export function releaseSongListAds(placement: string) {
-  // Deferred so the rows' native views finish unmounting first.
-  setTimeout(() => {
-    for (const [key, entry] of cache) {
-      if (key.startsWith(`${placement}:`) && !mounted.has(key)) {
-        destroyQuietly(entry.ad);
-        cache.delete(key);
-      }
+  for (const [key, entry] of cache) {
+    if (key.startsWith(`${placement}:`)) {
+      cache.delete(key);
+      destroyWhenUnused(entry.ad);
     }
-  }, 0);
+  }
 }
 
 function destroyQuietly(ad: any) {
@@ -116,14 +118,27 @@ function destroyQuietly(ad: any) {
   }
 }
 
-function evictUnmounted() {
+// Freeing an ad that a native view still shows crashes iOS on the next touch
+// (EXC_BAD_ACCESS in objc_msgSend while hit-testing Google's ad view). JS
+// unmounts a row before Fabric removes its native views, so wait well past
+// that, and keep waiting while any row still draws the ad.
+const DESTROY_DELAY_MS = 5000;
+
+function destroyWhenUnused(ad: any) {
+  setTimeout(() => {
+    if (inUse.has(ad)) destroyWhenUnused(ad);
+    else destroyQuietly(ad);
+  }, DESTROY_DELAY_MS);
+}
+
+function evictUnused() {
   if (cache.size <= MAX_CACHED_ADS) return;
   const oldestFirst = [...cache.entries()].sort((a, b) => a[1].loadedAt - b[1].loadedAt);
   for (const [key, entry] of oldestFirst) {
     if (cache.size <= MAX_CACHED_ADS) break;
-    if (mounted.has(key)) continue;
-    destroyQuietly(entry.ad);
+    if (inUse.has(entry.ad)) continue;
     cache.delete(key);
+    destroyWhenUnused(entry.ad);
   }
 }
 
@@ -218,9 +233,9 @@ export function loadSongListAd(placement: string, slot: number): Promise<AdLoadR
       // for, and nothing will change until the app restarts.
       if (!requestOptions) return { ad: null, reason: "Ads unavailable (SDK or consent)" };
 
-      const { NativeAd, TestIds, NativeMediaAspectRatio, NativeAdEventType } = await import(
-        "react-native-google-mobile-ads"
-      );
+      // Required lazily, like SongRowAd: there is no native module in Expo Go.
+      const { NativeAd, TestIds, NativeMediaAspectRatio, NativeAdEventType } =
+        require("react-native-google-mobile-ads");
       const ad = await withLoadSlot(() =>
         withTimeout(
           NativeAd.createForAdRequest(adUnitId(TestIds), {
@@ -242,13 +257,13 @@ export function loadSongListAd(placement: string, slot: number): Promise<AdLoadR
         );
       }
 
-      // Only the row for this slot shows this ad, and it is the one asking
-      // for a replacement, so the stale ad is no longer on screen.
+      // The expired ad this replaces may still be on screen in a row that is
+      // unmounting, so it is freed only once nothing draws it.
       const stale = cache.get(key);
-      if (stale) destroyQuietly(stale.ad);
+      if (stale) destroyWhenUnused(stale.ad);
       cache.set(key, { ad, loadedAt: Date.now() });
       recordSuccess(key);
-      evictUnmounted();
+      evictUnused();
       return { ad, reason: null };
     } catch (error) {
       recordFailure(key);

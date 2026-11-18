@@ -28,6 +28,7 @@ import {
 } from "../../util/songMetadata";
 import type { FeaturedHighlight } from "../../util/featuredSongs";
 import { FeaturedHintBadge, FeaturedHintCallout } from "../../components/Featured/FeaturedHint";
+import { Skeleton, SkeletonGroup } from "../../components/Skeleton/Skeleton";
 
 // Fallback wording for the marker when a key predates confidence scoring and
 // has no percentage to show.
@@ -39,6 +40,8 @@ const TIER_LABEL: Record<KeyConfidenceTier, string> = {
 
 type Props = {
   metadata: SongMetadata | null;
+  /** Still fetching: shows a placeholder card instead of nothing. */
+  loading?: boolean;
   /** Song title + artist, used for the tap-to-explain chip popups. */
   songName?: string;
   artistName?: string | null;
@@ -52,6 +55,7 @@ type Props = {
 
 const SongMetadataCard: React.FC<Props> = ({
   metadata,
+  loading = false,
   songName,
   artistName,
   onPlayNote,
@@ -62,6 +66,33 @@ const SongMetadataCard: React.FC<Props> = ({
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [isTessituraInfoVisible, setTessituraInfoVisible] = useState(false);
+
+  if (loading) {
+    // Same section, title and card as the loaded version so the screen
+    // doesn't jump. Songs without extra info just lose it when the fetch ends.
+    return (
+      <SkeletonGroup label="Loading song info" style={styles.section}>
+        <Text style={styles.sectionTitle}>Song Info</Text>
+        <View style={styles.tessituraCard}>
+          <View style={styles.tessituraHeader}>
+            <Skeleton circle height={18} />
+            <Skeleton width="62%" height={14} style={styles.skeletonHeaderText} />
+          </View>
+          <View style={styles.tessituraRow}>
+            <Skeleton width={64} height={34} radius={10} />
+            <Skeleton width={14} height={4} radius={2} style={styles.skeletonDash} />
+            <Skeleton width={64} height={34} radius={10} />
+          </View>
+          <Skeleton width="44%" height={12} style={styles.skeletonCentreLine} />
+        </View>
+        <View style={styles.chipRow}>
+          {[84, 96, 64, 58].map((chipWidth) => (
+            <Skeleton key={chipWidth} width={chipWidth} height={30} radius={16} style={styles.skeletonChip} />
+          ))}
+        </View>
+      </SkeletonGroup>
+    );
+  }
 
   if (!hasAnyMetadata(metadata)) return null;
 
@@ -522,6 +553,20 @@ const createStyles = (colors: any) =>
       fontFamily: FONTS.primary,
       marginTop: 8,
       lineHeight: 17,
+    },
+    skeletonHeaderText: {
+      marginLeft: 8,
+    },
+    skeletonDash: {
+      marginHorizontal: 14,
+    },
+    skeletonCentreLine: {
+      alignSelf: "center",
+      marginTop: 12,
+    },
+    skeletonChip: {
+      marginRight: 8,
+      marginBottom: 8,
     },
     chipRow: {
       flexDirection: "row",
